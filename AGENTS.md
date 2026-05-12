@@ -31,6 +31,7 @@
 - When relevant files or repository shape are unclear, get a fresh snapshot with `tree -L 2`, `tree -L 3`, or `rg --files`.
 - Do not treat `README.md` as a file inventory. Discover structure dynamically.
 - Use the repository's existing package manager, scripts, test runner, formatter, linter, build tools, and generators.
+- Use `docs/LOCAL_DATABASE.md` and `docker-compose.yml` as the local PostgreSQL source of truth. Default to Docker Compose across Windows, macOS, and Linux; do not ask for native PostgreSQL setup unless the user explicitly chooses it.
 - In Codex shell sessions, do not assume JS tooling is already on `PATH`. For `node`, `npm`, and `bun`, prefer `PATH="/opt/homebrew/bin:$HOME/.bun/bin:$PATH"`.
 - Do not add new production dependencies without explicit user approval unless the user directly requested that dependency by name. Prefer existing utilities, framework APIs, and the standard library.
 - Before implementing with a new library, inspect the relevant `package.json` first. Prefer established libraries already installed in this template, especially Zod, TanStack Query, TanStack Form, Hono, Prisma, Expo, and the shared `@web-app-demo/contracts` package.
@@ -51,6 +52,7 @@ Status: not selected yet.
 - Active surfaces: not selected yet.
 - Deferred surfaces: not selected yet.
 - Backend/API: decide after intake; include it when the active client surfaces need auth, persistence, or server-side business logic.
+- Local database: Docker Compose PostgreSQL from `docs/LOCAL_DATABASE.md` when backend/API is active.
 - Deployment/release: local-only until the user explicitly asks for deployment; selected provider and release targets not selected yet.
 - Validation: run only the smallest meaningful checks for active surfaces, plus shared contract/backend checks when those layers are touched.
 <!-- PROJECT_FOCUS_END -->

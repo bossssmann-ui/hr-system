@@ -69,6 +69,12 @@ For production, apply already-created migrations:
 bun run --cwd backend prisma:deploy
 ```
 
+## Local Infrastructure
+
+Local PostgreSQL is provided by Docker Compose, not by a native database install. The development service uses `postgres:18-alpine`, exposes `web_app_demo` on host port `54329`, and stores data in the `postgres_18_data` volume. The test service uses the same image with database `web_app_demo_test`; automated runners set `POSTGRES_TEST_PORT` to a repository-derived port when they need isolation.
+
+Keep `docker-compose.yml`, `backend/.env.example`, `.env.example`, and [LOCAL_DATABASE.md](LOCAL_DATABASE.md) aligned when changing local database names, ports, credentials, image tags, or volume paths.
+
 ## Current Upstream Documentation
 
 For framework and API questions, consult the current upstream documentation linked here first. This document describes repository conventions; upstream docs are authoritative for tool behavior.
@@ -78,6 +84,7 @@ For framework and API questions, consult the current upstream documentation link
 - [Hono Zod OpenAPI example](https://hono.dev/examples/zod-openapi)
 - [Prisma docs](https://www.prisma.io/docs)
 - [PostgreSQL docs](https://www.postgresql.org/docs/)
+- [PostgreSQL Docker Official Image](https://hub.docker.com/_/postgres)
 - [Zod docs](https://zod.dev/)
 - [jose documentation](https://github.com/panva/jose)
 - [TanStack Query React docs](https://tanstack.com/query/latest/docs/framework/react/overview)

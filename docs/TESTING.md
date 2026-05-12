@@ -26,19 +26,21 @@ Do not add E2E coverage just because a branch exists. Add it when it prevents a 
 ## Backend
 
 ```bash
+docker compose up -d postgres
+cp backend/.env.example backend/.env
 bun run test
 bun run test:contracts
 bun run test:backend
 bun run test:backend:integration
 bun run test:web
 bun run test:mobile
-DATABASE_URL="postgresql://postgres:postgres@localhost:54329/web_app_demo?schema=public" bun run --cwd backend prisma:validate
+bun run --cwd backend prisma:validate
 bun run smoke:backend:docker
 ```
 
 Contract tests live in `packages/contracts/src/*.test.ts` and protect shared request/response/error schemas used by backend, web, and mobile. Web and mobile unit tests live in each client `tests/` directory and cover API refresh/retry behavior that would be too expensive and brittle to fully exercise in E2E.
 
-Backend tests live next to backend code and verify auth behavior through services and routes. The integration runner starts `postgres_test`, applies migrations, and runs register/login/refresh/logout/guard/error-shape scenarios. By default, the test database port is derived from the absolute repository path so parallel checkouts do not collide. Set `POSTGRES_TEST_PORT` when a fixed port is required.
+Backend tests live next to backend code and verify auth behavior through services and routes. The integration runner starts `postgres_test`, applies migrations, and runs register/login/refresh/logout/guard/error-shape scenarios. By default, the test database port is derived from the absolute repository path so parallel checkouts do not collide. Set `POSTGRES_TEST_PORT` when a fixed port is required. Local database startup, credentials, and reset behavior are documented in [LOCAL_DATABASE.md](LOCAL_DATABASE.md).
 
 The Docker smoke test builds the backend image, starts it against `postgres_test`, waits for `/health`, and removes only the smoke container it created.
 
@@ -137,3 +139,4 @@ For testing questions, consult the current upstream documentation linked here fi
 - Maestro CLI install/run: https://docs.maestro.dev/maestro-cli/how-to-install-maestro-cli and https://docs.maestro.dev/maestro-cli/run-your-first-test-with-the-maestro-cli
 - Maestro selectors and launch reset: https://docs.maestro.dev/api-reference/selectors and https://docs.maestro.dev/reference/commands-available/launchapp
 - Docker Compose: https://docs.docker.com/compose/
+- PostgreSQL Docker Official Image: https://hub.docker.com/_/postgres

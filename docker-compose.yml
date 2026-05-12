@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:17-alpine
+    image: postgres:18-alpine
     restart: unless-stopped
     environment:
       POSTGRES_DB: web_app_demo
@@ -9,7 +9,7 @@ services:
     ports:
       - "${POSTGRES_PORT:-54329}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_18_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d web_app_demo"]
       interval: 5s
@@ -17,7 +17,7 @@ services:
       retries: 10
 
   postgres_test:
-    image: postgres:17-alpine
+    image: postgres:18-alpine
     restart: unless-stopped
     environment:
       POSTGRES_DB: web_app_demo_test
@@ -26,7 +26,7 @@ services:
     ports:
       - "${POSTGRES_TEST_PORT:-54330}:5432"
     volumes:
-      - postgres_test_data:/var/lib/postgresql/data
+      - postgres_18_test_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d web_app_demo_test"]
       interval: 5s
@@ -34,5 +34,5 @@ services:
       retries: 10
 
 volumes:
-  postgres_data:
-  postgres_test_data:
+  postgres_18_data:
+  postgres_18_test_data:

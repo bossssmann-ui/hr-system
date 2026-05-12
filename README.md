@@ -9,7 +9,7 @@ When installing this repository from a GitHub URL into a fresh Codex or agent se
 Give the agent this initial prompt:
 
 ```text
-Install this repository into the project. First read README.md, CLAUDE.md if present, and relevant docs/*.md. Before setup, ask me what product I want to build first, which surfaces I need now (web, mobile, backend/API, landing, or full-stack), and whether I need deployment now. If deployment is needed, ask whether to use DigitalOcean or Yandex Cloud. Treat this checkout as a new project by default, not as a pull request back to the template: detach the original template remote unless I explicitly say I am contributing to the template, and add my own GitHub remote only if I provide one or ask you to create/publish it. After I answer, record the chosen project focus in AGENTS.md and CLAUDE.md before feature work. Do not require cloud credentials for local development.
+Install this repository into the project. First read README.md, CLAUDE.md if present, and relevant docs/*.md, including docs/LOCAL_DATABASE.md when backend/API or full-stack work is active. Before setup, ask me what product I want to build first, which surfaces I need now (web, mobile, backend/API, landing, or full-stack), and whether I need deployment now. If deployment is needed, ask whether to use DigitalOcean or Yandex Cloud. Treat this checkout as a new project by default, not as a pull request back to the template: detach the original template remote unless I explicitly say I am contributing to the template, and add my own GitHub remote only if I provide one or ask you to create/publish it. After I answer, record the chosen project focus in AGENTS.md and CLAUDE.md before feature work. Use Docker Compose for local PostgreSQL on Windows, macOS, and Linux; do not require native PostgreSQL or cloud credentials for local development.
 ```
 
 - First read `README.md`, `CLAUDE.md` if present, and relevant `docs/*.md`, then inspect package scripts and `.env.example` files before running setup commands.
@@ -25,6 +25,7 @@ Install this repository into the project. First read README.md, CLAUDE.md if pre
 - If only the mobile app is active, keep web and landing intact but deferred: do not add browser-only features or Playwright flows unless they support the active mobile/backend work, and add or update a short deferred-surface note in `web/README.md` or `landing/README.md` as relevant. When the user later asks for web, update `AGENTS.md` and `CLAUDE.md`, remove or rewrite that note, then set up and validate web normally.
 - Prefer README-level deferred-surface notes over source-code comments. Add code comments only when a dormant code path would otherwise mislead future work.
 - Default to local-only setup when the user does not need deployment yet. Local development must not require DigitalOcean or Yandex Cloud credentials.
+- Use [docs/LOCAL_DATABASE.md](docs/LOCAL_DATABASE.md) and `docker-compose.yml` as the local PostgreSQL source of truth. The default local database path is Docker Compose, not a native PostgreSQL install.
 - If deployment is requested, make the cloud choice explicit. Use DigitalOcean as the international/default option and Yandex Cloud when the audience is in Russia or the user chooses it.
 - Explain manual prerequisites only for the chosen path: provider account, billing/project/folder setup, `doctl auth init` or `yc init`, registry access, managed PostgreSQL or compatible database, Expo/EAS/App Store/Google Play accounts when mobile release work is requested.
 - The agent may create uncommitted local `.env` files from `.env.example` and generate a local-only `JWT_SECRET`; never commit secrets or print raw secrets in the final report.
@@ -37,15 +38,33 @@ Install this repository into the project. First read README.md, CLAUDE.md if pre
 - `landing` - a separate Astro project for a static landing page.
 - `mobile` - Expo + React Native + Expo Router + TanStack Query/Form with SecureStore-backed auth.
 - `packages/contracts` - shared Zod schemas and TypeScript API types.
-- `docker-compose.yml` - local PostgreSQL on port `54329`; test runners use a repository-derived port by default, or `POSTGRES_TEST_PORT` when set.
+- `docker-compose.yml` - local PostgreSQL 18 through the official `postgres:18-alpine` image on port `54329`; test runners use a repository-derived port by default, or `POSTGRES_TEST_PORT` when set.
 - `docs/TESTING.md` - the backend, Playwright, and Maestro testing contract.
+- `docs/LOCAL_DATABASE.md` - cross-platform local PostgreSQL setup for Windows, macOS, and Linux.
 
 ## Quick Start
 
 ```bash
 bun install
+docker compose pull postgres
 docker compose up -d postgres
+```
+
+Create the backend env file:
+
+```bash
+# macOS, Linux, or Git Bash on Windows
 cp backend/.env.example backend/.env
+```
+
+```powershell
+# Windows PowerShell
+Copy-Item backend/.env.example backend/.env
+```
+
+Then apply migrations and start the app surfaces you need. Run long-lived dev servers in separate terminals:
+
+```bash
 bun run --cwd backend prisma:migrate
 bun run dev:backend
 bun run dev:web
@@ -90,6 +109,7 @@ Android emulators usually need `http://10.0.2.2:3000` instead of `localhost`.
 ## Project READMEs
 
 - [backend/README.md](backend/README.md) - API, auth, Prisma, and backend validation.
+- [docs/LOCAL_DATABASE.md](docs/LOCAL_DATABASE.md) - Docker Compose PostgreSQL setup and reset workflow.
 - [web/README.md](web/README.md) - browser client setup, env, and Playwright smoke.
 - [mobile/README.md](mobile/README.md) - Expo setup, development builds, and Maestro smoke.
 - [landing/README.md](landing/README.md) - Astro landing commands and publishing model.
@@ -116,5 +136,5 @@ For framework, API, deployment, or testing questions, consult the current upstre
 - Testing: [Playwright docs](https://playwright.dev/docs/intro) and [Maestro docs](https://docs.maestro.dev/)
 - Mobile: [Expo docs](https://docs.expo.dev/), [Expo Router docs](https://docs.expo.dev/router/introduction/), [EAS Build docs](https://docs.expo.dev/build/introduction/), and [React Native docs](https://reactnative.dev/docs/getting-started)
 - Landing: [Astro docs](https://docs.astro.build/en/getting-started/)
-- Local infrastructure: [Docker Compose docs](https://docs.docker.com/compose/)
+- Local infrastructure: [Docker Compose docs](https://docs.docker.com/compose/) and [PostgreSQL Docker Official Image](https://hub.docker.com/_/postgres)
 - Deployment providers: [DigitalOcean App Platform](https://docs.digitalocean.com/products/app-platform/), [doctl](https://docs.digitalocean.com/reference/doctl/), [DigitalOcean Container Registry](https://docs.digitalocean.com/products/container-registry/), [Yandex Cloud CLI](https://yandex.cloud/en/docs/cli/), [Yandex Serverless Containers](https://yandex.cloud/en/docs/serverless-containers/), and [Yandex Container Registry](https://yandex.cloud/en/docs/container-registry/)

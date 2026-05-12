@@ -1,6 +1,6 @@
 # Deployment
 
-Use this document only after the user has chosen deployment. Read the `Project Focus` block in [AGENTS.md](../AGENTS.md) or [CLAUDE.md](../CLAUDE.md) first; it records the installed project's active surfaces, deferred surfaces, selected provider, and release scope. Local setup from `README.md` does not require DigitalOcean or Yandex Cloud credentials.
+Use this document only after the user has chosen deployment. Read the `Project Focus` block in [AGENTS.md](../AGENTS.md) or [CLAUDE.md](../CLAUDE.md) first; it records the installed project's active surfaces, deferred surfaces, selected provider, and release scope. Local setup from `README.md` and [LOCAL_DATABASE.md](LOCAL_DATABASE.md) does not require DigitalOcean or Yandex Cloud credentials.
 
 Choose the cloud provider based on the project's audience:
 
