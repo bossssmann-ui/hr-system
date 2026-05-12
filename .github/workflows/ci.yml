@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Contract tests
+        run: bun run test:contracts
+
+      - name: Web client tests
+        run: bun run test:web
+
+      - name: Mobile client tests
+        run: bun run test:mobile
+
+      - name: Backend tests
+        run: bun run test:backend
+
+      - name: Install Playwright browser
+        run: bun run --cwd web e2e:install
+
+      - name: Web E2E smoke
+        run: bun run e2e:web

@@ -11,6 +11,12 @@
 - Prefer evidence over ceremony. Keep process proportional to the task.
 - The job is not to sound smart. The job is to leave the system clearer, more correct, and easier to trust.
 
+## User Interaction
+
+- Assume repository users are Vibe coders without programming experience. Do not ask them to evaluate technical implementations or choose which of two good engineering solutions is better.
+- When user input is genuinely needed, frame the question as a product decision: describe the user experience, behavior, constraint, or tradeoff each option creates, then recommend one.
+- Keep technical rationale concise and tied to product impact. Ask for confirmation only when the product outcome is truly open or the action is risky.
+
 ## Repository Grounding
 
 - Start from the repository itself, not assumptions.
@@ -27,20 +33,30 @@
 - For E2E, use Playwright for web and Maestro for mobile. Read `docs/TESTING.md` before adding flows, keep client E2E happy-path focused, and put validation/error matrices in unit or integration tests.
 - For mobile E2E selectors, prefer stable React Native `testID` constants from `mobile/src/constants/testIds.ts`; do not rely on coordinates or fragile text when an action selector can have an id.
 
-## First-Run Bootstrap
+## Project Focus
 
-When this repository is installed from a GitHub URL into a fresh Codex or agent session, treat setup as an onboarding task before feature work.
+This section is intentionally mutable for each installed project. During first-run bootstrap, follow `README.md`, ask the user what product they want to build and which surfaces are active, then replace the block below with the chosen focus before feature work.
 
-- First read `README.md`, this `AGENTS.md`, and `docs/*.md`, then inspect package scripts and `.env.example` files before running setup commands.
-- Ask the user a short intake in the user's language before making product or deployment choices:
-  - what they want to build or change first;
-  - which surfaces they need now: web, mobile, backend/API, or full-stack;
-  - whether deployment is needed now, and if yes, whether to use DigitalOcean or Yandex Cloud.
-- Default to local-only setup when the user does not need deployment yet. Local development must not require DigitalOcean or Yandex Cloud credentials.
-- If deployment is requested, make the cloud choice explicit. Use DigitalOcean as the international/default option and Yandex Cloud when the audience is in Russia or the user chooses it.
-- Explain manual prerequisites only for the chosen path: provider account, billing/project/folder setup, `doctl auth init` or `yc init`, registry access, managed PostgreSQL or compatible database, Expo/EAS/App Store/Google Play accounts when mobile release work is requested.
-- The agent may create uncommitted local `.env` files from `.env.example` and generate a local-only `JWT_SECRET`; never commit secrets or print raw secrets in the final report.
-- After setup, run the smallest meaningful validation for the chosen path and report local URLs, commands run, and anything the user still needs to authorize manually.
+<!-- PROJECT_FOCUS_START -->
+Status: not selected yet.
+
+- Product goal: ask the user during first-run bootstrap.
+- Repository remote: new-project mode by default; remove the template `origin` unless the user explicitly says they are contributing to the template. Add the user's own GitHub remote as `origin` only when provided or requested.
+- Active surfaces: not selected yet.
+- Deferred surfaces: not selected yet.
+- Backend/API: decide after intake; include it when the active client surfaces need auth, persistence, or server-side business logic.
+- Deployment/release: local-only until the user explicitly asks for deployment; selected provider and release targets not selected yet.
+- Validation: run only the smallest meaningful checks for active surfaces, plus shared contract/backend checks when those layers are touched.
+<!-- PROJECT_FOCUS_END -->
+
+If the user later asks to work on a deferred surface, update this block and any equivalent agent file such as `CLAUDE.md` first, remove or rewrite the deferred note in that surface's README, then set up and validate that surface normally.
+
+## Repository Remote Policy
+
+- During first-run bootstrap, inspect `git remote -v` before any branch, commit, push, or PR workflow.
+- This repository is normally used as a template for a new project, not as a source for pull requests back to the template. If `origin` points to the template repository and the user has not explicitly said they are contributing to the template, remove it with `git remote remove origin`.
+- Add the user's own GitHub repository as `origin` only when the user provides a URL or asks you to create/publish the project. If no destination is chosen, leave the project without `origin` and report that publishing is not configured.
+- Do not push, open PRs, or configure deployment from the template remote by accident.
 
 ## Task Mode
 

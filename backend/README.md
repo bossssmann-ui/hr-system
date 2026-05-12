@@ -1,8 +1,8 @@
 # Backend
 
-Backend-слой шаблона для API, auth, интеграций и серверной бизнес-логики. Web и mobile опираются на один контракт данных из `packages/contracts`.
+The backend owns the API, authentication, integrations, persistence, and server-side business logic. Web and mobile clients rely on the shared data contract in `packages/contracts`.
 
-## Стек
+## Stack
 
 - Bun
 - Hono
@@ -12,7 +12,7 @@ Backend-слой шаблона для API, auth, интеграций и сер
 - jose JWT
 - TypeScript
 
-## Команды
+## Commands
 
 ```bash
 docker compose up -d postgres
@@ -29,11 +29,15 @@ bun run prisma:migrate
 bun run prisma:deploy
 ```
 
-Из корня репозитория используйте `bun run dev:backend`, `bun run build:backend`, `bun run typecheck:backend` и `bun run test:backend`.
+From the repository root, use `bun run dev:backend`, `bun run build:backend`, `bun run typecheck:backend`, and `bun run test:backend`.
 
-`bun run test:integration` поднимает `postgres_test` из `../docker-compose.yml`, применяет Prisma migrations к `web_app_demo_test` и запускает DB-backed auth API tests. Если Docker уже управляется отдельно, задайте `TEST_SKIP_DOCKER=1` и `TEST_DATABASE_URL`.
+`bun run test:integration` starts `postgres_test` from `../docker-compose.yml`, applies Prisma migrations to `web_app_demo_test`, and runs DB-backed auth API tests. If Docker is managed separately, set `TEST_SKIP_DOCKER=1` and `TEST_DATABASE_URL`.
 
-`bun run smoke:docker` собирает backend Docker image, стартует его против `postgres_test`, ждёт `/health` и затем удаляет только созданный smoke-контейнер.
+`bun run smoke:docker` builds the backend Docker image, starts it against `postgres_test`, waits for `/health`, and removes only the smoke container it created.
+
+## Env
+
+Copy `backend/.env.example` to `backend/.env` for local development. `JWT_SECRET` must be at least 32 characters. `COOKIE_SECURE=false` is appropriate for local HTTP; production should use `COOKIE_SECURE=true` with HTTPS origins in `CORS_ORIGINS`.
 
 ## Auth API
 
@@ -43,11 +47,26 @@ bun run prisma:deploy
 - `GET /api/auth/me`
 - `POST /api/auth/logout`
 - `GET /openapi.json`
+- `GET /health`
 
-Пароли хешируются через `Bun.password` с Argon2id. Access token - короткоживущий JWT через `jose`. Refresh token - opaque random token; в базе хранится только SHA-256 hash, refresh делает rotation и отзывает старую session.
+Passwords are hashed through `Bun.password` with Argon2id. Access tokens are short-lived JWTs through `jose`. Refresh tokens are opaque random tokens; only a SHA-256 hash is stored in the database. Refresh rotates the token and revokes the previous session.
 
-## Архитектура
+## Architecture
 
-`src/index.ts` только загружает env, создаёт Prisma client и запускает Bun server. Hono app создаётся в `src/app.ts`. Auth feature живёт в `src/auth`: routes валидируют и делегируют, service владеет session/user логикой, token helpers изолируют JWT и refresh-token механику.
+`src/index.ts` only loads env, creates the Prisma client, and starts the Bun server. The Hono app is created in `src/app.ts`. The auth feature lives in `src/auth`: routes validate and delegate, the service owns session/user logic, and token helpers isolate JWT and refresh-token mechanics.
 
-Prisma migration SQL не пишется руками. Меняйте `prisma/schema.prisma`, затем запускайте `bun run prisma:migrate`.
+Prisma migration SQL is not written by hand. Change `prisma/schema.prisma`, then run `bun run prisma:migrate`.
+
+## Current Upstream Documentation
+
+For backend framework, ORM, auth, validation, and runtime questions, consult the current upstream documentation linked here first. This README describes this backend's conventions; upstream docs are authoritative for API behavior.
+
+- [Bun docs](https://bun.sh/docs)
+- [Hono docs](https://hono.dev/docs)
+- [Hono Zod OpenAPI example](https://hono.dev/examples/zod-openapi)
+- [Prisma docs](https://www.prisma.io/docs)
+- [Prisma migrations](https://www.prisma.io/docs/orm/prisma-migrate)
+- [PostgreSQL docs](https://www.postgresql.org/docs/)
+- [Zod docs](https://zod.dev/)
+- [jose documentation](https://github.com/panva/jose)
+- [Docker Compose docs](https://docs.docker.com/compose/)

@@ -26,10 +26,13 @@
     "typecheck:landing": "bun run --cwd landing typecheck",
     "typecheck:mobile": "bun run --cwd mobile typecheck",
     "typecheck:backend": "bun run --cwd backend typecheck",
+    "test": "bun run test:contracts && bun run test:backend && bun run test:web && bun run test:mobile",
+    "test:contracts": "bun run --cwd packages/contracts test",
     "test:backend": "bun run --cwd backend test",
     "test:backend:unit": "bun run --cwd backend test:unit",
     "test:backend:integration": "bun run --cwd backend test:integration",
     "test:web": "bun run --cwd web test",
+    "test:mobile": "bun run --cwd mobile test",
     "smoke:backend:docker": "bun run --cwd backend smoke:docker",
     "e2e:web": "bun run --cwd web e2e",
     "e2e:mobile": "bun run --cwd mobile e2e:maestro"
