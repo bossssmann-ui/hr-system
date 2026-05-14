@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Spinner } from '@/components/ui/spinner'
+import { Typography } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/use-auth'
 
@@ -27,16 +28,20 @@ export function RootLayout() {
     <main className="min-h-svh bg-background text-foreground">
       <header className="border-b bg-background/95 backdrop-blur">
         <div className="mx-auto flex min-h-16 w-full max-w-6xl flex-wrap items-center gap-3 px-5 py-3">
-          <Link to="/" className="font-heading text-base font-semibold tracking-normal">
-            web_app_demo
-          </Link>
+          <Typography asChild variant="h6">
+            <Link to="/">web_app_demo</Link>
+          </Typography>
           <nav className="ml-auto flex items-center gap-2" aria-label="Primary">
-            <Link to="/" className={navLinkClass}>
-              Auth
-            </Link>
-            <Link to="/app" className={navLinkClass}>
-              App
-            </Link>
+            <Typography asChild variant="control" tone="muted">
+              <Link to="/" className={navLinkClass}>
+                Auth
+              </Link>
+            </Typography>
+            <Typography asChild variant="control" tone="muted">
+              <Link to="/app" className={navLinkClass}>
+                App
+              </Link>
+            </Typography>
           </nav>
           {auth.isAuthenticated && (
             <Button type="button" variant="outline" size="sm" onClick={() => void auth.logout()}>
@@ -64,13 +69,15 @@ export function HomePage() {
           Authenticated starter
         </Badge>
         <div className="grid max-w-3xl gap-4">
-          <h1 className="font-heading text-4xl font-semibold leading-tight tracking-normal">
-            Session is active
-          </h1>
-          <p className="max-w-2xl text-muted-foreground">
-            Logged in as <strong className="font-medium text-foreground">{auth.user.email}</strong>.
+          <Typography variant="h1">Session is active</Typography>
+          <Typography className="max-w-2xl" tone="muted">
+            Logged in as{' '}
+            <Typography as="strong" variant="emphasis" tone="default">
+              {auth.user.email}
+            </Typography>
+            .
             This is the baseline auth pattern for future web features.
-          </p>
+          </Typography>
         </div>
         <Button asChild size="lg" className="w-fit">
           <Link to="/app">Open app</Link>
@@ -85,13 +92,13 @@ export function HomePage() {
         <Badge variant="outline" className="w-fit">
           Golden path template
         </Badge>
-        <h1 className="max-w-3xl font-heading text-4xl font-semibold leading-tight tracking-normal">
+        <Typography className="max-w-3xl" variant="h1">
           Auth, validation, API state, and forms are wired from day one.
-        </h1>
-        <p className="max-w-2xl text-muted-foreground">
+        </Typography>
+        <Typography className="max-w-2xl" tone="muted">
           The web app uses shared Zod contracts, TanStack Query for server state, TanStack Form for
           input state, and an API client that refreshes sessions through the backend.
-        </p>
+        </Typography>
       </div>
       <AuthForm />
     </section>
@@ -112,12 +119,10 @@ export function AppPage() {
           Protected example
         </Badge>
         <div className="grid max-w-3xl gap-4">
-          <h1 className="font-heading text-4xl font-semibold leading-tight tracking-normal">
-            Login required
-          </h1>
-          <p className="max-w-2xl text-muted-foreground">
+          <Typography variant="h1">Login required</Typography>
+          <Typography className="max-w-2xl" tone="muted">
             This route intentionally stays small and shows where protected product UI begins.
-          </p>
+          </Typography>
         </div>
         <Button asChild size="lg" className="w-fit">
           <Link to="/">Go to auth</Link>
@@ -132,10 +137,10 @@ export function AppPage() {
         <Badge variant="outline" className="w-fit">
           Current user
         </Badge>
-        <h1 className="font-heading text-4xl font-semibold leading-tight tracking-normal">
+        <Typography variant="h1">
           {auth.user.displayName ?? auth.user.email}
-        </h1>
-        <p className="text-muted-foreground">{auth.user.email}</p>
+        </Typography>
+        <Typography tone="muted">{auth.user.email}</Typography>
       </div>
 
       <Separator />
@@ -144,7 +149,7 @@ export function AppPage() {
         <Card size="sm">
           <CardHeader>
             <CardTitle>User ID</CardTitle>
-            <CardDescription className="break-all">{auth.user.id}</CardDescription>
+            <CardDescription wrap="break">{auth.user.id}</CardDescription>
           </CardHeader>
         </Card>
         <Card size="sm">
@@ -164,7 +169,9 @@ function LoadingState() {
       <Card className="w-fit">
         <CardContent className="flex items-center gap-3">
           <Spinner />
-          <p className="text-sm text-muted-foreground">Checking session...</p>
+          <Typography variant="bodySm" tone="muted">
+            Checking session...
+          </Typography>
         </CardContent>
       </Card>
     </section>

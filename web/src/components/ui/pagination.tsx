@@ -2,6 +2,7 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { Typography } from "@/components/ui/typography"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowLeft01Icon, ArrowRight01Icon, MoreHorizontalCircle01Icon } from "@hugeicons/core-free-icons"
 
@@ -75,7 +76,9 @@ function PaginationPrevious({
       {...props}
     >
       <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} data-icon="inline-start" />
-      <span className="hidden sm:block">{text}</span>
+      <Typography as="span" variant="control" className="hidden sm:block">
+        {text}
+      </Typography>
     </PaginationLink>
   )
 }
@@ -92,7 +95,9 @@ function PaginationNext({
       className={cn("pr-2!", className)}
       {...props}
     >
-      <span className="hidden sm:block">{text}</span>
+      <Typography as="span" variant="control" className="hidden sm:block">
+        {text}
+      </Typography>
       <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} data-icon="inline-end" />
     </PaginationLink>
   )
@@ -113,7 +118,7 @@ function PaginationEllipsis({
       {...props}
     >
       <HugeiconsIcon icon={MoreHorizontalCircle01Icon} strokeWidth={2} />
-      <span className="sr-only">More pages</span>
+      <Typography variant="srOnly">More pages</Typography>
     </span>
   )
 }

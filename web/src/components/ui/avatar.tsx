@@ -2,6 +2,7 @@ import * as React from "react"
 import { Avatar as AvatarPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
+import { Typography } from "@/components/ui/typography"
 
 function Avatar({
   className,
@@ -44,14 +45,16 @@ function AvatarFallback({
   ...props
 }: React.ComponentProps<typeof AvatarPrimitive.Fallback>) {
   return (
-    <AvatarPrimitive.Fallback
-      data-slot="avatar-fallback"
-      className={cn(
-        "flex size-full items-center justify-center rounded-full bg-muted text-sm text-muted-foreground group-data-[size=sm]/avatar:text-xs",
-        className
-      )}
-      {...props}
-    />
+    <Typography asChild variant="avatar" tone="muted">
+      <AvatarPrimitive.Fallback
+        data-slot="avatar-fallback"
+        className={cn(
+          "flex size-full items-center justify-center rounded-full bg-muted",
+          className
+        )}
+        {...props}
+      />
+    </Typography>
   )
 }
 
@@ -89,14 +92,16 @@ function AvatarGroupCount({
   ...props
 }: React.ComponentProps<"div">) {
   return (
-    <div
-      data-slot="avatar-group-count"
-      className={cn(
-        "relative flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-sm text-muted-foreground ring-2 ring-background group-has-data-[size=lg]/avatar-group:size-10 group-has-data-[size=sm]/avatar-group:size-6 [&>svg]:size-4 group-has-data-[size=lg]/avatar-group:[&>svg]:size-5 group-has-data-[size=sm]/avatar-group:[&>svg]:size-3",
-        className
-      )}
-      {...props}
-    />
+    <Typography asChild variant="avatarCount" tone="muted">
+      <div
+        data-slot="avatar-group-count"
+        className={cn(
+          "relative flex size-8 shrink-0 items-center justify-center rounded-full bg-muted ring-2 ring-background group-has-data-[size=lg]/avatar-group:size-10 group-has-data-[size=sm]/avatar-group:size-6 [&>svg]:size-4 group-has-data-[size=lg]/avatar-group:[&>svg]:size-5 group-has-data-[size=sm]/avatar-group:[&>svg]:size-3",
+          className
+        )}
+        {...props}
+      />
+    </Typography>
   )
 }
 

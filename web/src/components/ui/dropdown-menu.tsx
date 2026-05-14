@@ -4,6 +4,7 @@ import * as React from "react"
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
+import { Typography } from "@/components/ui/typography"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Tick02Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons"
 
@@ -69,16 +70,18 @@ function DropdownMenuItem({
   variant?: "default" | "destructive"
 }) {
   return (
-    <DropdownMenuPrimitive.Item
-      data-slot="dropdown-menu-item"
-      data-inset={inset}
-      data-variant={variant}
-      className={cn(
-        "group/dropdown-menu-item relative flex cursor-default items-center gap-2.5 rounded-xl px-3 py-2 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-inset:pl-9.5 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive dark:data-[variant=destructive]:focus:bg-destructive/20 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 data-[variant=destructive]:*:[svg]:text-destructive",
-        className
-      )}
-      {...props}
-    />
+    <Typography asChild variant="bodySm">
+      <DropdownMenuPrimitive.Item
+        data-slot="dropdown-menu-item"
+        data-inset={inset}
+        data-variant={variant}
+        className={cn(
+          "group/dropdown-menu-item relative flex cursor-default items-center gap-2.5 rounded-xl px-3 py-2 outline-hidden select-none focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-inset:pl-9.5 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive dark:data-[variant=destructive]:focus:bg-destructive/20 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 data-[variant=destructive]:*:[svg]:text-destructive",
+          className
+        )}
+        {...props}
+      />
+    </Typography>
   )
 }
 
@@ -92,26 +95,28 @@ function DropdownMenuCheckboxItem({
   inset?: boolean
 }) {
   return (
-    <DropdownMenuPrimitive.CheckboxItem
-      data-slot="dropdown-menu-checkbox-item"
-      data-inset={inset}
-      className={cn(
-        "relative flex cursor-default items-center gap-2.5 rounded-xl py-2 pr-8 pl-3 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground focus:**:text-accent-foreground data-inset:pl-9.5 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        className
-      )}
-      checked={checked}
-      {...props}
-    >
-      <span
-        className="pointer-events-none absolute right-2 flex items-center justify-center"
-        data-slot="dropdown-menu-checkbox-item-indicator"
+    <Typography asChild variant="bodySm">
+      <DropdownMenuPrimitive.CheckboxItem
+        data-slot="dropdown-menu-checkbox-item"
+        data-inset={inset}
+        className={cn(
+          "relative flex cursor-default items-center gap-2.5 rounded-xl py-2 pr-8 pl-3 outline-hidden select-none focus:bg-accent focus:text-accent-foreground focus:**:text-accent-foreground data-inset:pl-9.5 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+          className
+        )}
+        checked={checked}
+        {...props}
       >
-        <DropdownMenuPrimitive.ItemIndicator>
-          <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} />
-        </DropdownMenuPrimitive.ItemIndicator>
-      </span>
-      {children}
-    </DropdownMenuPrimitive.CheckboxItem>
+        <span
+          className="pointer-events-none absolute right-2 flex items-center justify-center"
+          data-slot="dropdown-menu-checkbox-item-indicator"
+        >
+          <DropdownMenuPrimitive.ItemIndicator>
+            <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} />
+          </DropdownMenuPrimitive.ItemIndicator>
+        </span>
+        {children}
+      </DropdownMenuPrimitive.CheckboxItem>
+    </Typography>
   )
 }
 
@@ -135,25 +140,27 @@ function DropdownMenuRadioItem({
   inset?: boolean
 }) {
   return (
-    <DropdownMenuPrimitive.RadioItem
-      data-slot="dropdown-menu-radio-item"
-      data-inset={inset}
-      className={cn(
-        "relative flex cursor-default items-center gap-2.5 rounded-xl py-2 pr-8 pl-3 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground focus:**:text-accent-foreground data-inset:pl-9.5 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        className
-      )}
-      {...props}
-    >
-      <span
-        className="pointer-events-none absolute right-2 flex items-center justify-center"
-        data-slot="dropdown-menu-radio-item-indicator"
+    <Typography asChild variant="bodySm">
+      <DropdownMenuPrimitive.RadioItem
+        data-slot="dropdown-menu-radio-item"
+        data-inset={inset}
+        className={cn(
+          "relative flex cursor-default items-center gap-2.5 rounded-xl py-2 pr-8 pl-3 outline-hidden select-none focus:bg-accent focus:text-accent-foreground focus:**:text-accent-foreground data-inset:pl-9.5 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+          className
+        )}
+        {...props}
       >
-        <DropdownMenuPrimitive.ItemIndicator>
-          <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} />
-        </DropdownMenuPrimitive.ItemIndicator>
-      </span>
-      {children}
-    </DropdownMenuPrimitive.RadioItem>
+        <span
+          className="pointer-events-none absolute right-2 flex items-center justify-center"
+          data-slot="dropdown-menu-radio-item-indicator"
+        >
+          <DropdownMenuPrimitive.ItemIndicator>
+            <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} />
+          </DropdownMenuPrimitive.ItemIndicator>
+        </span>
+        {children}
+      </DropdownMenuPrimitive.RadioItem>
+    </Typography>
   )
 }
 
@@ -165,15 +172,14 @@ function DropdownMenuLabel({
   inset?: boolean
 }) {
   return (
-    <DropdownMenuPrimitive.Label
-      data-slot="dropdown-menu-label"
-      data-inset={inset}
-      className={cn(
-        "px-3 py-2.5 text-xs text-muted-foreground data-inset:pl-9.5",
-        className
-      )}
-      {...props}
-    />
+    <Typography asChild variant="caption" tone="muted">
+      <DropdownMenuPrimitive.Label
+        data-slot="dropdown-menu-label"
+        data-inset={inset}
+        className={cn("px-3 py-2.5 data-inset:pl-9.5", className)}
+        {...props}
+      />
+    </Typography>
   )
 }
 
@@ -195,10 +201,13 @@ function DropdownMenuShortcut({
   ...props
 }: React.ComponentProps<"span">) {
   return (
-    <span
+    <Typography
+      as="span"
+      variant="shortcut"
+      tone="muted"
       data-slot="dropdown-menu-shortcut"
       className={cn(
-        "ml-auto text-xs tracking-widest text-muted-foreground group-focus/dropdown-menu-item:text-accent-foreground",
+        "ml-auto group-focus/dropdown-menu-item:text-accent-foreground",
         className
       )}
       {...props}
@@ -221,18 +230,20 @@ function DropdownMenuSubTrigger({
   inset?: boolean
 }) {
   return (
-    <DropdownMenuPrimitive.SubTrigger
-      data-slot="dropdown-menu-sub-trigger"
-      data-inset={inset}
-      className={cn(
-        "flex cursor-default items-center gap-2 rounded-xl px-3 py-2 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-inset:pl-9.5 data-open:bg-accent data-open:text-accent-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        className
-      )}
-      {...props}
-    >
-      {children}
-      <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="ml-auto" />
-    </DropdownMenuPrimitive.SubTrigger>
+    <Typography asChild variant="bodySm">
+      <DropdownMenuPrimitive.SubTrigger
+        data-slot="dropdown-menu-sub-trigger"
+        data-inset={inset}
+        className={cn(
+          "flex cursor-default items-center gap-2 rounded-xl px-3 py-2 outline-hidden select-none focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-inset:pl-9.5 data-open:bg-accent data-open:text-accent-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+          className
+        )}
+        {...props}
+      >
+        {children}
+        <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="ml-auto" />
+      </DropdownMenuPrimitive.SubTrigger>
+    </Typography>
   )
 }
 

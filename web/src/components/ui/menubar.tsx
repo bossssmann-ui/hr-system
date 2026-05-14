@@ -4,6 +4,7 @@ import * as React from "react"
 import { Menubar as MenubarPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
+import { Typography } from "@/components/ui/typography"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Tick02Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons"
 
@@ -51,14 +52,16 @@ function MenubarTrigger({
   ...props
 }: React.ComponentProps<typeof MenubarPrimitive.Trigger>) {
   return (
-    <MenubarPrimitive.Trigger
-      data-slot="menubar-trigger"
-      className={cn(
-        "flex items-center rounded-xl px-2 py-0.75 text-sm font-medium outline-hidden select-none hover:bg-muted aria-expanded:bg-muted",
-        className
-      )}
-      {...props}
-    />
+    <Typography asChild variant="label">
+      <MenubarPrimitive.Trigger
+        data-slot="menubar-trigger"
+        className={cn(
+          "flex items-center rounded-xl px-2 py-0.75 outline-hidden select-none hover:bg-muted aria-expanded:bg-muted",
+          className
+        )}
+        {...props}
+      />
+    </Typography>
   )
 }
 
@@ -93,16 +96,18 @@ function MenubarItem({
   variant?: "default" | "destructive"
 }) {
   return (
-    <MenubarPrimitive.Item
-      data-slot="menubar-item"
-      data-inset={inset}
-      data-variant={variant}
-      className={cn(
-        "group/menubar-item relative flex cursor-default items-center gap-2.5 rounded-xl px-3 py-2 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-inset:pl-9.5 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive dark:data-[variant=destructive]:focus:bg-destructive/20 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 data-[variant=destructive]:*:[svg]:text-destructive!",
-        className
-      )}
-      {...props}
-    />
+    <Typography asChild variant="bodySm">
+      <MenubarPrimitive.Item
+        data-slot="menubar-item"
+        data-inset={inset}
+        data-variant={variant}
+        className={cn(
+          "group/menubar-item relative flex cursor-default items-center gap-2.5 rounded-xl px-3 py-2 outline-hidden select-none focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-inset:pl-9.5 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive dark:data-[variant=destructive]:focus:bg-destructive/20 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 data-[variant=destructive]:*:[svg]:text-destructive!",
+          className
+        )}
+        {...props}
+      />
+    </Typography>
   )
 }
 
@@ -116,23 +121,25 @@ function MenubarCheckboxItem({
   inset?: boolean
 }) {
   return (
-    <MenubarPrimitive.CheckboxItem
-      data-slot="menubar-checkbox-item"
-      data-inset={inset}
-      className={cn(
-        "relative flex cursor-default items-center gap-2.5 rounded-xl py-2 pr-3 pl-9.5 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground focus:**:text-accent-foreground data-inset:pl-9.5 data-disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0",
-        className
-      )}
-      checked={checked}
-      {...props}
-    >
-      <span className="pointer-events-none absolute left-3 flex size-4 items-center justify-center [&_svg:not([class*='size-'])]:size-4">
-        <MenubarPrimitive.ItemIndicator>
-          <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} />
-        </MenubarPrimitive.ItemIndicator>
-      </span>
-      {children}
-    </MenubarPrimitive.CheckboxItem>
+    <Typography asChild variant="bodySm">
+      <MenubarPrimitive.CheckboxItem
+        data-slot="menubar-checkbox-item"
+        data-inset={inset}
+        className={cn(
+          "relative flex cursor-default items-center gap-2.5 rounded-xl py-2 pr-3 pl-9.5 outline-hidden select-none focus:bg-accent focus:text-accent-foreground focus:**:text-accent-foreground data-inset:pl-9.5 data-disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0",
+          className
+        )}
+        checked={checked}
+        {...props}
+      >
+        <span className="pointer-events-none absolute left-3 flex size-4 items-center justify-center [&_svg:not([class*='size-'])]:size-4">
+          <MenubarPrimitive.ItemIndicator>
+            <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} />
+          </MenubarPrimitive.ItemIndicator>
+        </span>
+        {children}
+      </MenubarPrimitive.CheckboxItem>
+    </Typography>
   )
 }
 
@@ -145,22 +152,24 @@ function MenubarRadioItem({
   inset?: boolean
 }) {
   return (
-    <MenubarPrimitive.RadioItem
-      data-slot="menubar-radio-item"
-      data-inset={inset}
-      className={cn(
-        "relative flex cursor-default items-center gap-2.5 rounded-xl py-2 pr-3 pl-9.5 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground focus:**:text-accent-foreground data-inset:pl-9.5 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        className
-      )}
-      {...props}
-    >
-      <span className="pointer-events-none absolute left-3 flex size-4 items-center justify-center [&_svg:not([class*='size-'])]:size-4">
-        <MenubarPrimitive.ItemIndicator>
-          <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} />
-        </MenubarPrimitive.ItemIndicator>
-      </span>
-      {children}
-    </MenubarPrimitive.RadioItem>
+    <Typography asChild variant="bodySm">
+      <MenubarPrimitive.RadioItem
+        data-slot="menubar-radio-item"
+        data-inset={inset}
+        className={cn(
+          "relative flex cursor-default items-center gap-2.5 rounded-xl py-2 pr-3 pl-9.5 outline-hidden select-none focus:bg-accent focus:text-accent-foreground focus:**:text-accent-foreground data-inset:pl-9.5 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+          className
+        )}
+        {...props}
+      >
+        <span className="pointer-events-none absolute left-3 flex size-4 items-center justify-center [&_svg:not([class*='size-'])]:size-4">
+          <MenubarPrimitive.ItemIndicator>
+            <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} />
+          </MenubarPrimitive.ItemIndicator>
+        </span>
+        {children}
+      </MenubarPrimitive.RadioItem>
+    </Typography>
   )
 }
 
@@ -172,15 +181,14 @@ function MenubarLabel({
   inset?: boolean
 }) {
   return (
-    <MenubarPrimitive.Label
-      data-slot="menubar-label"
-      data-inset={inset}
-      className={cn(
-        "px-3.5 py-2.5 text-xs text-muted-foreground data-inset:pl-9.5",
-        className
-      )}
-      {...props}
-    />
+    <Typography asChild variant="caption" tone="muted">
+      <MenubarPrimitive.Label
+        data-slot="menubar-label"
+        data-inset={inset}
+        className={cn("px-3.5 py-2.5 data-inset:pl-9.5", className)}
+        {...props}
+      />
+    </Typography>
   )
 }
 
@@ -202,10 +210,13 @@ function MenubarShortcut({
   ...props
 }: React.ComponentProps<"span">) {
   return (
-    <span
+    <Typography
+      as="span"
+      variant="shortcut"
+      tone="muted"
       data-slot="menubar-shortcut"
       className={cn(
-        "ml-auto text-xs tracking-widest text-muted-foreground group-focus/menubar-item:text-accent-foreground",
+        "ml-auto group-focus/menubar-item:text-accent-foreground",
         className
       )}
       {...props}
@@ -228,18 +239,20 @@ function MenubarSubTrigger({
   inset?: boolean
 }) {
   return (
-    <MenubarPrimitive.SubTrigger
-      data-slot="menubar-sub-trigger"
-      data-inset={inset}
-      className={cn(
-        "flex cursor-default items-center gap-2 rounded-xl px-3 py-2 text-sm outline-none select-none focus:bg-accent focus:text-accent-foreground data-inset:pl-9.5 data-open:bg-accent data-open:text-accent-foreground [&_svg:not([class*='size-'])]:size-4",
-        className
-      )}
-      {...props}
-    >
-      {children}
-      <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="ml-auto size-4" />
-    </MenubarPrimitive.SubTrigger>
+    <Typography asChild variant="bodySm">
+      <MenubarPrimitive.SubTrigger
+        data-slot="menubar-sub-trigger"
+        data-inset={inset}
+        className={cn(
+          "flex cursor-default items-center gap-2 rounded-xl px-3 py-2 outline-none select-none focus:bg-accent focus:text-accent-foreground data-inset:pl-9.5 data-open:bg-accent data-open:text-accent-foreground [&_svg:not([class*='size-'])]:size-4",
+          className
+        )}
+        {...props}
+      >
+        {children}
+        <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="ml-auto size-4" />
+      </MenubarPrimitive.SubTrigger>
+    </Typography>
   )
 }
 

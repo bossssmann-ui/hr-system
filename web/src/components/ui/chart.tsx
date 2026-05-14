@@ -5,6 +5,7 @@ import * as RechartsPrimitive from "recharts"
 import type { TooltipValueType } from "recharts"
 
 import { cn } from "@/lib/utils"
+import { Typography } from "@/components/ui/typography"
 
 // Format: { THEME_NAME: CSS_SELECTOR }
 const THEMES = { light: "", dark: ".dark" } as const
@@ -61,22 +62,24 @@ function ChartContainer({
 
   return (
     <ChartContext.Provider value={{ config }}>
-      <div
-        data-slot="chart"
-        data-chart={chartId}
-        className={cn(
-          "flex aspect-video justify-center text-xs [&_.recharts-cartesian-axis-tick_text]:fill-muted-foreground [&_.recharts-cartesian-grid_line[stroke='#ccc']]:stroke-border/50 [&_.recharts-curve.recharts-tooltip-cursor]:stroke-border [&_.recharts-dot[stroke='#fff']]:stroke-transparent [&_.recharts-layer]:outline-hidden [&_.recharts-polar-grid_[stroke='#ccc']]:stroke-border [&_.recharts-radial-bar-background-sector]:fill-muted [&_.recharts-rectangle.recharts-tooltip-cursor]:fill-muted [&_.recharts-reference-line_[stroke='#ccc']]:stroke-border [&_.recharts-sector]:outline-hidden [&_.recharts-sector[stroke='#fff']]:stroke-transparent [&_.recharts-surface]:outline-hidden",
-          className
-        )}
-        {...props}
-      >
-        <ChartStyle id={chartId} config={config} />
-        <RechartsPrimitive.ResponsiveContainer
-          initialDimension={initialDimension}
+      <Typography asChild variant="caption">
+        <div
+          data-slot="chart"
+          data-chart={chartId}
+          className={cn(
+            "flex aspect-video justify-center [&_.recharts-cartesian-axis-tick_text]:fill-muted-foreground [&_.recharts-cartesian-grid_line[stroke='#ccc']]:stroke-border/50 [&_.recharts-curve.recharts-tooltip-cursor]:stroke-border [&_.recharts-dot[stroke='#fff']]:stroke-transparent [&_.recharts-layer]:outline-hidden [&_.recharts-polar-grid_[stroke='#ccc']]:stroke-border [&_.recharts-radial-bar-background-sector]:fill-muted [&_.recharts-rectangle.recharts-tooltip-cursor]:fill-muted [&_.recharts-reference-line_[stroke='#ccc']]:stroke-border [&_.recharts-sector]:outline-hidden [&_.recharts-sector[stroke='#fff']]:stroke-transparent [&_.recharts-surface]:outline-hidden",
+            className
+          )}
+          {...props}
         >
-          {children}
-        </RechartsPrimitive.ResponsiveContainer>
-      </div>
+          <ChartStyle id={chartId} config={config} />
+          <RechartsPrimitive.ResponsiveContainer
+            initialDimension={initialDimension}
+          >
+            {children}
+          </RechartsPrimitive.ResponsiveContainer>
+        </div>
+      </Typography>
     </ChartContext.Provider>
   )
 }
@@ -161,9 +164,9 @@ function ChartTooltipContent({
 
     if (labelFormatter) {
       return (
-        <div className={cn("font-medium", labelClassName)}>
+        <Typography as="div" variant="label" className={labelClassName}>
           {labelFormatter(value, payload)}
-        </div>
+        </Typography>
       )
     }
 
@@ -171,7 +174,11 @@ function ChartTooltipContent({
       return null
     }
 
-    return <div className={cn("font-medium", labelClassName)}>{value}</div>
+    return (
+      <Typography as="div" variant="label" className={labelClassName}>
+        {value}
+      </Typography>
+    )
   }, [
     label,
     labelFormatter,
@@ -189,9 +196,11 @@ function ChartTooltipContent({
   const nestLabel = payload.length === 1 && indicator !== "dot"
 
   return (
-    <div
+    <Typography
+      as="div"
+      variant="caption"
       className={cn(
-        "grid min-w-32 items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl",
+        "grid min-w-32 items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 shadow-xl",
         className
       )}
     >
@@ -242,22 +251,31 @@ function ChartTooltipContent({
                     )}
                     <div
                       className={cn(
-                        "flex flex-1 justify-between leading-none",
+                        "flex flex-1 justify-between",
                         nestLabel ? "items-end" : "items-center"
                       )}
                     >
-                      <div className="grid gap-1.5">
+                      <Typography
+                        as="div"
+                        variant="caption"
+                        className="grid gap-1.5"
+                      >
                         {nestLabel ? tooltipLabel : null}
-                        <span className="text-muted-foreground">
+                        <Typography as="span" variant="caption" tone="muted">
                           {itemConfig?.label ?? item.name}
-                        </span>
-                      </div>
+                        </Typography>
+                      </Typography>
                       {item.value != null && (
-                        <span className="font-mono font-medium text-foreground tabular-nums">
+                        <Typography
+                          as="span"
+                          variant="code"
+                          tone="default"
+                          className="tabular-nums"
+                        >
                           {typeof item.value === "number"
                             ? item.value.toLocaleString()
                             : String(item.value)}
-                        </span>
+                        </Typography>
                       )}
                     </div>
                   </>
@@ -266,7 +284,7 @@ function ChartTooltipContent({
             )
           })}
       </div>
-    </div>
+    </Typography>
   )
 }
 
@@ -303,8 +321,10 @@ function ChartLegendContent({
           const itemConfig = getPayloadConfigFromPayload(config, item, key)
 
           return (
-            <div
+            <Typography
+              as="div"
               key={index}
+              variant="caption"
               className={cn(
                 "flex items-center gap-1.5 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:text-muted-foreground"
               )}
@@ -320,7 +340,7 @@ function ChartLegendContent({
                 />
               )}
               {itemConfig?.label}
-            </div>
+            </Typography>
           )
         })}
     </div>

@@ -11,6 +11,7 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@/components/ui/input-group"
+import { Typography } from "@/components/ui/typography"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowDown01Icon, Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons"
 
@@ -140,23 +141,25 @@ function ComboboxItem({
   ...props
 }: ComboboxPrimitive.Item.Props) {
   return (
-    <ComboboxPrimitive.Item
-      data-slot="combobox-item"
-      className={cn(
-        "relative flex w-full cursor-default items-center gap-2.5 rounded-xl py-2 pr-8 pl-3 text-sm outline-hidden select-none data-highlighted:bg-accent data-highlighted:text-accent-foreground not-data-[variant=destructive]:data-highlighted:**:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        className
-      )}
-      {...props}
-    >
-      {children}
-      <ComboboxPrimitive.ItemIndicator
-        render={
-          <span className="pointer-events-none absolute right-2 flex size-4 items-center justify-center" />
-        }
+    <Typography asChild variant="bodySm">
+      <ComboboxPrimitive.Item
+        data-slot="combobox-item"
+        className={cn(
+          "relative flex w-full cursor-default items-center gap-2.5 rounded-xl py-2 pr-8 pl-3 outline-hidden select-none data-highlighted:bg-accent data-highlighted:text-accent-foreground not-data-[variant=destructive]:data-highlighted:**:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+          className
+        )}
+        {...props}
       >
-        <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} className="pointer-events-none" />
-      </ComboboxPrimitive.ItemIndicator>
-    </ComboboxPrimitive.Item>
+        {children}
+        <ComboboxPrimitive.ItemIndicator
+          render={
+            <span className="pointer-events-none absolute right-2 flex size-4 items-center justify-center" />
+          }
+        >
+          <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} className="pointer-events-none" />
+        </ComboboxPrimitive.ItemIndicator>
+      </ComboboxPrimitive.Item>
+    </Typography>
   )
 }
 
@@ -175,11 +178,13 @@ function ComboboxLabel({
   ...props
 }: ComboboxPrimitive.GroupLabel.Props) {
   return (
-    <ComboboxPrimitive.GroupLabel
-      data-slot="combobox-label"
-      className={cn("px-3.5 py-2.5 text-xs text-muted-foreground", className)}
-      {...props}
-    />
+    <Typography asChild variant="caption" tone="muted">
+      <ComboboxPrimitive.GroupLabel
+        data-slot="combobox-label"
+        className={cn("px-3.5 py-2.5", className)}
+        {...props}
+      />
+    </Typography>
   )
 }
 
@@ -191,14 +196,16 @@ function ComboboxCollection({ ...props }: ComboboxPrimitive.Collection.Props) {
 
 function ComboboxEmpty({ className, ...props }: ComboboxPrimitive.Empty.Props) {
   return (
-    <ComboboxPrimitive.Empty
-      data-slot="combobox-empty"
-      className={cn(
-        "hidden w-full justify-center py-2 text-center text-sm text-muted-foreground group-data-empty/combobox-content:flex",
-        className
-      )}
-      {...props}
-    />
+    <Typography asChild variant="bodySm" tone="muted" align="center">
+      <ComboboxPrimitive.Empty
+        data-slot="combobox-empty"
+        className={cn(
+          "hidden w-full justify-center py-2 group-data-empty/combobox-content:flex",
+          className
+        )}
+        {...props}
+      />
+    </Typography>
   )
 }
 
@@ -221,14 +228,16 @@ function ComboboxChips({
 }: React.ComponentPropsWithRef<typeof ComboboxPrimitive.Chips> &
   ComboboxPrimitive.Chips.Props) {
   return (
-    <ComboboxPrimitive.Chips
-      data-slot="combobox-chips"
-      className={cn(
-        "flex min-h-9 flex-wrap items-center gap-1.5 rounded-4xl border border-input bg-input/30 bg-clip-padding px-2.5 py-1.5 text-sm transition-colors focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 has-aria-invalid:border-destructive has-aria-invalid:ring-[3px] has-aria-invalid:ring-destructive/20 has-data-[slot=combobox-chip]:px-1.5 dark:has-aria-invalid:border-destructive/50 dark:has-aria-invalid:ring-destructive/40",
-        className
-      )}
-      {...props}
-    />
+    <Typography asChild variant="bodySm">
+      <ComboboxPrimitive.Chips
+        data-slot="combobox-chips"
+        className={cn(
+          "flex min-h-9 flex-wrap items-center gap-1.5 rounded-4xl border border-input bg-input/30 bg-clip-padding px-2.5 py-1.5 transition-colors focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 has-aria-invalid:border-destructive has-aria-invalid:ring-[3px] has-aria-invalid:ring-destructive/20 has-data-[slot=combobox-chip]:px-1.5 dark:has-aria-invalid:border-destructive/50 dark:has-aria-invalid:ring-destructive/40",
+          className
+        )}
+        {...props}
+      />
+    </Typography>
   )
 }
 
@@ -241,25 +250,27 @@ function ComboboxChip({
   showRemove?: boolean
 }) {
   return (
-    <ComboboxPrimitive.Chip
-      data-slot="combobox-chip"
-      className={cn(
-        "flex h-[calc(--spacing(5.5))] w-fit items-center justify-center gap-1 rounded-4xl bg-muted-foreground/10 px-2 text-xs font-medium whitespace-nowrap text-foreground has-disabled:pointer-events-none has-disabled:cursor-not-allowed has-disabled:opacity-50 has-data-[slot=combobox-chip-remove]:pr-0",
-        className
-      )}
-      {...props}
-    >
-      {children}
-      {showRemove && (
-        <ComboboxPrimitive.ChipRemove
-          render={<Button variant="ghost" size="icon-xs" />}
-          className="-ml-1 opacity-50 hover:opacity-100"
-          data-slot="combobox-chip-remove"
-        >
-          <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="pointer-events-none" />
-        </ComboboxPrimitive.ChipRemove>
-      )}
-    </ComboboxPrimitive.Chip>
+    <Typography asChild variant="controlXs" tone="default">
+      <ComboboxPrimitive.Chip
+        data-slot="combobox-chip"
+        className={cn(
+          "flex h-[calc(--spacing(5.5))] w-fit items-center justify-center gap-1 rounded-4xl bg-muted-foreground/10 px-2 has-disabled:pointer-events-none has-disabled:cursor-not-allowed has-disabled:opacity-50 has-data-[slot=combobox-chip-remove]:pr-0",
+          className
+        )}
+        {...props}
+      >
+        {children}
+        {showRemove && (
+          <ComboboxPrimitive.ChipRemove
+            render={<Button variant="ghost" size="icon-xs" />}
+            className="-ml-1 opacity-50 hover:opacity-100"
+            data-slot="combobox-chip-remove"
+          >
+            <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="pointer-events-none" />
+          </ComboboxPrimitive.ChipRemove>
+        )}
+      </ComboboxPrimitive.Chip>
+    </Typography>
   )
 }
 

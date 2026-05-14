@@ -4,6 +4,7 @@ import { Slot } from "radix-ui"
 
 import { cn } from "@/lib/utils"
 import { Separator } from "@/components/ui/separator"
+import { Typography } from "@/components/ui/typography"
 
 function ItemGroup({ className, ...props }: React.ComponentProps<"div">) {
   return (
@@ -34,7 +35,7 @@ function ItemSeparator({
 }
 
 const itemVariants = cva(
-  "group/item flex w-full flex-wrap items-center rounded-2xl border text-sm transition-colors duration-100 outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 [a]:transition-colors [a]:hover:bg-muted",
+  "group/item flex w-full flex-wrap items-center rounded-2xl border transition-colors duration-100 outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 [a]:transition-colors [a]:hover:bg-muted",
   {
     variants: {
       variant: {
@@ -65,13 +66,15 @@ function Item({
   VariantProps<typeof itemVariants> & { asChild?: boolean }) {
   const Comp = asChild ? Slot.Root : "div"
   return (
-    <Comp
-      data-slot="item"
-      data-variant={variant}
-      data-size={size}
-      className={cn(itemVariants({ variant, size, className }))}
-      {...props}
-    />
+    <Typography asChild variant="bodySm">
+      <Comp
+        data-slot="item"
+        data-variant={variant}
+        data-size={size}
+        className={cn(itemVariants({ variant, size }), className)}
+        {...props}
+      />
+    </Typography>
   )
 }
 
@@ -122,10 +125,12 @@ function ItemContent({ className, ...props }: React.ComponentProps<"div">) {
 
 function ItemTitle({ className, ...props }: React.ComponentProps<"div">) {
   return (
-    <div
+    <Typography
+      as="div"
+      variant="label"
       data-slot="item-title"
       className={cn(
-        "line-clamp-1 flex w-fit items-center gap-2 text-sm leading-snug font-medium underline-offset-4",
+        "line-clamp-1 flex w-fit items-center gap-2 underline-offset-4",
         className
       )}
       {...props}
@@ -135,10 +140,13 @@ function ItemTitle({ className, ...props }: React.ComponentProps<"div">) {
 
 function ItemDescription({ className, ...props }: React.ComponentProps<"p">) {
   return (
-    <p
+    <Typography
+      as="p"
+      variant="bodySm"
+      tone="muted"
       data-slot="item-description"
       className={cn(
-        "line-clamp-2 text-left text-sm font-normal text-muted-foreground [&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary",
+        "line-clamp-2 text-left [&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary",
         className
       )}
       {...props}

@@ -1,6 +1,7 @@
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
+import { Typography } from "@/components/ui/typography"
 
 function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
@@ -8,11 +9,13 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
       data-slot="table-container"
       className="relative w-full overflow-x-auto"
     >
-      <table
-        data-slot="table"
-        className={cn("w-full caption-bottom text-sm", className)}
-        {...props}
-      />
+      <Typography asChild variant="bodySm">
+        <table
+          data-slot="table"
+          className={cn("w-full caption-bottom", className)}
+          {...props}
+        />
+      </Typography>
     </div>
   )
 }
@@ -39,14 +42,16 @@ function TableBody({ className, ...props }: React.ComponentProps<"tbody">) {
 
 function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
   return (
-    <tfoot
-      data-slot="table-footer"
-      className={cn(
-        "border-t bg-muted/50 font-medium [&>tr]:last:border-b-0",
-        className
-      )}
-      {...props}
-    />
+    <Typography asChild variant="bodySmMedium">
+      <tfoot
+        data-slot="table-footer"
+        className={cn(
+          "border-t bg-muted/50 [&>tr]:last:border-b-0",
+          className
+        )}
+        {...props}
+      />
+    </Typography>
   )
 }
 
@@ -65,14 +70,16 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
 
 function TableHead({ className, ...props }: React.ComponentProps<"th">) {
   return (
-    <th
-      data-slot="table-head"
-      className={cn(
-        "h-12 px-3 text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0",
-        className
-      )}
-      {...props}
-    />
+    <Typography asChild variant="bodySmMedium" tone="default">
+      <th
+        data-slot="table-head"
+        className={cn(
+          "h-12 px-3 text-left align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0",
+          className
+        )}
+        {...props}
+      />
+    </Typography>
   )
 }
 
@@ -94,11 +101,13 @@ function TableCaption({
   ...props
 }: React.ComponentProps<"caption">) {
   return (
-    <caption
-      data-slot="table-caption"
-      className={cn("mt-4 text-sm text-muted-foreground", className)}
-      {...props}
-    />
+    <Typography asChild variant="bodySm" tone="muted">
+      <caption
+        data-slot="table-caption"
+        className={cn("mt-4", className)}
+        {...props}
+      />
+    </Typography>
   )
 }
 

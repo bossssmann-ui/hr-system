@@ -2,6 +2,7 @@ import * as React from "react"
 import { ContextMenu as ContextMenuPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
+import { Typography } from "@/components/ui/typography"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowRight01Icon, Tick02Icon } from "@hugeicons/core-free-icons"
 
@@ -84,16 +85,18 @@ function ContextMenuItem({
   variant?: "default" | "destructive"
 }) {
   return (
-    <ContextMenuPrimitive.Item
-      data-slot="context-menu-item"
-      data-inset={inset}
-      data-variant={variant}
-      className={cn(
-        "group/context-menu-item relative flex cursor-default items-center gap-2.5 rounded-xl px-3 py-2 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-inset:pl-9.5 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive dark:data-[variant=destructive]:focus:bg-destructive/20 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 focus:*:[svg]:text-accent-foreground data-[variant=destructive]:*:[svg]:text-destructive",
-        className
-      )}
-      {...props}
-    />
+    <Typography asChild variant="bodySm">
+      <ContextMenuPrimitive.Item
+        data-slot="context-menu-item"
+        data-inset={inset}
+        data-variant={variant}
+        className={cn(
+          "group/context-menu-item relative flex cursor-default items-center gap-2.5 rounded-xl px-3 py-2 outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-inset:pl-9.5 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive dark:data-[variant=destructive]:focus:bg-destructive/20 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 focus:*:[svg]:text-accent-foreground data-[variant=destructive]:*:[svg]:text-destructive",
+          className
+        )}
+        {...props}
+      />
+    </Typography>
   )
 }
 
@@ -106,18 +109,20 @@ function ContextMenuSubTrigger({
   inset?: boolean
 }) {
   return (
-    <ContextMenuPrimitive.SubTrigger
-      data-slot="context-menu-sub-trigger"
-      data-inset={inset}
-      className={cn(
-        "flex cursor-default items-center rounded-xl px-3 py-2 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-inset:pl-9.5 data-open:bg-accent data-open:text-accent-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        className
-      )}
-      {...props}
-    >
-      {children}
-      <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="ml-auto" />
-    </ContextMenuPrimitive.SubTrigger>
+    <Typography asChild variant="bodySm">
+      <ContextMenuPrimitive.SubTrigger
+        data-slot="context-menu-sub-trigger"
+        data-inset={inset}
+        className={cn(
+          "flex cursor-default items-center rounded-xl px-3 py-2 outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-inset:pl-9.5 data-open:bg-accent data-open:text-accent-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+          className
+        )}
+        {...props}
+      >
+        {children}
+        <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="ml-auto" />
+      </ContextMenuPrimitive.SubTrigger>
+    </Typography>
   )
 }
 
@@ -144,23 +149,25 @@ function ContextMenuCheckboxItem({
   inset?: boolean
 }) {
   return (
-    <ContextMenuPrimitive.CheckboxItem
-      data-slot="context-menu-checkbox-item"
-      data-inset={inset}
-      className={cn(
-        "relative flex cursor-default items-center gap-2 rounded-xl py-2 pr-8 pl-3 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-inset:pl-9.5 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        className
-      )}
-      checked={checked}
-      {...props}
-    >
-      <span className="pointer-events-none absolute right-2">
-        <ContextMenuPrimitive.ItemIndicator>
-          <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} />
-        </ContextMenuPrimitive.ItemIndicator>
-      </span>
-      {children}
-    </ContextMenuPrimitive.CheckboxItem>
+    <Typography asChild variant="bodySm">
+      <ContextMenuPrimitive.CheckboxItem
+        data-slot="context-menu-checkbox-item"
+        data-inset={inset}
+        className={cn(
+          "relative flex cursor-default items-center gap-2 rounded-xl py-2 pr-8 pl-3 outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-inset:pl-9.5 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+          className
+        )}
+        checked={checked}
+        {...props}
+      >
+        <span className="pointer-events-none absolute right-2">
+          <ContextMenuPrimitive.ItemIndicator>
+            <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} />
+          </ContextMenuPrimitive.ItemIndicator>
+        </span>
+        {children}
+      </ContextMenuPrimitive.CheckboxItem>
+    </Typography>
   )
 }
 
@@ -173,22 +180,24 @@ function ContextMenuRadioItem({
   inset?: boolean
 }) {
   return (
-    <ContextMenuPrimitive.RadioItem
-      data-slot="context-menu-radio-item"
-      data-inset={inset}
-      className={cn(
-        "relative flex cursor-default items-center gap-2 rounded-xl py-2 pr-8 pl-3 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-inset:pl-9.5 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        className
-      )}
-      {...props}
-    >
-      <span className="pointer-events-none absolute right-2">
-        <ContextMenuPrimitive.ItemIndicator>
-          <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} />
-        </ContextMenuPrimitive.ItemIndicator>
-      </span>
-      {children}
-    </ContextMenuPrimitive.RadioItem>
+    <Typography asChild variant="bodySm">
+      <ContextMenuPrimitive.RadioItem
+        data-slot="context-menu-radio-item"
+        data-inset={inset}
+        className={cn(
+          "relative flex cursor-default items-center gap-2 rounded-xl py-2 pr-8 pl-3 outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-inset:pl-9.5 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+          className
+        )}
+        {...props}
+      >
+        <span className="pointer-events-none absolute right-2">
+          <ContextMenuPrimitive.ItemIndicator>
+            <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} />
+          </ContextMenuPrimitive.ItemIndicator>
+        </span>
+        {children}
+      </ContextMenuPrimitive.RadioItem>
+    </Typography>
   )
 }
 
@@ -200,15 +209,14 @@ function ContextMenuLabel({
   inset?: boolean
 }) {
   return (
-    <ContextMenuPrimitive.Label
-      data-slot="context-menu-label"
-      data-inset={inset}
-      className={cn(
-        "px-3 py-2.5 text-xs text-muted-foreground data-inset:pl-9.5",
-        className
-      )}
-      {...props}
-    />
+    <Typography asChild variant="caption" tone="muted">
+      <ContextMenuPrimitive.Label
+        data-slot="context-menu-label"
+        data-inset={inset}
+        className={cn("px-3 py-2.5 data-inset:pl-9.5", className)}
+        {...props}
+      />
+    </Typography>
   )
 }
 
@@ -230,10 +238,13 @@ function ContextMenuShortcut({
   ...props
 }: React.ComponentProps<"span">) {
   return (
-    <span
+    <Typography
+      as="span"
+      variant="shortcut"
+      tone="muted"
       data-slot="context-menu-shortcut"
       className={cn(
-        "ml-auto text-xs tracking-widest text-muted-foreground group-focus/context-menu-item:text-accent-foreground",
+        "ml-auto group-focus/context-menu-item:text-accent-foreground",
         className
       )}
       {...props}

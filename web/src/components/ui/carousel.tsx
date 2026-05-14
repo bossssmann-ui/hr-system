@@ -5,6 +5,7 @@ import useEmblaCarousel, {
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { Typography } from "@/components/ui/typography"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowLeft01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons"
 
@@ -196,7 +197,7 @@ function CarouselPrevious({
       {...props}
     >
       <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} />
-      <span className="sr-only">Previous slide</span>
+      <Typography variant="srOnly">Previous slide</Typography>
     </Button>
   )
 }
@@ -226,7 +227,7 @@ function CarouselNext({
       {...props}
     >
       <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} />
-      <span className="sr-only">Next slide</span>
+      <Typography variant="srOnly">Next slide</Typography>
     </Button>
   )
 }

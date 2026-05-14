@@ -3,6 +3,7 @@ import { AlertDialog as AlertDialogPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { Typography } from "@/components/ui/typography"
 
 function AlertDialog({
   ...props
@@ -118,14 +119,16 @@ function AlertDialogTitle({
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Title>) {
   return (
-    <AlertDialogPrimitive.Title
-      data-slot="alert-dialog-title"
-      className={cn(
-        "font-heading text-lg font-medium sm:group-data-[size=default]/alert-dialog-content:group-has-data-[slot=alert-dialog-media]/alert-dialog-content:col-start-2",
-        className
-      )}
-      {...props}
-    />
+    <Typography asChild variant="h5">
+      <AlertDialogPrimitive.Title
+        data-slot="alert-dialog-title"
+        className={cn(
+          "sm:group-data-[size=default]/alert-dialog-content:group-has-data-[slot=alert-dialog-media]/alert-dialog-content:col-start-2",
+          className
+        )}
+        {...props}
+      />
+    </Typography>
   )
 }
 
@@ -134,14 +137,16 @@ function AlertDialogDescription({
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Description>) {
   return (
-    <AlertDialogPrimitive.Description
-      data-slot="alert-dialog-description"
-      className={cn(
-        "text-sm text-balance text-muted-foreground md:text-pretty *:[a]:underline *:[a]:underline-offset-3 *:[a]:hover:text-foreground",
-        className
-      )}
-      {...props}
-    />
+    <Typography asChild variant="bodySm" tone="muted" balance pretty>
+      <AlertDialogPrimitive.Description
+        data-slot="alert-dialog-description"
+        className={cn(
+          "*:[a]:underline *:[a]:underline-offset-3 *:[a]:hover:text-foreground",
+          className
+        )}
+        {...props}
+      />
+    </Typography>
   )
 }
 

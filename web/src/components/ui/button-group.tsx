@@ -3,6 +3,7 @@ import { Slot } from "radix-ui"
 
 import { cn } from "@/lib/utils"
 import { Separator } from "@/components/ui/separator"
+import { Typography } from "@/components/ui/typography"
 
 const buttonGroupVariants = cva(
   "group/button-group flex w-fit items-stretch *:focus-visible:relative *:focus-visible:z-10 has-[>[data-slot=button-group]]:gap-2 has-[select[aria-hidden=true]:last-child]:[&>[data-slot=select-trigger]:last-of-type]:rounded-r-4xl [&>[data-slot=select-trigger]:not([class*='w-'])]:w-fit [&>input]:flex-1",
@@ -47,13 +48,15 @@ function ButtonGroupText({
   const Comp = asChild ? Slot.Root : "div"
 
   return (
-    <Comp
-      className={cn(
-        "flex items-center gap-2 rounded-4xl border bg-muted px-2.5 text-sm font-medium [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4",
-        className
-      )}
-      {...props}
-    />
+    <Typography asChild variant="label">
+      <Comp
+        className={cn(
+          "flex items-center gap-2 rounded-4xl border bg-muted px-2.5 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4",
+          className
+        )}
+        {...props}
+      />
+    </Typography>
   )
 }
 

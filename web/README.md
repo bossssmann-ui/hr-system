@@ -57,7 +57,9 @@ Use TanStack Query for server state, TanStack Form for forms, and shared Zod sch
 
 Keep the API client responsible for base URLs, auth headers, refresh/retry, and error parsing. Do not duplicate API shapes or auth state in page components.
 
-Use shadcn/ui for web interface primitives. Treat `src/components/ui` as shadcn registry output only and import those primitives through `@/components/ui/*`. Put app-specific wrappers and composed product components in `src/components` so normal lint rules keep applying. Avoid adding new one-off global CSS classes for product UI; compose screens with Tailwind utilities and shadcn theme tokens from `src/index.css`.
+Use shadcn/ui for web interface primitives. Treat `src/components/ui` as the shared UI primitive layer: most files are shadcn registry output, plus project-wide primitives such as `Typography`. Import those primitives through `@/components/ui/*`. Put app-specific wrappers and composed product components in `src/components` so normal lint rules keep applying. Avoid adding new one-off global CSS classes for product UI; compose screens with Tailwind utilities and shadcn theme tokens from `src/index.css`.
+
+All web typography must go through `src/components/ui/typography.tsx`. Use `Typography` for page copy, headings `h1` through `h6`, labels, controls, captions, emphasis, shortcuts, code/kbd text, and screen-reader-only text. Do not add raw heading/paragraph/emphasis elements or Tailwind text-size/font/leading/tracking utilities in pages or UI components; the local ESLint typography policy enforces this.
 
 The current shadcn configuration is `radix-maia` with the `hugeicons` icon library and CSS variables, as recorded in `components.json`. This template intentionally includes the full official shadcn component registry from `bunx shadcn@latest add --all -c web` so future projects can start from a complete local UI foundation. Do not add community registries, blocks, or custom UI generator output unless the product asks for them.
 

@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { Typography } from "@/components/ui/typography"
 
 function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
   return (
@@ -21,7 +22,7 @@ function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 const inputGroupAddonVariants = cva(
-  "flex h-auto cursor-text items-center justify-center gap-2 py-2 text-sm font-medium text-muted-foreground select-none group-data-[disabled=true]/input-group:opacity-50 **:data-[slot=kbd]:rounded-4xl **:data-[slot=kbd]:bg-muted-foreground/10 **:data-[slot=kbd]:px-1.5 [&>svg:not([class*='size-'])]:size-4",
+  "flex h-auto cursor-text items-center justify-center gap-2 py-2 select-none group-data-[disabled=true]/input-group:opacity-50 **:data-[slot=kbd]:rounded-4xl **:data-[slot=kbd]:bg-muted-foreground/10 **:data-[slot=kbd]:px-1.5 [&>svg:not([class*='size-'])]:size-4",
   {
     variants: {
       align: {
@@ -47,24 +48,26 @@ function InputGroupAddon({
   ...props
 }: React.ComponentProps<"div"> & VariantProps<typeof inputGroupAddonVariants>) {
   return (
-    <div
-      role="group"
-      data-slot="input-group-addon"
-      data-align={align}
-      className={cn(inputGroupAddonVariants({ align }), className)}
-      onClick={(e) => {
-        if ((e.target as HTMLElement).closest("button")) {
-          return
-        }
-        e.currentTarget.parentElement?.querySelector("input")?.focus()
-      }}
-      {...props}
-    />
+    <Typography asChild variant="label" tone="muted">
+      <div
+        role="group"
+        data-slot="input-group-addon"
+        data-align={align}
+        className={cn(inputGroupAddonVariants({ align }), className)}
+        onClick={(e) => {
+          if ((e.target as HTMLElement).closest("button")) {
+            return
+          }
+          e.currentTarget.parentElement?.querySelector("input")?.focus()
+        }}
+        {...props}
+      />
+    </Typography>
   )
 }
 
 const inputGroupButtonVariants = cva(
-  "flex items-center gap-2 rounded-4xl text-sm shadow-none",
+  "flex items-center gap-2 rounded-4xl shadow-none",
   {
     variants: {
       size: {
@@ -101,13 +104,15 @@ function InputGroupButton({
 
 function InputGroupText({ className, ...props }: React.ComponentProps<"span">) {
   return (
-    <span
-      className={cn(
-        "flex items-center gap-2 text-sm text-muted-foreground [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4",
-        className
-      )}
-      {...props}
-    />
+    <Typography asChild variant="bodySm" tone="muted">
+      <span
+        className={cn(
+          "flex items-center gap-2 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4",
+          className
+        )}
+        {...props}
+      />
+    </Typography>
   )
 }
 

@@ -1,6 +1,7 @@
 import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
+import { Typography } from "@/components/ui/typography"
 
 function Empty({ className, ...props }: React.ComponentProps<"div">) {
   return (
@@ -57,12 +58,11 @@ function EmptyMedia({
 
 function EmptyTitle({ className, ...props }: React.ComponentProps<"div">) {
   return (
-    <div
+    <Typography
+      as="div"
+      variant="h5"
       data-slot="empty-title"
-      className={cn(
-        "font-heading text-lg font-medium tracking-tight",
-        className
-      )}
+      className={className}
       {...props}
     />
   )
@@ -70,10 +70,13 @@ function EmptyTitle({ className, ...props }: React.ComponentProps<"div">) {
 
 function EmptyDescription({ className, ...props }: React.ComponentProps<"p">) {
   return (
-    <div
+    <Typography
+      as="div"
+      variant="bodySm"
+      tone="muted"
       data-slot="empty-description"
       className={cn(
-        "text-sm/relaxed text-muted-foreground [&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary",
+        "[&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary",
         className
       )}
       {...props}
@@ -86,7 +89,7 @@ function EmptyContent({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="empty-content"
       className={cn(
-        "flex w-full max-w-sm min-w-0 flex-col items-center gap-4 text-sm text-balance",
+        "flex w-full max-w-sm min-w-0 flex-col items-center gap-4 text-balance",
         className
       )}
       {...props}
