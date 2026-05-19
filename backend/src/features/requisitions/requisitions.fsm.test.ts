@@ -51,13 +51,9 @@ describe('requisitions FSM', () => {
   test('owner can perform every declared transition', () => {
     for (const t of REQUISITION_TRANSITIONS) {
       // The contract: owner is super-user inside the tenant and is listed in
-      // every allowed-role array for transitions where owner should act.
-      // If a transition deliberately omits owner, this test catches the drift.
-      if (!t.allowedRoles.includes('owner')) {
-        throw new Error(
-          `Requisition transition ${t.from}->${t.to} must include 'owner' in allowedRoles (see docs/contracts/20-fsm.md)`,
-        )
-      }
+      // every allowed-role array. If a transition deliberately omits owner,
+      // this assertion catches the drift (see docs/contracts/20-fsm.md).
+      expect(t.allowedRoles).toContain('owner')
       expect(canTransition(t.from, t.to, ['owner'])).toBe(true)
     }
   })
