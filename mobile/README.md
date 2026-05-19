@@ -4,7 +4,7 @@ The mobile app is built with Expo and React Native. It provides the baseline aut
 
 ## Project Surface Status
 
-This section may be updated during first-run bootstrap. If the root `README.md` marks mobile as deferred, add a short note here explaining that mobile work is intentionally paused. When the user activates mobile, remove or rewrite that note before starting Expo or React Native development.
+**Deferred surface (Phase 0).** Mobile work is intentionally paused for the HR-System project. Do not run Expo/EAS setup, do not add features here, and do not configure Maestro flows until this surface is reactivated by the product owner. The directory is kept intact so the template structure remains valid for future work. When mobile is activated, remove this note before starting any React Native work. See `docs/contracts/00-overview.md` for the active/deferred surface table.
 
 ## Current App Shape
 

@@ -4,7 +4,7 @@ The browser client provides the baseline auth flow for future web features. It c
 
 ## Project Surface Status
 
-This section may be updated during first-run bootstrap. If the root `README.md` marks web as deferred, add a short note here explaining that browser work is intentionally paused. When the user activates web, remove or rewrite that note before starting browser development.
+**Active surface (Phase 0).** The browser client is the primary recruiter UI for HR-System. Auth, requisitions, vacancies, the applications Kanban, and admin pages live here. See `docs/contracts/00-overview.md` for scope.
 
 ## Stack
 
