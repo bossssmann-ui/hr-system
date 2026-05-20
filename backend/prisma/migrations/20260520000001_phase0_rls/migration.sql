@@ -221,3 +221,35 @@ ALTER TABLE "tenants" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "tenants" FORCE ROW LEVEL SECURITY;
 CREATE POLICY "tenants_self" ON "tenants" FOR SELECT
     USING (id = app.current_tenant_id());
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Runtime role
+-- ─────────────────────────────────────────────────────────────────────────────
+-- The application runtime connects with this role (or one that inherits it).
+-- It has CRUD on every business table but NO `BYPASSRLS` attribute, so the
+-- policies above are the actual access boundary. Migrations and the
+-- integration tests run as a superuser/migrator that bypasses RLS by
+-- definition. Tests assert the boundary by switching to this role via
+-- `SET LOCAL ROLE app_user`.
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_user') THEN
+        CREATE ROLE app_user NOLOGIN NOBYPASSRLS;
+    END IF;
+END
+$$;
+
+GRANT USAGE ON SCHEMA app, public TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON
+    "tenants",
+    "user_roles",
+    "org_units",
+    "hiring_requisitions",
+    "vacancies",
+    "candidates",
+    "resumes",
+    "applications",
+    "application_stage_events",
+    "audit_events",
+    "notifications"
+TO app_user;

@@ -119,20 +119,21 @@ CREATE POLICY application_stage_events_insert
 
 `employee` and `candidate` have **no policies** on any recruiting table in Phase 0. They cannot read or write requisitions, vacancies, candidates, resumes, applications, or stage events. Their access path will be added in a later phase (candidate self-serve portal, employee self-service).
 
-## Integration tests (mandatory)
+## Integration tests
 
-`backend/scripts/test-integration.mjs` runs a vitest/bun test suite that:
+Phase 0 ships **one** RLS integration test:
+`backend/src/features/requisitions/requisitions.rls.integration.test.ts` asserts cross-tenant denial on `hiring_requisitions` by switching to the non-superuser `app_user` role, setting the three session variables, and confirming a tenant-B session cannot see tenant-A rows (while the matching tenant-A session can). It is wired into `backend/scripts/test-integration.mjs` so `bun run test:backend:integration` exercises it on every CI run.
 
-1. Creates two tenants `A` and `B`.
-2. Inserts requisitions, candidates, applications in both tenants.
-3. Connects as a `recruiter` user from tenant `A` and asserts:
-   - Selecting from any business table returns only tenant `A` rows.
-   - `INSERT` into `application_stage_events` with `actor_user_id ≠ current_user_id` is rejected.
-   - `UPDATE` on a tenant-`B` row affects 0 rows (RLS hides it).
-   - Cross-tenant `JOIN` returns no rows from tenant `B`.
-4. Connects as `employee` and asserts every recruiting table returns 0 rows / refuses writes.
+The full matrix described below is **aspirational** for Phase 0 and lands alongside the per-domain routes that read/write the tables — each route ships its RLS scenarios in the same PR:
 
-The test must connect to PostgreSQL **without `BYPASSRLS`** and as a non-superuser role, otherwise the policies are silently skipped.
+1. Two-tenant setup (`A`/`B`) with requisitions, candidates, applications populated in both.
+2. As a `recruiter` from tenant `A`: every business table returns only tenant `A` rows.
+3. `INSERT` into `application_stage_events` with `actor_user_id ≠ current_user_id` is rejected.
+4. `UPDATE` on a tenant-`B` row affects 0 rows.
+5. Cross-tenant `JOIN` returns no rows from tenant `B`.
+6. As `employee`/`candidate`: every recruiting table returns 0 rows / refuses writes.
+
+Tests must connect to PostgreSQL **without `BYPASSRLS`** and as a non-superuser role, otherwise the policies are silently skipped. The RLS migration creates an `app_user` role for this purpose; integration tests switch into it with `SET LOCAL ROLE app_user`.
 
 ## Operational notes
 

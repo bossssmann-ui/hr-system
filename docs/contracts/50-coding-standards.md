@@ -54,9 +54,9 @@ This file lists the rules **every contributor** — Copilot, Claude, Codex, or a
 
 ## Testing
 
-- Unit tests for every FSM module — every legal and illegal transition.
-- Integration tests for every RLS-protected table — cross-tenant denial + role-based denial.
-- Web E2E (Playwright) covers the seeded recruiter journey.
+- Unit tests for every FSM module — every legal and illegal transition (in place).
+- One RLS integration test asserting cross-tenant denial on `hiring_requisitions` (in `backend/src/features/requisitions/requisitions.rls.integration.test.ts`). Per-table role-based denial tests land alongside the matching domain routes.
+- Web E2E (Playwright) covers the seeded recruiter journey. Phase 0 ships the auth E2E only; the requisitions/applications flows land alongside their forms.
 - `bun run typecheck`, `bun run test`, `bun run test:backend:integration`, `bun run e2e:web` must all pass in CI.
 
 ## Forbidden patterns
@@ -65,7 +65,7 @@ This file lists the rules **every contributor** — Copilot, Claude, Codex, or a
 - **No `BYPASSRLS` on the runtime role.** Migrations are the only exception.
 - **No silent fallbacks.** If RLS denies a query, the API returns 403, not an empty array masquerading as success.
 - **No "for now I'll skip the FSM" shortcuts.** If a transition isn't allowed yet, add it to the table — don't carve a side door.
-- **No copy-paste of role checks across routes.** Use the shared `requireRole(...)` guard.
+- **No copy-paste of role checks across routes.** Use the shared `requireRole(...)` guard at `backend/src/auth/requireRole.ts`.
 
 ## Working with these contracts
 

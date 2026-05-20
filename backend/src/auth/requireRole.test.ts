@@ -1,0 +1,104 @@
+import { describe, expect, test } from 'bun:test'
+import { Hono } from 'hono'
+
+import type { AppEnv } from '../env'
+import { signAccessToken } from './access-tokens'
+import { requireRole, type RoleGuardBindings } from './requireRole'
+
+const env: AppEnv = {
+  PORT: 3000,
+  DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/web_app_demo',
+  JWT_SECRET: '12345678901234567890123456789012',
+  CORS_ORIGINS: ['http://localhost:5173'],
+  ACCESS_TOKEN_TTL_SECONDS: 60,
+  REFRESH_TOKEN_TTL_DAYS: 30,
+  COOKIE_SECURE: false,
+  SPACES_UPLOAD_MAX_BYTES: 10 * 1024 * 1024,
+  SPACES_UPLOAD_URL_TTL_SECONDS: 900,
+  SPACES_DOWNLOAD_URL_TTL_SECONDS: 300,
+  SPACES_PUBLIC_CACHE_CONTROL: 'public, max-age=31536000, immutable',
+}
+
+type PrismaStub = {
+  userRole: {
+    findMany: (args: unknown) => Promise<Array<{ role: string; tenantId: string }>>
+  }
+}
+
+function buildApp(memberships: Array<{ role: string; tenantId: string }>) {
+  type Bindings = RoleGuardBindings & {
+    Variables: { env: AppEnv; prisma: PrismaStub }
+  }
+  const prisma: PrismaStub = {
+    userRole: {
+      findMany: async () => memberships,
+    },
+  }
+  const app = new Hono<Bindings>()
+  app.use('*', async (c, next) => {
+    c.set('env', env)
+    // Hono context is loosely typed for ad-hoc keys; cast through unknown.
+    ;(c.set as unknown as (k: string, v: unknown) => void)('prisma', prisma)
+    await next()
+  })
+  app.get('/protected', requireRole('owner', 'hr_admin'), (c) =>
+    c.json({ userId: c.get('userId'), tenantId: c.get('tenantId'), roles: c.get('roles') }),
+  )
+  app.onError((err, c) => {
+    const status =
+      err && typeof err === 'object' && 'status' in err && typeof err.status === 'number'
+        ? (err.status as 401 | 403 | 500)
+        : 500
+    return c.json({ error: { message: err.message } }, status)
+  })
+  return app
+}
+
+async function tokenFor(sub: string) {
+  return signAccessToken({ sub, sessionId: 'sess', email: 'u@example.com' }, env)
+}
+
+describe('requireRole', () => {
+  test('denies requests without a bearer token', async () => {
+    const app = buildApp([])
+    const res = await app.request('/protected')
+    expect(res.status).toBe(401)
+  })
+
+  test('denies requests with an invalid bearer token', async () => {
+    const app = buildApp([])
+    const res = await app.request('/protected', {
+      headers: { Authorization: 'Bearer not-a-jwt' },
+    })
+    expect(res.status).toBe(401)
+  })
+
+  test('denies users with no tenant memberships', async () => {
+    const app = buildApp([])
+    const token = await tokenFor('user-1')
+    const res = await app.request('/protected', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    expect(res.status).toBe(403)
+  })
+
+  test('denies users whose roles do not intersect the allowed set', async () => {
+    const app = buildApp([{ role: 'recruiter', tenantId: 'tenant-1' }])
+    const token = await tokenFor('user-1')
+    const res = await app.request('/protected', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    expect(res.status).toBe(403)
+  })
+
+  test('allows users with an intersecting role and exposes context', async () => {
+    const app = buildApp([{ role: 'owner', tenantId: 'tenant-1' }])
+    const token = await tokenFor('user-1')
+    const res = await app.request('/protected', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { userId: string; tenantId: string; roles: string[] }
+    expect(body).toEqual({ userId: 'user-1', tenantId: 'tenant-1', roles: ['owner'] })
+  })
+})

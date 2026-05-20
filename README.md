@@ -9,7 +9,7 @@ The current phase is **Phase 0 — foundation**. See `docs/contracts/00-overview
 | Surface | Status | Notes |
 | --- | --- | --- |
 | `backend/` (Hono + Prisma + PostgreSQL) | **active** | Recruiting-core data model, FSMs, RLS, auth. |
-| `web/` (React + Vite + TanStack) | **active** | Recruiter UI. Phase 0 ships routing skeleton + auth; full requisition/vacancy/kanban/admin pages land alongside the matching backend routes in Phase 0.x / Phase 1. |
+| `web/` (React + Vite + TanStack) | **active** | Recruiter UI. Phase 0 ships auth + a working read-only `/requisitions` page; the rest of the routing skeleton (`/vacancies`, `/applications`, `/admin/*`) is wired with placeholders and lands alongside the matching backend routes in Phase 0.x / Phase 1. |
 | `packages/contracts` (Zod) | **active** | Shared request/response schemas between web and backend. |
 | `mobile/` (Expo) | deferred | Kept intact; no Expo/EAS/Maestro work until activated. |
 | `landing/` (Astro) | deferred | Kept intact; no marketing content yet. |
@@ -44,12 +44,9 @@ The seeded owner credentials come from the backend `.env` (`BOOTSTRAP_OWNER_EMAI
 ## Demo journey (Phase 0)
 
 1. Log in as the seeded owner.
-2. Create an org unit and a hiring requisition.
-3. Move the requisition through Submit → Manager Approve → HR Approve.
-4. A vacancy is auto-created for the approved requisition.
-5. Create an application against the vacancy and move the card across the Kanban funnel.
+2. Navigate to `/requisitions` — you'll see an empty list (the seeded owner has no requisitions yet).
 
-This is the MVP demo path. Full HH.ru parsing, AI scoring, and offer/onboarding flows arrive in Phase 1+.
+Phase 0 ships the auth baseline, the recruiting data model, FSM enforcement, the audit middleware, RLS policies, and the read-only `/requisitions` page. Org-unit + requisition forms, the FSM-driven approval buttons, vacancy auto-create, and the Kanban funnel arrive in Phase 0.x / Phase 1+.
 
 ## Commands
 

@@ -11,12 +11,15 @@
  * these pages will eventually drive.
  */
 
+import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Spinner } from '@/components/ui/spinner'
 import { Typography } from '@/components/ui/typography'
+import { ApiRequestError } from '@/lib/api'
 import { useAuth } from '@/lib/use-auth'
 import { cn } from '@/lib/utils'
 
@@ -82,17 +85,78 @@ function Phase0Page({ badge, title, description, todo }: Phase0PageProps) {
 }
 
 export function RequisitionsPage() {
+  const auth = useAuth()
+  if (!auth.user) return <LoginRequired />
+
+  return <RequisitionsList />
+}
+
+function RequisitionsList() {
+  const { api } = useAuth()
+  const query = useQuery({
+    queryKey: ['requisitions', 'list'],
+    queryFn: () => api.listRequisitions(),
+  })
+
   return (
-    <Phase0Page
-      badge="Recruiting · Requisitions"
-      title="Hiring requisitions"
-      description="List of open hiring requisitions across the org. Recruiters and hiring managers create, submit, approve, or reject requisitions here."
-      todo={[
-        'GET /api/requisitions — paginated list filtered by org_unit and status',
-        'POST /api/requisitions — create from a Zod-validated TanStack Form',
-        'FSM action buttons: Submit, Approve as Manager, Approve as HR, Reject',
-      ]}
-    />
+    <section className="mx-auto grid w-full max-w-6xl gap-6 px-5 py-12">
+      <div className="grid gap-3">
+        <Badge variant="outline" className="w-fit">
+          Recruiting · Requisitions
+        </Badge>
+        <Typography variant="h1">Hiring requisitions</Typography>
+        <Typography className="max-w-3xl" tone="muted">
+          Open hiring requisitions across the org. Phase 0 ships this list as read-only;
+          creation and the approval FSM land alongside the matching backend routes.
+        </Typography>
+      </div>
+
+      {query.isPending ? (
+        <Card size="sm" className="max-w-3xl">
+          <CardContent className="flex items-center gap-3 py-8">
+            <Spinner aria-hidden />
+            <Typography tone="muted">Loading requisitions…</Typography>
+          </CardContent>
+        </Card>
+      ) : query.isError ? (
+        <Card size="sm" className="max-w-3xl">
+          <CardHeader>
+            <CardTitle>Could not load requisitions</CardTitle>
+            <CardDescription>
+              {query.error instanceof ApiRequestError
+                ? `${query.error.code}: ${query.error.message}`
+                : 'Unexpected error contacting the backend.'}
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      ) : query.data.items.length === 0 ? (
+        <Card size="sm" className="max-w-3xl">
+          <CardHeader>
+            <CardTitle>No requisitions yet</CardTitle>
+            <CardDescription>
+              You are signed in as the seeded owner. Once the create-requisition form lands
+              in Phase 0.x, new requisitions will appear here.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      ) : (
+        <ul className="grid gap-3" data-testid="requisitions-list">
+          {query.data.items.map((r) => (
+            <li key={r.id}>
+              <Card size="sm" className="max-w-3xl">
+                <CardHeader>
+                  <CardTitle>{r.title}</CardTitle>
+                  <CardDescription>
+                    {r.grade} · {r.salaryMin.toLocaleString()}–{r.salaryMax.toLocaleString()}{' '}
+                    {r.currency} · {r.status}
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   )
 }
 
