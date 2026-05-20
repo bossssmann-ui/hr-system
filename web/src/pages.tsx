@@ -53,6 +53,11 @@ export function RootLayout() {
               </Link>
             </Typography>
             <Typography asChild variant="control" tone="muted">
+              <Link to="/candidates" className={navLinkClass}>
+                Candidates
+              </Link>
+            </Typography>
+            <Typography asChild variant="control" tone="muted">
               <Link to="/applications" className={navLinkClass}>
                 Applications
               </Link>

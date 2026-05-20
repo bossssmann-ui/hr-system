@@ -6,6 +6,7 @@ import {
   AdminUsersPage,
   ApplicationDetailPage,
   ApplicationsPage,
+  CandidatesPage,
   RequisitionDetailPage,
   RequisitionsNewPage,
   RequisitionsPage,
@@ -74,6 +75,12 @@ const applicationDetailRoute = createRoute({
   component: ApplicationDetailPage,
 })
 
+const candidatesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/candidates',
+  component: CandidatesPage,
+})
+
 const adminUsersRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin/users',
@@ -94,6 +101,7 @@ const routeTree = rootRoute.addChildren([
   requisitionDetailRoute,
   vacanciesRoute,
   vacancyDetailRoute,
+  candidatesRoute,
   applicationsRoute,
   applicationDetailRoute,
   adminUsersRoute,

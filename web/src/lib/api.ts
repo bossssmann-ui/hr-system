@@ -1,23 +1,52 @@
 import {
   apiErrorSchema,
+  applicationDetailSchema,
+  applicationSchema,
   authResponseSchema,
+  createCandidateResponseSchema,
+  listApplicationsResponseSchema,
+  listAuditEventsResponseSchema,
+  listCandidatesResponseSchema,
+  listOrgUnitsResponseSchema,
   listRequisitionsResponseSchema,
+  listUsersResponseSchema,
+  listVacanciesResponseSchema,
   loginRequestSchema,
   logoutRequestSchema,
   meResponseSchema,
   refreshRequestSchema,
   refreshResponseSchema,
   registerRequestSchema,
+  requisitionSchema,
+  vacancySchema,
+  type ApplicationDetail,
   type AuthResponse,
+  type CreateApplicationRequest,
+  type CreateCandidateRequest,
+  type CreateCandidateResponse,
+  type CreateOrgUnitRequest,
+  type CreateRequisitionRequest,
+  type ListApplicationsResponse,
+  type ListAuditEventsResponse,
+  type ListCandidatesResponse,
+  type ListOrgUnitsResponse,
   type ListRequisitionsResponse,
+  type ListUsersResponse,
+  type ListVacanciesResponse,
   type LoginRequest,
   type LogoutRequest,
   type MeResponse,
+  type MoveApplicationStageRequest,
+  type OrgUnit,
+  type PublishVacancyRequest,
   type RefreshRequest,
   type RefreshResponse,
   type RegisterRequest,
+  type Requisition,
+  type TransitionRequisitionRequest,
+  type Vacancy,
 } from '@web-app-demo/contracts'
-import type { z } from 'zod'
+import { z } from 'zod'
 
 const apiBaseUrl = (import.meta.env?.VITE_API_URL ?? 'http://localhost:3000').replace(/\/$/, '')
 
@@ -28,7 +57,7 @@ type ApiClientOptions = {
 }
 
 type RequestOptions = {
-  method?: 'GET' | 'POST'
+  method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
   body?: unknown
   auth?: boolean
   retryOnUnauthorized?: boolean
@@ -88,8 +117,131 @@ export class ApiClient {
     })
   }
 
-  listRequisitions(): Promise<ListRequisitionsResponse> {
-    return this.request('/api/requisitions', listRequisitionsResponseSchema, {
+  // ─── Org Units ──────────────────────────────────────────────────────────────
+
+  listOrgUnits(): Promise<ListOrgUnitsResponse> {
+    return this.request('/api/org-units', listOrgUnitsResponseSchema, { auth: true })
+  }
+
+  createOrgUnit(input: CreateOrgUnitRequest): Promise<OrgUnit> {
+    return this.request('/api/org-units', z.any(), {
+      method: 'POST',
+      body: input,
+      auth: true,
+    })
+  }
+
+  // ─── Requisitions ───────────────────────────────────────────────────────────
+
+  listRequisitions(params?: { status?: string }): Promise<ListRequisitionsResponse> {
+    const qs = params?.status ? `?status=${encodeURIComponent(params.status)}` : ''
+    return this.request(`/api/requisitions${qs}`, listRequisitionsResponseSchema, { auth: true })
+  }
+
+  getRequisition(id: string): Promise<Requisition> {
+    return this.request(`/api/requisitions/${id}`, requisitionSchema, { auth: true })
+  }
+
+  createRequisition(input: CreateRequisitionRequest): Promise<Requisition> {
+    return this.request('/api/requisitions', requisitionSchema, {
+      method: 'POST',
+      body: input,
+      auth: true,
+    })
+  }
+
+  transitionRequisition(id: string, input: TransitionRequisitionRequest): Promise<Requisition> {
+    return this.request(`/api/requisitions/${id}/transition`, requisitionSchema, {
+      method: 'PATCH',
+      body: input,
+      auth: true,
+    })
+  }
+
+  // ─── Vacancies ──────────────────────────────────────────────────────────────
+
+  listVacancies(params?: { isPublished?: boolean }): Promise<ListVacanciesResponse> {
+    const qs =
+      params?.isPublished !== undefined ? `?is_published=${params.isPublished}` : ''
+    return this.request(`/api/vacancies${qs}`, listVacanciesResponseSchema, { auth: true })
+  }
+
+  getVacancy(id: string): Promise<Vacancy> {
+    return this.request(`/api/vacancies/${id}`, vacancySchema, { auth: true })
+  }
+
+  publishVacancy(id: string, input: PublishVacancyRequest): Promise<Vacancy> {
+    return this.request(`/api/vacancies/${id}/publish`, vacancySchema, {
+      method: 'PATCH',
+      body: input,
+      auth: true,
+    })
+  }
+
+  // ─── Candidates ─────────────────────────────────────────────────────────────
+
+  listCandidates(params?: { q?: string }): Promise<ListCandidatesResponse> {
+    const qs = params?.q ? `?q=${encodeURIComponent(params.q)}` : ''
+    return this.request(`/api/candidates${qs}`, listCandidatesResponseSchema, { auth: true })
+  }
+
+  createCandidate(input: CreateCandidateRequest): Promise<CreateCandidateResponse> {
+    return this.request('/api/candidates', createCandidateResponseSchema, {
+      method: 'POST',
+      body: input,
+      auth: true,
+    })
+  }
+
+  // ─── Applications ───────────────────────────────────────────────────────────
+
+  listApplications(params?: { vacancyId?: string; stage?: string }): Promise<ListApplicationsResponse> {
+    const qs = new URLSearchParams()
+    if (params?.vacancyId) qs.set('vacancy_id', params.vacancyId)
+    if (params?.stage) qs.set('stage', params.stage)
+    const qStr = qs.toString() ? `?${qs.toString()}` : ''
+    return this.request(`/api/applications${qStr}`, listApplicationsResponseSchema, { auth: true })
+  }
+
+  getApplication(id: string): Promise<ApplicationDetail> {
+    return this.request(`/api/applications/${id}`, applicationDetailSchema, { auth: true })
+  }
+
+  createApplication(input: CreateApplicationRequest): Promise<z.infer<typeof applicationSchema>> {
+    return this.request('/api/applications', applicationSchema, {
+      method: 'POST',
+      body: input,
+      auth: true,
+    })
+  }
+
+  moveApplicationStage(id: string, input: MoveApplicationStageRequest): Promise<z.infer<typeof applicationSchema>> {
+    return this.request(`/api/applications/${id}/stage`, applicationSchema, {
+      method: 'PATCH',
+      body: input,
+      auth: true,
+    })
+  }
+
+  // ─── Admin ──────────────────────────────────────────────────────────────────
+
+  listAdminUsers(): Promise<ListUsersResponse> {
+    return this.request('/api/admin/users', listUsersResponseSchema, { auth: true })
+  }
+
+  listAuditEvents(params?: {
+    cursor?: string
+    limit?: number
+    actorUserId?: string
+    entityType?: string
+  }): Promise<ListAuditEventsResponse> {
+    const qs = new URLSearchParams()
+    if (params?.cursor) qs.set('cursor', params.cursor)
+    if (params?.limit) qs.set('limit', String(params.limit))
+    if (params?.actorUserId) qs.set('actorUserId', params.actorUserId)
+    if (params?.entityType) qs.set('entityType', params.entityType)
+    const qStr = qs.toString() ? `?${qs.toString()}` : ''
+    return this.request(`/api/admin/audit-events${qStr}`, listAuditEventsResponseSchema, {
       auth: true,
     })
   }
