@@ -50,6 +50,20 @@ The Docker smoke test builds the backend image, starts it against `postgres_test
 
 `.github/workflows/ci.yml` runs typecheck, contract tests, web client tests, mobile client tests, backend tests, and the web Playwright smoke flow on pushes to `main` and pull requests.
 
+### CI database for the `validate` job
+
+The `validate` job runs both `bun run test:backend` (which includes backend integration tests) and `bun run e2e:web` (Playwright).  Both require a live PostgreSQL instance.  The job uses a GitHub Actions **service container** (`postgres:18-alpine`) on fixed port `54330` and sets:
+
+```
+TEST_DATABASE_URL=postgresql://superuser:superpassword@localhost:54330/web_app_demo_test?schema=public
+TEST_SKIP_DOCKER=1   # backend integration runner skips docker compose
+E2E_SKIP_DOCKER=1    # Playwright global-setup skips docker compose
+```
+
+With these vars set, both runners skip `docker compose up` and connect directly to the service container.  Playwright's `global-setup.ts` still applies migrations via `bun run --cwd backend prisma:deploy`; a separate "Generate Prisma client" step runs `bun run --cwd backend prisma:generate` before `e2e:web` so the client is available.
+
+The Vite dev server started by Playwright proxies `/api/*` to the backend (`VITE_API_URL` in `web/vite.config.ts`).  This is required so that Playwright's `request` fixture, whose `baseURL` is the Vite origin, can reach the backend with relative `/api/...` paths.
+
 ## Web E2E
 
 Playwright is configured in `web/playwright.config.ts`.
@@ -76,6 +90,7 @@ The web E2E flow:
 - starts Vite on `E2E_WEB_PORT`, which defaults to a repository-derived port;
 - stops its `postgres_test` compose project and removes the test volume after the run unless `E2E_KEEP_DOCKER=1` is set;
 - runs the auth smoke path: client validation visibility -> register/login mode switching -> register -> cookie refresh after reload -> protected route -> logout -> invalid login error -> successful login.
+- runs the Phase 1B recruiting smoke: register → create org unit → create requisition → approve through FSM → auto-created vacancy → create candidate → create application → move stage on Kanban → verify audit log.
 
 Useful env:
 
