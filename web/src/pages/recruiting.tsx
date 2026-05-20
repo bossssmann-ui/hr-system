@@ -283,11 +283,10 @@ export function RequisitionDetailPage() {
 }
 
 function RequisitionDetail() {
-  const { api, user } = useAuth()
+  const { api } = useAuth()
   const params = useParams({ strict: false }) as { requisitionId?: string }
   const requisitionId = params.requisitionId ?? ""
   const queryClient = useQueryClient()
-  const userRoles: string[] = (user as Record<string, unknown> & { roles?: string[] })?.roles ?? ["owner"]
 
   const query = useQuery({
     queryKey: ["requisitions", requisitionId],
@@ -311,9 +310,10 @@ function RequisitionDetail() {
   if (query.isError) return <ErrorCard message="Requisition not found or access denied" />
 
   const r = query.data
-  const availableTransitions = REQUISITION_TRANSITIONS.filter(
-    (t) => t.from.includes(r.status) && t.roles.some((role) => userRoles.includes(role) || userRoles.includes("owner")),
-  )
+  // Show all valid transitions from the current status.
+  // The server is the source of truth for role enforcement;
+  // a 422 FSM_TRANSITION_DENIED response is toasted if the user lacks the right role.
+  const availableTransitions = REQUISITION_TRANSITIONS.filter((t) => t.from.includes(r.status))
 
   return (
     <section className="mx-auto grid w-full max-w-3xl gap-6 px-5 py-12">
@@ -368,8 +368,6 @@ export function VacanciesPage() {
 function VacanciesList() {
   const { api, user } = useAuth()
   const queryClient = useQueryClient()
-  const userRoles: string[] = (user as Record<string, unknown> & { roles?: string[] })?.roles ?? ["owner"]
-  const canPublish = userRoles.some((r) => ["owner", "hr_admin", "recruiter"].includes(r))
 
   const query = useQuery({ queryKey: ["vacancies"], queryFn: () => api.listVacancies(), enabled: Boolean(user) })
 
@@ -400,12 +398,11 @@ function VacanciesList() {
                     <CardTitle><Link to="/vacancies/$vacancyId" params={{ vacancyId: v.id }} className="hover:underline">{v.title}</Link></CardTitle>
                     <div className="flex items-center gap-2">
                       <Badge variant={v.isPublished ? "default" : "outline"}>{v.isPublished ? "Published" : "Draft"}</Badge>
-                      {canPublish && (
-                        <Button size="sm" variant="outline" disabled={publishMutation.isPending}
-                          data-testid={"publish-toggle-" + v.id}>
-                          {v.isPublished ? "Unpublish" : "Publish"}
-                        </Button>
-                      )}
+                      <Button size="sm" variant="outline" disabled={publishMutation.isPending}
+                        onClick={() => publishMutation.mutate({ id: v.id, isPublished: !v.isPublished })}
+                        data-testid={"publish-toggle-" + v.id}>
+                        {v.isPublished ? "Unpublish" : "Publish"}
+                      </Button>
                     </div>
                   </div>
                 </CardHeader>
@@ -539,7 +536,11 @@ function NewCandidateForm({ onSubmit, isLoading, error }: { onSubmit: (data: { f
   const form = useForm({
     defaultValues: { fullName: "", email: "", phone: "", location: "" },
     onSubmit: ({ value }) => {
-      onSubmit({ fullName: value.fullName, ...(value.email ? { email: value.email } : {}), ...(value.phone ? { phone: value.phone } : {}), ...(value.location ? { location: value.location } : {}) })
+      const data: Parameters<typeof onSubmit>[0] = { fullName: value.fullName }
+      if (value.email) data.email = value.email
+      if (value.phone) data.phone = value.phone
+      if (value.location) data.location = value.location
+      onSubmit(data)
     },
   })
   return (

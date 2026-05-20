@@ -1,4 +1,10 @@
-import type { Application, CreateApplicationRequest, MoveApplicationStageRequest } from '@web-app-demo/contracts'
+import type {
+  Application,
+  Candidate,
+  CreateApplicationRequest,
+  MoveApplicationStageRequest,
+  Vacancy,
+} from '@web-app-demo/contracts'
 import {
   applicationDetailSchema,
   applicationSchema,
@@ -16,8 +22,6 @@ import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
 import { AppError } from '../../http/errors'
 import { canTransition } from '../applications/applications.fsm'
-import type { Candidate } from '@web-app-demo/contracts'
-import type { Vacancy } from '@web-app-demo/contracts'
 
 type RouteBindings = RoleGuardBindings & {
   Variables: {

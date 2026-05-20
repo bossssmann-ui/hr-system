@@ -144,7 +144,7 @@ test.describe('Phase 1B recruiting smoke', () => {
     const appsRes = await api('GET', `/api/applications?vacancy_id=${vacancyId}`)
     expect(appsRes.ok()).toBeTruthy()
     const apps = (await appsRes.json()).items as Array<{ id: string; stage: string }>
-    const app = apps.find((a) => a.stage === 'new' && a !== undefined)
+    const app = apps.find((a) => a.stage === 'new')
     expect(app).toBeDefined()
 
     const moveRes = await api('PATCH', `/api/applications/${app!.id}/stage`, { to: 'screen' })
