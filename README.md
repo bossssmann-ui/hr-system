@@ -9,7 +9,7 @@ The current phase is **Phase 0 — foundation**. See `docs/contracts/00-overview
 | Surface | Status | Notes |
 | --- | --- | --- |
 | `backend/` (Hono + Prisma + PostgreSQL) | **active** | Recruiting-core data model, FSMs, RLS, auth. |
-| `web/` (React + Vite + TanStack) | **active** | Recruiter UI: requisitions, vacancies, applications kanban, admin. |
+| `web/` (React + Vite + TanStack) | **active** | Recruiter UI. Phase 0 ships routing skeleton + auth; full requisition/vacancy/kanban/admin pages land alongside the matching backend routes in Phase 0.x / Phase 1. |
 | `packages/contracts` (Zod) | **active** | Shared request/response schemas between web and backend. |
 | `mobile/` (Expo) | deferred | Kept intact; no Expo/EAS/Maestro work until activated. |
 | `landing/` (Astro) | deferred | Kept intact; no marketing content yet. |

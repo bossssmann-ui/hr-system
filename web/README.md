@@ -4,7 +4,7 @@ The browser client provides the baseline auth flow for future web features. It c
 
 ## Project Surface Status
 
-**Active surface (Phase 0).** The browser client is the primary recruiter UI for HR-System. Auth, requisitions, vacancies, the applications Kanban, and admin pages live here. See `docs/contracts/00-overview.md` for scope.
+**Active surface (Phase 0).** The browser client is the primary recruiter UI for HR-System. Phase 0 ships the auth baseline plus a routing skeleton for `/requisitions`, `/vacancies`, `/applications`, and `/admin/*` (see `src/pages/recruiting.tsx`). The data-driven UI (forms, kanban, admin tables) lands alongside the matching backend routes in Phase 0.x / Phase 1.
 
 ## Stack
 

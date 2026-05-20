@@ -15,6 +15,7 @@
  *     business transaction (same contract as the audit log).
  */
 
+import { Prisma } from '../generated/prisma/client'
 import type { DbClient } from '../db'
 
 export type NotificationChannel = 'email' | 'telegram' | 'in_app'
@@ -23,7 +24,7 @@ export type NotifyInput = {
   channel: NotificationChannel
   recipient: { userId: string; tenantId: string }
   template: string
-  payload?: Record<string, unknown>
+  payload?: Prisma.InputJsonValue
 }
 
 export interface Notifier {
@@ -43,7 +44,7 @@ const defaultLogger: Logger = {
 export function createNotifier(prisma: DbClient, logger: Logger = defaultLogger): Notifier {
   return {
     async notify(input) {
-      const { channel, recipient, template, payload = {} } = input
+      const { channel, recipient, template, payload = {} as Prisma.InputJsonValue } = input
       switch (channel) {
         case 'in_app': {
           try {
@@ -53,7 +54,7 @@ export function createNotifier(prisma: DbClient, logger: Logger = defaultLogger)
                 recipientUserId: recipient.userId,
                 channel: 'in_app',
                 template,
-                payload: payload as never,
+                payload,
               },
             })
           } catch (err) {

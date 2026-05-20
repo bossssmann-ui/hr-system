@@ -42,13 +42,16 @@ export function createInMemoryQueue<TPayload>(name: string, logger: Logger = def
     name,
     async enqueue(payload, opts) {
       const run = () => {
-        if (!handler) {
+        const currentHandler = handler
+        if (!currentHandler) {
           logger.error({ queue: name }, 'queue.no_handler_registered')
           return
         }
-        handler(payload).catch((err) => {
-          logger.error({ err, queue: name }, 'queue.job_failed')
-        })
+        Promise.resolve()
+          .then(() => currentHandler(payload))
+          .catch((err) => {
+            logger.error({ err, queue: name }, 'queue.job_failed')
+          })
       }
       if (opts?.delayMs && opts.delayMs > 0) {
         setTimeout(run, opts.delayMs)

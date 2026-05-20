@@ -5,7 +5,7 @@ Canonical description of every entity in the HR-System database. The Prisma sche
 ## Conventions
 
 - Primary keys are `String @id @default(dbgenerated("uuidv7()")) @db.Uuid`. UUIDv7 gives lexicographic sortability and matches the existing template baseline.
-- Every business table has `tenant_id UUID NOT NULL DEFAULT gen_random_uuid()`. Single-tenant today; the column exists for future multi-tenancy and is referenced by every RLS policy.
+- Every business table has `tenant_id UUID NOT NULL` (no default). Single-tenant today; the column exists for future multi-tenancy and is referenced by every RLS policy. The value is set from the authenticated session (RLS session variable `app.tenant_id`, see `30-rls-policies.md`) and never from user input.
 - Timestamps are `created_at` and `updated_at` (UTC, automatic via Prisma `@default(now())` and `@updatedAt`).
 - Snake-case for column and table names (`@map`, `@@map`); camelCase in the Prisma client.
 - Soft deletes use a nullable `deleted_at` where applicable; hard deletion happens on a retention schedule.
