@@ -2,6 +2,10 @@
 
 The landing workspace is a separate Astro project for static marketing or informational pages. It should stay independent from the authenticated browser app unless a product need explicitly requires shared API data.
 
+## Project Surface Status
+
+**Deferred surface (Phase 0).** Marketing content for HR-System is intentionally paused. The directory is kept intact so the template structure remains valid; do not add pages or product copy here until this surface is reactivated by the product owner.
+
 ## Stack
 
 - Astro

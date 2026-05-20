@@ -6,6 +6,7 @@ import type { DbClient } from './db'
 import type { AppEnv } from './env'
 import { createAuthRoutes } from './auth/routes'
 import { AuthService } from './auth/service'
+import { createRequisitionsRoutes } from './features/requisitions/requisitions.routes'
 import { errorResponse, handleError } from './http/errors'
 import { createStorageServiceFromEnv, type StorageService } from './storage/service'
 
@@ -13,6 +14,7 @@ type AppBindings = {
   Variables: {
     authService: AuthService
     env: AppEnv
+    prisma: DbClient
     storageService: StorageService | null
   }
 }
@@ -53,6 +55,7 @@ export function createApp({ env, prisma }: CreateAppOptions) {
   app.use('*', async (c, next) => {
     c.set('authService', authService)
     c.set('env', env)
+    c.set('prisma', prisma)
     c.set('storageService', storageService)
     await next()
   })
@@ -71,6 +74,7 @@ export function createApp({ env, prisma }: CreateAppOptions) {
   })
 
   app.route('/api/auth', createAuthRoutes())
+  app.route('/api/requisitions', createRequisitionsRoutes())
 
   app.doc('/openapi.json', {
     openapi: '3.0.0',

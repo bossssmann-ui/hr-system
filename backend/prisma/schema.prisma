@@ -7,6 +7,80 @@ datasource db {
   provider = "postgresql"
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum RoleName {
+  owner
+  hr_admin
+  recruiter
+  hiring_manager
+  employee
+  candidate
+}
+
+enum Currency {
+  RUB
+  USD
+  THB
+  USDT
+}
+
+enum RequisitionStatus {
+  draft
+  submitted
+  manager_approved
+  hr_approved
+  approved
+  in_recruitment
+  closed
+  rejected
+}
+
+enum CandidateSource {
+  manual
+  hh_ru
+  sberpodbor
+  avito
+  rabota_ru
+  referral
+  careers_page
+}
+
+enum ApplicationStage {
+  new
+  screen
+  tech
+  final
+  offer
+  hired
+  rejected
+}
+
+enum NotificationChannel {
+  email
+  telegram
+  in_app
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tenant (single bootstrap tenant in Phase 0)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Tenant {
+  id        String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("tenants")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Identity
+// ─────────────────────────────────────────────────────────────────────────────
+
 model User {
   id           String        @id @default(dbgenerated("uuidv7()")) @db.Uuid
   email        String        @unique
@@ -15,6 +89,7 @@ model User {
   createdAt    DateTime      @default(now()) @map("created_at")
   updatedAt    DateTime      @updatedAt @map("updated_at")
   sessions     AuthSession[]
+  roles        UserRole[]
 
   @@map("users")
 }
@@ -34,4 +109,206 @@ model AuthSession {
   @@index([userId], map: "auth_sessions_user_id_idx")
   @@index([expiresAt], map: "auth_sessions_expires_at_idx")
   @@map("auth_sessions")
+}
+
+model UserRole {
+  userId    String   @db.Uuid @map("user_id")
+  role      RoleName
+  tenantId  String   @db.Uuid @map("tenant_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, map: "user_roles_user_id_fkey")
+
+  @@id([userId, role, tenantId])
+  @@index([tenantId], map: "user_roles_tenant_id_idx")
+  @@map("user_roles")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Org structure
+// ─────────────────────────────────────────────────────────────────────────────
+
+model OrgUnit {
+  id        String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId  String   @db.Uuid @map("tenant_id")
+  name      String
+  parentId  String?  @db.Uuid @map("parent_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  parent   OrgUnit?  @relation("OrgUnitTree", fields: [parentId], references: [id], onDelete: SetNull, map: "org_units_parent_id_fkey")
+  children OrgUnit[] @relation("OrgUnitTree")
+
+  requisitions HiringRequisition[]
+  vacancies    Vacancy[]
+
+  @@index([tenantId], map: "org_units_tenant_id_idx")
+  @@index([parentId], map: "org_units_parent_id_idx")
+  @@map("org_units")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Recruiting
+// ─────────────────────────────────────────────────────────────────────────────
+
+model HiringRequisition {
+  id              String            @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId        String            @db.Uuid @map("tenant_id")
+  orgUnitId       String            @db.Uuid @map("org_unit_id")
+  createdByUserId String            @db.Uuid @map("created_by_user_id")
+  title           String
+  grade           String
+  salaryMin       Int               @map("salary_min")
+  salaryMax       Int               @map("salary_max")
+  currency        Currency
+  justification   String
+  status          RequisitionStatus @default(draft)
+  deadlineAt      DateTime?         @map("deadline_at")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  orgUnit OrgUnit  @relation(fields: [orgUnitId], references: [id], map: "hiring_requisitions_org_unit_id_fkey")
+  vacancy Vacancy?
+
+  @@index([tenantId], map: "hiring_requisitions_tenant_id_idx")
+  @@index([orgUnitId], map: "hiring_requisitions_org_unit_id_idx")
+  @@index([createdByUserId], map: "hiring_requisitions_created_by_user_id_idx")
+  @@index([status], map: "hiring_requisitions_status_idx")
+  @@map("hiring_requisitions")
+}
+
+model Vacancy {
+  id            String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId      String   @db.Uuid @map("tenant_id")
+  requisitionId String   @unique @db.Uuid @map("requisition_id")
+  orgUnitId     String   @db.Uuid @map("org_unit_id")
+  title         String
+  description   String
+  isPublished   Boolean  @default(false) @map("is_published")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  requisition  HiringRequisition @relation(fields: [requisitionId], references: [id], map: "vacancies_requisition_id_fkey")
+  orgUnit      OrgUnit           @relation(fields: [orgUnitId], references: [id], map: "vacancies_org_unit_id_fkey")
+  applications Application[]
+
+  @@index([tenantId], map: "vacancies_tenant_id_idx")
+  @@index([orgUnitId], map: "vacancies_org_unit_id_idx")
+  @@map("vacancies")
+}
+
+model Candidate {
+  id          String          @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId    String          @db.Uuid @map("tenant_id")
+  fullName    String          @map("full_name")
+  email       String?
+  phone       String?
+  location    String?
+  source      CandidateSource @default(manual)
+  externalIds Json            @default("{}") @map("external_ids")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  resumes      Resume[]
+  applications Application[]
+
+  // Email and phone are unique only when non-null; expressed at the SQL layer
+  // via partial UNIQUE indexes added in the migration (Prisma cannot model
+  // partial indexes declaratively). See `30-rls-policies.md` and the migration.
+  @@index([tenantId], map: "candidates_tenant_id_idx")
+  @@map("candidates")
+}
+
+model Resume {
+  id             String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId       String    @db.Uuid @map("tenant_id")
+  candidateId    String    @db.Uuid @map("candidate_id")
+  fileUrl        String    @map("file_url")
+  parsedPayload  Json?     @map("parsed_payload")
+  uploadedAt     DateTime  @default(now()) @map("uploaded_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade, map: "resumes_candidate_id_fkey")
+
+  @@index([tenantId], map: "resumes_tenant_id_idx")
+  @@index([candidateId], map: "resumes_candidate_id_idx")
+  @@map("resumes")
+}
+
+model Application {
+  id                String           @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId          String           @db.Uuid @map("tenant_id")
+  candidateId       String           @db.Uuid @map("candidate_id")
+  vacancyId         String           @db.Uuid @map("vacancy_id")
+  stage             ApplicationStage @default(new)
+  assignedToUserId  String?          @db.Uuid @map("assigned_to_user_id")
+  notes             String?
+  aiScoring         Json?            @map("ai_scoring")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+
+  candidate    Candidate                @relation(fields: [candidateId], references: [id], map: "applications_candidate_id_fkey")
+  vacancy      Vacancy                  @relation(fields: [vacancyId], references: [id], map: "applications_vacancy_id_fkey")
+  stageEvents  ApplicationStageEvent[]
+
+  @@unique([candidateId, vacancyId], map: "applications_candidate_vacancy_unique")
+  @@index([tenantId], map: "applications_tenant_id_idx")
+  @@index([vacancyId], map: "applications_vacancy_id_idx")
+  @@index([stage], map: "applications_stage_idx")
+  @@index([assignedToUserId], map: "applications_assigned_to_user_id_idx")
+  @@map("applications")
+}
+
+model ApplicationStageEvent {
+  id            String           @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId      String           @db.Uuid @map("tenant_id")
+  applicationId String           @db.Uuid @map("application_id")
+  fromStage     ApplicationStage @map("from_stage")
+  toStage       ApplicationStage @map("to_stage")
+  actorUserId   String           @db.Uuid @map("actor_user_id")
+  comment       String?
+  createdAt     DateTime         @default(now()) @map("created_at")
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade, map: "application_stage_events_application_id_fkey")
+
+  @@index([tenantId], map: "application_stage_events_tenant_id_idx")
+  @@index([applicationId], map: "application_stage_events_application_id_idx")
+  @@index([actorUserId], map: "application_stage_events_actor_user_id_idx")
+  @@map("application_stage_events")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Cross-cutting
+// ─────────────────────────────────────────────────────────────────────────────
+
+model AuditEvent {
+  id          String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId    String   @db.Uuid @map("tenant_id")
+  actorUserId String?  @db.Uuid @map("actor_user_id")
+  action      String
+  entityType  String   @map("entity_type")
+  entityId    String   @db.Uuid @map("entity_id")
+  diff        Json
+  ip          String?
+  userAgent   String?  @map("user_agent")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([entityType, entityId], map: "audit_events_entity_idx")
+  @@index([actorUserId, createdAt], map: "audit_events_actor_created_idx")
+  @@index([tenantId], map: "audit_events_tenant_id_idx")
+  @@map("audit_events")
+}
+
+model Notification {
+  id              String              @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId        String              @db.Uuid @map("tenant_id")
+  recipientUserId String              @db.Uuid @map("recipient_user_id")
+  channel         NotificationChannel
+  template        String
+  payload         Json                @default("{}")
+  readAt          DateTime?           @map("read_at")
+  createdAt       DateTime            @default(now()) @map("created_at")
+
+  @@index([tenantId], map: "notifications_tenant_id_idx")
+  @@index([recipientUserId, readAt], map: "notifications_recipient_read_idx")
+  @@map("notifications")
 }

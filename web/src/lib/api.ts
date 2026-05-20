@@ -1,6 +1,7 @@
 import {
   apiErrorSchema,
   authResponseSchema,
+  listRequisitionsResponseSchema,
   loginRequestSchema,
   logoutRequestSchema,
   meResponseSchema,
@@ -8,6 +9,7 @@ import {
   refreshResponseSchema,
   registerRequestSchema,
   type AuthResponse,
+  type ListRequisitionsResponse,
   type LoginRequest,
   type LogoutRequest,
   type MeResponse,
@@ -82,6 +84,12 @@ export class ApiClient {
 
   me(): Promise<MeResponse> {
     return this.request('/api/auth/me', meResponseSchema, {
+      auth: true,
+    })
+  }
+
+  listRequisitions(): Promise<ListRequisitionsResponse> {
+    return this.request('/api/requisitions', listRequisitionsResponseSchema, {
       auth: true,
     })
   }

@@ -4,7 +4,7 @@ The browser client provides the baseline auth flow for future web features. It c
 
 ## Project Surface Status
 
-This section may be updated during first-run bootstrap. If the root `README.md` marks web as deferred, add a short note here explaining that browser work is intentionally paused. When the user activates web, remove or rewrite that note before starting browser development.
+**Active surface (Phase 0).** The browser client is the primary recruiter UI for HR-System. Phase 0 ships the auth baseline plus a working read-only `/requisitions` page (powered by `GET /api/requisitions` + the `requireRole` guard). The remaining routes (`/requisitions/new`, `/requisitions/:id`, `/vacancies*`, `/applications*`, `/admin/*`) are wired as placeholders that document the endpoints/forms they will host; the data-driven UI (forms, kanban, admin tables) lands alongside the matching backend routes in Phase 0.x / Phase 1.
 
 ## Stack
 

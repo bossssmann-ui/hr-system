@@ -1,5 +1,5 @@
 {
-  "name": "vibecoding-template",
+  "name": "hr-system",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -22,7 +22,7 @@
     "build:mobile": "bun run --cwd mobile build",
     "build:backend": "bun run --cwd backend build",
     "deploy:do:specs": "bun scripts/prepare-do-specs.mjs",
-    "typecheck": "bun run --filter '*' --sequential typecheck",
+    "typecheck": "bun run --filter '@web-app-demo/backend' --filter '@web-app-demo/web-frontend' --filter '@web-app-demo/contracts' --sequential typecheck",
     "typecheck:web": "bun run --cwd web typecheck",
     "typecheck:landing": "bun run --cwd landing typecheck",
     "typecheck:mobile": "bun run --cwd mobile typecheck",
