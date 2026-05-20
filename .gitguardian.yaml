@@ -1,0 +1,10 @@
+# GitGuardian config — exclude test-only false positives.
+# Production code is still scanned for secrets.
+version: 2
+secret:
+  ignored_paths:
+    - "backend/src/**/*.test.ts"
+    - "backend/src/**/*.spec.ts"
+    - "**/*.test.ts"
+    - "**/*.spec.ts"
+    - "**/__fixtures__/**"
