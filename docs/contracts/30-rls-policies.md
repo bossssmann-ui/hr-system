@@ -53,6 +53,8 @@ A query that omits `tenant_id` is impossible to satisfy without leaking; the dat
 | `ApplicationStageEvent` | full read, insert with `actor=current_user_id` | same | read for own requisitions | none |
 | `AuditEvent` | full read | read of own actions | read of own actions | none |
 | `Notification` | full read of own row | full read of own row | full read of own row | full read of own row |
+| `HhConnection` | full (tenant-scoped) | none | none | none |
+| `HhSyncCursor` | full (tenant-scoped) | read+write | none | none |
 | `OrgUnit` | full | read | read | none |
 | `UserRole` | full | none | none | none |
 

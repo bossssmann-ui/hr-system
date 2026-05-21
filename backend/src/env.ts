@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { isHhEncryptionKeyStrongEnough } from './integrations/hh/crypto'
 
 const booleanStringSchema = z
   .enum(['true', 'false'])
@@ -43,6 +44,10 @@ const envSchema = z.object({
   ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(15 * 60),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(30),
   COOKIE_SECURE: booleanStringSchema,
+  HH_INTEGRATION_ENABLED: booleanStringSchema,
+  HH_CLIENT_ID: optionalStringSchema,
+  HH_CLIENT_SECRET: optionalStringSchema,
+  HH_TOKEN_ENCRYPTION_KEY: optionalStringSchema,
   SPACES_REGION: optionalStringSchema,
   SPACES_BUCKET: optionalStringSchema,
   SPACES_ENDPOINT: optionalUrlSchema,
@@ -57,6 +62,7 @@ const envSchema = z.object({
   validateJwtSecret(env, ctx)
   validateCorsOrigins(env, ctx)
   validateStorageEnv(env, ctx)
+  validateHhIntegrationEnv(env, ctx)
 })
 
 export type AppEnv = z.infer<typeof envSchema>
@@ -169,5 +175,33 @@ function validateStorageEnv(env: z.infer<typeof envSchema>, ctx: z.RefinementCtx
         message: `${key} is required when DigitalOcean Spaces storage is configured`,
       })
     }
+  }
+}
+
+function validateHhIntegrationEnv(env: z.infer<typeof envSchema>, ctx: z.RefinementCtx) {
+  if (!env.HH_INTEGRATION_ENABLED) return
+
+  if (!env.HH_CLIENT_ID) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['HH_CLIENT_ID'],
+      message: 'HH_CLIENT_ID is required when HH integration is enabled',
+    })
+  }
+
+  if (!env.HH_CLIENT_SECRET) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['HH_CLIENT_SECRET'],
+      message: 'HH_CLIENT_SECRET is required when HH integration is enabled',
+    })
+  }
+
+  if (!isHhEncryptionKeyStrongEnough(env.HH_TOKEN_ENCRYPTION_KEY)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['HH_TOKEN_ENCRYPTION_KEY'],
+      message: 'HH_TOKEN_ENCRYPTION_KEY must be at least 16 characters when HH integration is enabled',
+    })
   }
 }

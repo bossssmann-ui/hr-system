@@ -1,0 +1,10 @@
+{
+  "collections": [
+    {
+      "id": "response",
+      "name": "Responses",
+      "type": "response",
+      "url": "/negotiations/response?vacancy_id=hh-vac-77"
+    }
+  ]
+}

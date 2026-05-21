@@ -29,6 +29,7 @@ function toDto(row: {
   tenantId: string
   requisitionId: string
   orgUnitId: string
+  hhVacancyId: string | null
   createdAt: Date
   updatedAt: Date
 }): Vacancy {
@@ -40,6 +41,7 @@ function toDto(row: {
     tenantId: row.tenantId,
     requisitionId: row.requisitionId,
     orgUnitId: row.orgUnitId,
+    hhVacancyId: row.hhVacancyId,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   }

@@ -39,6 +39,7 @@ type RawApplication = {
   stage: string
   assignedToUserId: string | null
   notes: string | null
+  externalIds: unknown
   createdAt: Date
   updatedAt: Date
 }
@@ -52,9 +53,21 @@ function toDto(row: RawApplication): Application {
     stage: row.stage as Application['stage'],
     assignedToUserId: row.assignedToUserId,
     notes: row.notes,
+    externalIds: asRecord(row.externalIds),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   }
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {}
+}
+
+function asNullableRecord(value: unknown): Record<string, unknown> | null {
+  if (value === null || value === undefined) return null
+  return asRecord(value)
 }
 
 export function createApplicationsRoutes() {
@@ -119,6 +132,8 @@ export function createApplicationsRoutes() {
         phone: row.candidate.phone,
         location: row.candidate.location,
         source: row.candidate.source as Candidate['source'],
+        externalIds: asRecord(row.candidate.externalIds),
+        consentContext: asNullableRecord(row.candidate.consentContext),
         createdAt: row.candidate.createdAt.toISOString(),
         updatedAt: row.candidate.updatedAt.toISOString(),
       }
@@ -131,6 +146,7 @@ export function createApplicationsRoutes() {
         isPublished: row.vacancy.isPublished,
         requisitionId: row.vacancy.requisitionId,
         orgUnitId: row.vacancy.orgUnitId,
+        hhVacancyId: row.vacancy.hhVacancyId,
         createdAt: row.vacancy.createdAt.toISOString(),
         updatedAt: row.vacancy.updatedAt.toISOString(),
       }

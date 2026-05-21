@@ -12,6 +12,7 @@ import { createCandidatesRoutes } from './features/candidates/candidates.routes'
 import { createOrgUnitsRoutes } from './features/org-units/org-units.routes'
 import { createRequisitionsRoutes } from './features/requisitions/requisitions.routes'
 import { createVacanciesRoutes } from './features/vacancies/vacancies.routes'
+import { createHhIntegrationRoutes } from './integrations/hh/routes'
 import { createAuditMiddleware } from './http/audit'
 import { errorResponse, handleError } from './http/errors'
 import { createStorageServiceFromEnv, type StorageService } from './storage/service'
@@ -89,6 +90,7 @@ export function createApp({ env, prisma }: CreateAppOptions) {
   app.route('/api/candidates', createCandidatesRoutes())
   app.route('/api/applications', createApplicationsRoutes())
   app.route('/api/admin', createAdminRoutes())
+  app.route('/api/integrations/hh', createHhIntegrationRoutes())
 
   app.doc('/openapi.json', {
     openapi: '3.0.0',

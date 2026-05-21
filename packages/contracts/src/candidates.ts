@@ -20,6 +20,8 @@ export const candidateSchema = z.object({
   phone: z.string().nullable(),
   location: z.string().nullable(),
   source: candidateSourceSchema,
+  externalIds: z.record(z.string(), z.unknown()).optional().default({}),
+  consentContext: z.record(z.string(), z.unknown()).nullable().optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 })

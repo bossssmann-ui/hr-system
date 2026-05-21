@@ -30,6 +30,8 @@ function toDto(row: {
   phone: string | null
   location: string | null
   source: string
+  externalIds: unknown
+  consentContext: unknown
   createdAt: Date
   updatedAt: Date
 }): Candidate {
@@ -41,9 +43,22 @@ function toDto(row: {
     phone: row.phone,
     location: row.location,
     source: row.source as Candidate['source'],
+    externalIds: asRecord(row.externalIds),
+    consentContext: asNullableRecord(row.consentContext),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   }
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {}
+}
+
+function asNullableRecord(value: unknown): Record<string, unknown> | null {
+  if (value === null || value === undefined) return null
+  return asRecord(value)
 }
 
 export function createCandidatesRoutes() {

@@ -278,6 +278,64 @@ test('bootstrapAuthSession waits for stale-cookie cleanup before completing', as
   expect(events).toEqual(['refresh', 'cleanup:start', 'cleanup:done'])
 })
 
+test('ApiClient HH integration methods hit expected endpoints', async () => {
+  const calls: Array<{ pathWithQuery: string; method: string }> = []
+
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(String(input))
+    calls.push({
+      pathWithQuery: `${url.pathname}${url.search}`,
+      method: init?.method ?? 'GET',
+    })
+
+    if (url.pathname === '/api/integrations/hh/authorize-url') {
+      return json({ enabled: true, configured: true, authorizeUrl: 'https://hh.ru/oauth/authorize' }, 200)
+    }
+    if (url.pathname === '/api/integrations/hh/callback') {
+      return json({ connected: true }, 200)
+    }
+    if (url.pathname === '/api/integrations/hh/status') {
+      return json({ enabled: true, configured: true, connected: true, linkedVacancies: [], lastSyncAt: null }, 200)
+    }
+    if (url.pathname === '/api/integrations/hh/sync') {
+      return json({
+        ok: true,
+        summary: {
+          importedCandidates: 0,
+          upsertedApplications: 0,
+          vacanciesProcessed: 0,
+          negotiationsScanned: 0,
+          lastSyncedAt: null,
+        },
+      }, 200)
+    }
+    if (url.pathname === '/api/integrations/hh/vacancies/v1/link') {
+      return json({ vacancy: { id: 'v1', title: 'Backend', hhVacancyId: 'hh-1' } }, 200)
+    }
+
+    return json({ error: { code: 'NOT_FOUND', message: 'Unexpected request' } }, 404)
+  }
+
+  const client = new ApiClient({
+    getAccessToken: () => 'token',
+    setAccessToken: () => undefined,
+  })
+
+  await client.getHhAuthorizeUrl({ redirectUri: 'http://localhost:5173/admin/integrations/hh' })
+  await client.completeHhOAuth({ code: 'abc', redirectUri: 'http://localhost:5173/admin/integrations/hh' })
+  await client.getHhIntegrationStatus()
+  await client.syncHhNow()
+  await client.linkVacancyToHh('v1', { hhVacancyId: 'hh-1' })
+
+  expect(calls.map((call) => `${call.method} ${call.pathWithQuery}`)).toEqual([
+    'GET /api/integrations/hh/authorize-url?redirect_uri=http%3A%2F%2Flocalhost%3A5173%2Fadmin%2Fintegrations%2Fhh',
+    'GET /api/integrations/hh/callback?code=abc&redirect_uri=http%3A%2F%2Flocalhost%3A5173%2Fadmin%2Fintegrations%2Fhh',
+    'GET /api/integrations/hh/status',
+    'POST /api/integrations/hh/sync',
+    'PATCH /api/integrations/hh/vacancies/v1/link',
+  ])
+})
+
 async function waitForEvent(events: string[], event: string) {
   for (let attempt = 0; attempt < 10; attempt += 1) {
     if (events.includes(event)) return

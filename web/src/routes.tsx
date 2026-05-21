@@ -3,6 +3,7 @@ import { createRootRoute, createRoute, createRouter } from '@tanstack/react-rout
 import { AppPage, HomePage, RootLayout } from './pages'
 import {
   AdminAuditLogPage,
+  AdminHhIntegrationPage,
   AdminUsersPage,
   ApplicationDetailPage,
   ApplicationsPage,
@@ -93,6 +94,12 @@ const adminAuditLogRoute = createRoute({
   component: AdminAuditLogPage,
 })
 
+const adminHhIntegrationRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/integrations/hh',
+  component: AdminHhIntegrationPage,
+})
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   appRoute,
@@ -106,6 +113,7 @@ const routeTree = rootRoute.addChildren([
   applicationDetailRoute,
   adminUsersRoute,
   adminAuditLogRoute,
+  adminHhIntegrationRoute,
 ])
 
 export const router = createRouter({ routeTree })

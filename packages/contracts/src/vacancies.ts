@@ -8,6 +8,7 @@ export const vacancySchema = z.object({
   tenantId: z.string(),
   requisitionId: z.string(),
   orgUnitId: z.string(),
+  hhVacancyId: z.string().nullable().optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 })
@@ -25,3 +26,9 @@ export const publishVacancyRequestSchema = z.object({
 })
 
 export type PublishVacancyRequest = z.infer<typeof publishVacancyRequestSchema>
+
+export const linkVacancyToHhRequestSchema = z.object({
+  hhVacancyId: z.string().min(1).nullable(),
+})
+
+export type LinkVacancyToHhRequest = z.infer<typeof linkVacancyToHhRequestSchema>

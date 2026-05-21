@@ -181,6 +181,7 @@ model Vacancy {
   tenantId      String   @db.Uuid @map("tenant_id")
   requisitionId String   @unique @db.Uuid @map("requisition_id")
   orgUnitId     String   @db.Uuid @map("org_unit_id")
+  hhVacancyId   String?  @unique @map("hh_vacancy_id")
   title         String
   description   String
   isPublished   Boolean  @default(false) @map("is_published")
@@ -190,6 +191,7 @@ model Vacancy {
   requisition  HiringRequisition @relation(fields: [requisitionId], references: [id], map: "vacancies_requisition_id_fkey")
   orgUnit      OrgUnit           @relation(fields: [orgUnitId], references: [id], map: "vacancies_org_unit_id_fkey")
   applications Application[]
+  hhSyncCursor HhSyncCursor?
 
   @@index([tenantId], map: "vacancies_tenant_id_idx")
   @@index([orgUnitId], map: "vacancies_org_unit_id_idx")
@@ -205,6 +207,7 @@ model Candidate {
   location    String?
   source      CandidateSource @default(manual)
   externalIds Json            @default("{}") @map("external_ids")
+  consentContext Json?        @map("consent_context")
   createdAt   DateTime        @default(now()) @map("created_at")
   updatedAt   DateTime        @updatedAt @map("updated_at")
 
@@ -243,6 +246,7 @@ model Application {
   assignedToUserId  String?          @db.Uuid @map("assigned_to_user_id")
   notes             String?
   aiScoring         Json?            @map("ai_scoring")
+  externalIds       Json             @default("{}") @map("external_ids")
   createdAt         DateTime         @default(now()) @map("created_at")
   updatedAt         DateTime         @updatedAt @map("updated_at")
 
@@ -311,4 +315,34 @@ model Notification {
   @@index([tenantId], map: "notifications_tenant_id_idx")
   @@index([recipientUserId, readAt], map: "notifications_recipient_read_idx")
   @@map("notifications")
+}
+
+model HhConnection {
+  id                  String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId            String   @unique @db.Uuid @map("tenant_id")
+  accessToken         String   @map("access_token")
+  refreshToken        String   @map("refresh_token")
+  tokenExpiresAt      DateTime @map("token_expires_at")
+  connectedEmployerId String?  @map("connected_employer_id")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId], map: "hh_connections_tenant_id_idx")
+  @@map("hh_connections")
+}
+
+model HhSyncCursor {
+  id                String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId          String   @db.Uuid @map("tenant_id")
+  vacancyId         String   @unique @db.Uuid @map("vacancy_id")
+  lastSyncedAt      DateTime? @map("last_synced_at")
+  lastNegotiationId String?   @map("last_negotiation_id")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  vacancy Vacancy @relation(fields: [vacancyId], references: [id], onDelete: Cascade, map: "hh_sync_cursors_vacancy_id_fkey")
+
+  @@index([tenantId], map: "hh_sync_cursors_tenant_id_idx")
+  @@index([vacancyId], map: "hh_sync_cursors_vacancy_id_idx")
+  @@map("hh_sync_cursors")
 }
