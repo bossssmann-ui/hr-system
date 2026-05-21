@@ -13,6 +13,10 @@ describe('loadEnv', () => {
     expect(env.PORT).toBe(3000)
     expect(env.ACCESS_TOKEN_TTL_SECONDS).toBe(900)
     expect(env.COOKIE_SECURE).toBe(false)
+    expect(env.HH_INTEGRATION_ENABLED).toBe(false)
+    expect(env.HH_CLIENT_ID).toBeUndefined()
+    expect(env.HH_CLIENT_SECRET).toBeUndefined()
+    expect(env.HH_TOKEN_ENCRYPTION_KEY).toBeUndefined()
     expect(env.CORS_ORIGINS).toEqual(['http://localhost:5173', 'http://localhost:8081'])
     expect(env.SPACES_REGION).toBeUndefined()
     expect(env.SPACES_UPLOAD_MAX_BYTES).toBe(10 * 1024 * 1024)
@@ -106,5 +110,27 @@ describe('loadEnv', () => {
         CORS_ORIGINS: 'http://web.example.com',
       }),
     ).toThrow('CORS_ORIGINS')
+  })
+
+  test('requires HH credentials and encryption key when HH integration is enabled', () => {
+    expect(() =>
+      loadEnv({
+        DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/web_app_demo',
+        JWT_SECRET: '12345678901234567890123456789012',
+        HH_INTEGRATION_ENABLED: 'true',
+      }),
+    ).toThrow('HH_CLIENT_ID')
+
+    const env = loadEnv({
+      DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/web_app_demo',
+      JWT_SECRET: '12345678901234567890123456789012',
+      HH_INTEGRATION_ENABLED: 'true',
+      HH_CLIENT_ID: 'client-id',
+      HH_CLIENT_SECRET: 'client-secret',
+      HH_TOKEN_ENCRYPTION_KEY: 'this-is-a-strong-enough-key',
+    })
+
+    expect(env.HH_INTEGRATION_ENABLED).toBe(true)
+    expect(env.HH_CLIENT_ID).toBe('client-id')
   })
 })

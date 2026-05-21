@@ -6,7 +6,7 @@ import { useForm } from "@tanstack/react-form"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate, useParams } from "@tanstack/react-router"
 import type { Application, ApplicationStage, OrgUnit, RequisitionStatus, Vacancy } from "@web-app-demo/contracts"
-import { useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -782,6 +782,205 @@ export function AdminAuditLogPage() {
   const auth = useAuth()
   if (!auth.user) return <LoginRequired />
   return <AdminAuditLog />
+}
+
+// ─── Admin HH Integration ──────────────────────────────────────────────────────
+
+export function AdminHhIntegrationPage() {
+  const auth = useAuth()
+  if (!auth.user) return <LoginRequired />
+  return <AdminHhIntegration />
+}
+
+function AdminHhIntegration() {
+  const { api, user } = useAuth()
+  const queryClient = useQueryClient()
+  const [hhVacancyInputs, setHhVacancyInputs] = useState<Record<string, string>>({})
+  const [syncResult, setSyncResult] = useState<string | null>(null)
+  const oauthCodeHandledRef = useRef<string | null>(null)
+
+  const statusQuery = useQuery({
+    queryKey: ["admin", "hh", "status"],
+    queryFn: () => api.getHhIntegrationStatus(),
+    enabled: Boolean(user),
+  })
+
+  const vacanciesQuery = useQuery({
+    queryKey: ["vacancies"],
+    queryFn: () => api.listVacancies(),
+    enabled: Boolean(user),
+  })
+
+  const connectMutation = useMutation({
+    mutationFn: async () => {
+      const redirectUri = `${window.location.origin}/admin/integrations/hh`
+      const result = await api.getHhAuthorizeUrl({ redirectUri })
+      if (!result.authorizeUrl) {
+        throw new Error(result.reason ?? "HH authorize URL is unavailable")
+      }
+      window.location.href = result.authorizeUrl
+    },
+    onError: (error: unknown) => {
+      toast.error(error instanceof Error ? error.message : "Failed to prepare HH OAuth")
+    },
+  })
+
+  const callbackMutation = useMutation({
+    mutationFn: ({ code, redirectUri }: { code: string; redirectUri: string }) => api.completeHhOAuth({ code, redirectUri }),
+    onSuccess: async () => {
+      toast.success("HH connected")
+      await queryClient.invalidateQueries({ queryKey: ["admin", "hh", "status"] })
+    },
+    onError: (error: unknown) => {
+      toast.error(error instanceof ApiRequestError ? error.message : "Failed to complete HH OAuth")
+    },
+  })
+
+  const syncMutation = useMutation({
+    mutationFn: () => api.syncHhNow(),
+    onSuccess: async (result) => {
+      setSyncResult(`Imported ${result.summary.importedCandidates} candidates; upserted ${result.summary.upsertedApplications} applications.`)
+      toast.success("HH sync completed")
+      await queryClient.invalidateQueries({ queryKey: ["admin", "hh", "status"] })
+      await queryClient.invalidateQueries({ queryKey: ["applications"] })
+      await queryClient.invalidateQueries({ queryKey: ["candidates"] })
+    },
+    onError: (error: unknown) => {
+      toast.error(error instanceof ApiRequestError ? error.message : "HH sync failed")
+    },
+  })
+
+  const linkMutation = useMutation({
+    mutationFn: ({ vacancyId, hhVacancyId }: { vacancyId: string; hhVacancyId: string | null }) =>
+      api.linkVacancyToHh(vacancyId, { hhVacancyId }),
+    onSuccess: async () => {
+      toast.success("Vacancy mapping updated")
+      await queryClient.invalidateQueries({ queryKey: ["vacancies"] })
+      await queryClient.invalidateQueries({ queryKey: ["admin", "hh", "status"] })
+    },
+    onError: (error: unknown) => {
+      toast.error(error instanceof ApiRequestError ? error.message : "Failed to save vacancy link")
+    },
+  })
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const code = params.get("code")
+    if (!code) return
+    if (oauthCodeHandledRef.current === code || callbackMutation.isPending) return
+    oauthCodeHandledRef.current = code
+    const redirectUri = `${window.location.origin}/admin/integrations/hh`
+    callbackMutation.mutate({ code, redirectUri })
+    params.delete("code")
+    params.delete("state")
+    const next = params.toString()
+    const cleanUrl = next.length > 0 ? `${window.location.pathname}?${next}` : window.location.pathname
+    window.history.replaceState({}, "", cleanUrl)
+  }, [])
+
+  const vacancies = vacanciesQuery.data?.items ?? []
+
+  const vacancyInputValues = useMemo(() => {
+    const initial: Record<string, string> = {}
+    for (const vacancy of vacancies) {
+      initial[vacancy.id] = hhVacancyInputs[vacancy.id] ?? vacancy.hhVacancyId ?? ""
+    }
+    return initial
+  }, [vacancies, hhVacancyInputs])
+
+  if (statusQuery.isPending || vacanciesQuery.isPending) return <LoadingCard />
+  if (statusQuery.isError) {
+    return <ErrorCard message={statusQuery.error instanceof ApiRequestError ? statusQuery.error.message : "Could not load HH integration status"} />
+  }
+  if (vacanciesQuery.isError) {
+    return <ErrorCard message={vacanciesQuery.error instanceof ApiRequestError ? vacanciesQuery.error.message : "Could not load vacancies"} />
+  }
+
+  const status = statusQuery.data
+
+  return (
+    <section className="mx-auto grid w-full max-w-6xl gap-6 px-5 py-12">
+      <div className="grid gap-3">
+        <Badge variant="outline" className="w-fit">Admin · Integrations</Badge>
+        <Typography variant="h1">HH.ru negotiations sync</Typography>
+      </div>
+
+      {!status.enabled && (
+        <Alert>
+          <AlertTitle>Not configured</AlertTitle>
+          <AlertDescription>{status.reason ?? "HH integration is disabled or missing credentials."}</AlertDescription>
+        </Alert>
+      )}
+
+      {status.enabled && (
+        <Card>
+          <CardContent className="grid gap-4 pt-6">
+            <Typography tone="muted">
+              {status.connected
+                ? `Connected${status.connection?.connectedEmployerId ? ` (employer ${status.connection.connectedEmployerId})` : ""}.`
+                : "Not connected yet."}
+            </Typography>
+            <div className="flex flex-wrap gap-3">
+              <Button onClick={() => connectMutation.mutate()} disabled={connectMutation.isPending}>
+                {connectMutation.isPending ? "Preparing..." : status.connected ? "Reconnect HH" : "Connect HH"}
+              </Button>
+              <Button variant="outline" onClick={() => syncMutation.mutate()} disabled={syncMutation.isPending || !status.connected}>
+                {syncMutation.isPending ? "Syncing..." : "Sync now"}
+              </Button>
+            </div>
+            {syncResult && <Typography variant="bodySm" tone="muted">{syncResult}</Typography>}
+            {status.lastSyncAt && (
+              <Typography variant="bodySm" tone="muted">Last sync: {new Date(status.lastSyncAt).toLocaleString()}</Typography>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Vacancy mapping</CardTitle>
+          <CardDescription>Link each local vacancy with its HH vacancy ID for negotiations polling.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3">
+          {vacancies.length === 0 ? (
+            <Typography tone="muted">No vacancies to map yet.</Typography>
+          ) : (
+            <ul className="grid gap-2">
+              {vacancies.map((vacancy) => (
+                <li key={vacancy.id} className="flex flex-wrap items-center gap-2 rounded-md border p-3">
+                  <Typography className="min-w-52 flex-1">{vacancy.title}</Typography>
+                  <Input
+                    value={vacancyInputValues[vacancy.id] ?? ""}
+                    onChange={(event) =>
+                      setHhVacancyInputs((prev) => ({
+                        ...prev,
+                        [vacancy.id]: event.target.value,
+                      }))
+                    }
+                    placeholder="HH vacancy ID"
+                    className="w-52"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      linkMutation.mutate({
+                        vacancyId: vacancy.id,
+                        hhVacancyId: (vacancyInputValues[vacancy.id] ?? "").trim() || null,
+                      })
+                    }
+                    disabled={linkMutation.isPending}
+                  >
+                    Save
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+    </section>
+  )
 }
 
 function AdminAuditLog() {

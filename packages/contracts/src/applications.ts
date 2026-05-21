@@ -23,6 +23,7 @@ export const applicationSchema = z.object({
   stage: applicationStageSchema,
   assignedToUserId: z.string().nullable(),
   notes: z.string().nullable(),
+  externalIds: z.record(z.string(), z.unknown()).optional().default({}),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 })

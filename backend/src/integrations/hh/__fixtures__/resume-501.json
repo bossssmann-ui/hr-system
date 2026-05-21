@@ -1,0 +1,33 @@
+{
+  "id": "resume-501",
+  "title": "Backend engineer",
+  "first_name": "Alice",
+  "last_name": "Ivanova",
+  "area": {
+    "name": "Moscow"
+  },
+  "salary": {
+    "amount": 300000,
+    "currency": "RUR"
+  },
+  "total_experience": {
+    "months": 72
+  },
+  "skills": ["TypeScript", "PostgreSQL", "Hono"],
+  "contact": [
+    {
+      "type": {
+        "id": "email",
+        "name": "Email"
+      },
+      "value": "alice@example.com"
+    },
+    {
+      "type": {
+        "id": "cell",
+        "name": "Телефон"
+      },
+      "value": "+79990001122"
+    }
+  ]
+}

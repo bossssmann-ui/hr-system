@@ -32,6 +32,7 @@ Required fields per write:
 | Candidate | `candidate.create`, `candidate.update`, `candidate.delete` |
 | Resume | `resume.upload`, `resume.soft_delete` |
 | Application | `application.create`, `application.update`, `application.move_stage`, `application.assign`, `application.delete` |
+| Integrations (HH.ru) | `hh.sync.candidate_imported` |
 | Auth | `auth.login`, `auth.logout`, `auth.refresh`, `auth.password_changed` |
 | Admin | `user.role_added`, `user.role_removed` |
 
@@ -88,6 +89,10 @@ In Phase 0 the admin page exposes pagination + filters on `actor_user_id`, `enti
 | `ApplicationStageEvent` | Indefinite (small volume per application). |
 | `Resume` | Soft-delete in Phase 0; hard-delete at 365 days enforced in Phase 11 for 152-ФЗ / GDPR compliance. |
 | `Notification` | Soft-delete after `read_at + 90 days` (Phase 1+). |
+
+## 152-ФЗ note for HH imports
+
+For `hh.sync.candidate_imported`, the candidate record keeps consent context indicating the applicant-initiated HH negotiation source, import timestamp, and negotiation id. This is the legal basis for storing HH-imported candidate data in Phase 1A.
 
 ## Logging vs audit
 

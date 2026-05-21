@@ -67,6 +67,11 @@ export function RootLayout() {
                 Admin
               </Link>
             </Typography>
+            <Typography asChild variant="control" tone="muted">
+              <Link to="/admin/integrations/hh" className={navLinkClass}>
+                HH
+              </Link>
+            </Typography>
           </nav>
           {auth.isAuthenticated && (
             <Button type="button" variant="outline" size="sm" onClick={() => void auth.logout()}>

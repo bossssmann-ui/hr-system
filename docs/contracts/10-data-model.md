@@ -87,6 +87,7 @@ The externally-visible posting for an approved requisition.
 | `tenant_id` | UUID | |
 | `requisition_id` | UUID | FK → `HiringRequisition`. `@unique` (1:1). |
 | `org_unit_id` | UUID | Denormalised from the requisition for query simplicity. |
+| `hh_vacancy_id` | string? | HH.ru vacancy identifier for negotiations sync. Nullable until linked by admin, unique when present. |
 | `title` | string | May differ from the requisition title (job-board friendly wording). |
 | `description` | text | Job-board friendly description. |
 | `is_published` | bool | |
@@ -110,6 +111,7 @@ A person who applied or was sourced. Independent of any single vacancy.
 | `location` | string? | Free text city/country. |
 | `source` | enum | `manual`, `hh_ru`, `sberpodbor`, `avito`, `rabota_ru`, `referral`, `careers_page`. |
 | `external_ids` | jsonb | e.g. `{"hh_id": "..."}`. Populated by Phase 1+ integrations. |
+| `consent_context` | jsonb? | Consent/legal basis context for imported candidates (e.g. HH applicant-initiated negotiation). |
 | `created_at` / `updated_at` | timestamp | |
 
 Invariants:
@@ -146,6 +148,7 @@ A candidate's pursuit of a specific vacancy. The Kanban funnel operates on this 
 | `assigned_to_user_id` | UUID? | Recruiter handling the application. |
 | `notes` | text? | Free-text recruiter notes. |
 | `ai_scoring` | jsonb? | Populated by Phase 1+. |
+| `external_ids` | jsonb | Integration ids, e.g. `{"hh_negotiation_id":"..."}`. |
 | `created_at` / `updated_at` | timestamp | |
 
 Invariants:
@@ -207,6 +210,33 @@ Inbox-style record written by `Notifier.notify('in_app', …)`. The `email` and 
 | `payload` | jsonb | Template variables. |
 | `read_at` | timestamp? | Null until the recipient marks it read. |
 | `created_at` | timestamp | |
+
+### `HhConnection`
+
+Per-tenant HH OAuth credential storage for negotiations sync.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | UUID | PK |
+| `tenant_id` | UUID | Unique per tenant. |
+| `access_token` | string | Encrypted at rest (application-level encryption helper). |
+| `refresh_token` | string | Encrypted at rest (application-level encryption helper). |
+| `token_expires_at` | timestamp | HH access token expiry. |
+| `connected_employer_id` | string? | Employer id from HH `/me` response. |
+| `created_at` / `updated_at` | timestamp | |
+
+### `HhSyncCursor`
+
+Incremental polling cursor per linked vacancy.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | UUID | PK |
+| `tenant_id` | UUID | |
+| `vacancy_id` | UUID | FK → `Vacancy`, unique (one cursor per vacancy). |
+| `last_synced_at` | timestamp? | Last processed negotiation timestamp. |
+| `last_negotiation_id` | string? | Tie-breaker for equal timestamps. |
+| `created_at` / `updated_at` | timestamp | |
 
 ## Bootstrap tenant + owner
 

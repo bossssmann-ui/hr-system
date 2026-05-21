@@ -29,6 +29,10 @@ const env: AppEnv = {
   ACCESS_TOKEN_TTL_SECONDS: 3600,
   REFRESH_TOKEN_TTL_DAYS: 30,
   COOKIE_SECURE: false,
+  HH_INTEGRATION_ENABLED: false,
+  HH_CLIENT_ID: undefined,
+  HH_CLIENT_SECRET: undefined,
+  HH_TOKEN_ENCRYPTION_KEY: undefined,
   SPACES_UPLOAD_MAX_BYTES: 10 * 1024 * 1024,
   SPACES_UPLOAD_URL_TTL_SECONDS: 900,
   SPACES_DOWNLOAD_URL_TTL_SECONDS: 300,
@@ -642,6 +646,31 @@ maybeDescribe('Phase 1B recruiting routes', () => {
       expect(res.status).toBe(200)
       const body = await res.json()
       expect(Array.isArray(body.items)).toBe(true)
+    })
+  })
+
+  // ─── HH integration (feature disabled by default) ─────────────────────────
+
+  describe('hh integration', () => {
+    test('status reports not configured when feature flag is disabled', async () => {
+      const res = await app.request('/api/integrations/hh/status', {
+        headers: { Authorization: `Bearer ${ownerToken}` },
+      })
+
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.enabled).toBe(false)
+      expect(body.configured).toBe(false)
+      expect(body.connected).toBe(false)
+    })
+
+    test('sync endpoint is unavailable when feature is disabled', async () => {
+      const res = await app.request('/api/integrations/hh/sync', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${ownerToken}` },
+      })
+
+      expect(res.status).toBe(400)
     })
   })
 })

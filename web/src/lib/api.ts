@@ -11,6 +11,12 @@ import {
   listRequisitionsResponseSchema,
   listUsersResponseSchema,
   listVacanciesResponseSchema,
+  hhAuthorizeUrlResponseSchema,
+  hhCallbackResponseSchema,
+  hhIntegrationStatusSchema,
+  hhSyncResponseSchema,
+  hhVacancyLinkResponseSchema,
+  linkVacancyToHhRequestSchema,
   loginRequestSchema,
   logoutRequestSchema,
   meResponseSchema,
@@ -45,6 +51,12 @@ import {
   type Requisition,
   type TransitionRequisitionRequest,
   type Vacancy,
+  type HhAuthorizeUrlResponse,
+  type HhCallbackResponse,
+  type HhIntegrationStatus,
+  type HhSyncResponse,
+  type HhVacancyLinkResponse,
+  type LinkVacancyToHhRequest,
 } from '@web-app-demo/contracts'
 import { z } from 'zod'
 
@@ -242,6 +254,38 @@ export class ApiClient {
     if (params?.entityType) qs.set('entityType', params.entityType)
     const qStr = qs.toString() ? `?${qs.toString()}` : ''
     return this.request(`/api/admin/audit-events${qStr}`, listAuditEventsResponseSchema, {
+      auth: true,
+    })
+  }
+
+  // ─── HH integration ──────────────────────────────────────────────────────────
+
+  getHhAuthorizeUrl(params?: { redirectUri?: string }): Promise<HhAuthorizeUrlResponse> {
+    const qs = new URLSearchParams()
+    if (params?.redirectUri) qs.set('redirect_uri', params.redirectUri)
+    const qStr = qs.toString() ? `?${qs.toString()}` : ''
+    return this.request(`/api/integrations/hh/authorize-url${qStr}`, hhAuthorizeUrlResponseSchema, { auth: true })
+  }
+
+  completeHhOAuth(input: { code: string; redirectUri?: string }): Promise<HhCallbackResponse> {
+    const qs = new URLSearchParams({ code: input.code })
+    if (input.redirectUri) qs.set('redirect_uri', input.redirectUri)
+    return this.request(`/api/integrations/hh/callback?${qs.toString()}`, hhCallbackResponseSchema, { auth: true })
+  }
+
+  getHhIntegrationStatus(): Promise<HhIntegrationStatus> {
+    return this.request('/api/integrations/hh/status', hhIntegrationStatusSchema, { auth: true })
+  }
+
+  syncHhNow(): Promise<HhSyncResponse> {
+    return this.request('/api/integrations/hh/sync', hhSyncResponseSchema, { method: 'POST', auth: true })
+  }
+
+  linkVacancyToHh(id: string, input: LinkVacancyToHhRequest): Promise<HhVacancyLinkResponse> {
+    const payload = linkVacancyToHhRequestSchema.parse(input)
+    return this.request(`/api/integrations/hh/vacancies/${id}/link`, hhVacancyLinkResponseSchema, {
+      method: 'PATCH',
+      body: payload,
       auth: true,
     })
   }
