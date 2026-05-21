@@ -43,6 +43,12 @@ jobs:
       # instead.
       TEST_SKIP_DOCKER: "1"
       E2E_SKIP_DOCKER: "1"
+      # Bootstrap owner for the Playwright recruiting smoke (see backend/prisma/seed.ts).
+      # These are CI-only placeholder credentials — no real secrets.
+      BOOTSTRAP_TENANT_NAME: "E2E Corp"
+      BOOTSTRAP_OWNER_EMAIL: "e2e-owner@example.com"
+      BOOTSTRAP_OWNER_PASSWORD: "E2eOwnerPass1!"
+      BOOTSTRAP_OWNER_NAME: "E2E Owner"
 
     steps:
       - name: Checkout

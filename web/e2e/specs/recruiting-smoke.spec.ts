@@ -2,7 +2,7 @@
  * Phase 1B Playwright smoke test — full recruiting journey.
  *
  * Walks through:
- *   1. Register & login as the seeded owner
+ *   1. Log in as the seeded bootstrap owner
  *   2. Create an org unit
  *   3. Create a hiring requisition
  *   4. Approve the requisition step-by-step through to `approved`
@@ -10,31 +10,33 @@
  *   6. Create a candidate
  *   7. Create an application linking that candidate to the vacancy
  *   8. Move the application from `new` to `screen` on the kanban
+ *
+ * Prerequisites: the database must be seeded with a bootstrap owner before
+ * this test runs (global-setup.ts calls `prisma:seed` which is idempotent).
+ * Credentials come from the same BOOTSTRAP_* env vars used by the seed.
  */
 
-import { expect, test } from '../helpers/test'
-import { uniqueEmail } from '../helpers/test'
+import { expect, test, uniqueEmail } from '../helpers/test'
 
-const e2ePassword = 'RecruiterPass1!'
+// Credentials for the bootstrap owner seeded by prisma:seed.
+// Defaults match the CI job env; override locally via BOOTSTRAP_* env vars.
+const ownerEmail = process.env.BOOTSTRAP_OWNER_EMAIL ?? 'e2e-owner@example.com'
+const ownerPassword = process.env.BOOTSTRAP_OWNER_PASSWORD ?? 'E2eOwnerPass1!'
 
 test.describe('Phase 1B recruiting smoke', () => {
-  let ownerEmail: string
   let accessToken: string
 
   test.beforeAll(async ({ request }) => {
-    ownerEmail = uniqueEmail('owner-smoke')
-
-    // Register as owner via API.
-    const registerRes = await request.post('/api/auth/register', {
+    // Log in as the seeded owner (already has `owner` role + tenant).
+    const loginRes = await request.post('/api/auth/login', {
       data: {
         email: ownerEmail,
-        password: e2ePassword,
-        displayName: 'Smoke Owner',
+        password: ownerPassword,
       },
     })
-    expect(registerRes.ok()).toBeTruthy()
-    const registerBody = await registerRes.json()
-    accessToken = registerBody.accessToken as string
+    expect(loginRes.ok(), `owner login failed — is the DB seeded? status=${loginRes.status()}`).toBeTruthy()
+    const loginBody = await loginRes.json()
+    accessToken = loginBody.accessToken as string
   })
 
   test('complete recruiting journey', async ({ page, request }) => {
@@ -57,7 +59,7 @@ test.describe('Phase 1B recruiting smoke', () => {
     await page.goto('/')
     await page.getByRole('tab', { name: 'Login' }).click()
     await page.getByLabel('Email').fill(ownerEmail)
-    await page.getByLabel('Password').fill(e2ePassword)
+    await page.getByLabel('Password').fill(ownerPassword)
     await page.getByRole('button', { name: 'Login' }).click()
     await expect(page.getByRole('heading', { name: 'Session is active' })).toBeVisible()
 

@@ -60,7 +60,9 @@ TEST_SKIP_DOCKER=1   # backend integration runner skips docker compose
 E2E_SKIP_DOCKER=1    # Playwright global-setup skips docker compose
 ```
 
-With these vars set, both runners skip `docker compose up` and connect directly to the service container.  Playwright's `global-setup.ts` still applies migrations via `bun run --cwd backend prisma:deploy`; a separate "Generate Prisma client" step runs `bun run --cwd backend prisma:generate` before `e2e:web` so the client is available.
+With these vars set, both runners skip `docker compose up` and connect directly to the service container.  Playwright's `global-setup.ts` applies migrations via `bun run --cwd backend prisma:deploy`, then seeds the bootstrap owner via `bun run --cwd backend prisma:seed`.  A separate "Generate Prisma client" step runs `bun run --cwd backend prisma:generate` before `e2e:web` so the client is available.
+
+The bootstrap owner credentials are passed as CI job env vars (`BOOTSTRAP_OWNER_EMAIL`, `BOOTSTRAP_OWNER_PASSWORD`, `BOOTSTRAP_TENANT_NAME`, `BOOTSTRAP_OWNER_NAME`).  The recruiting smoke test logs in as this owner so role-protected endpoints (`POST /api/org-units`, etc.) succeed.  The seed is idempotent — re-running it on an existing database is safe.
 
 The Vite dev server started by Playwright proxies `/api/*` to the backend (`VITE_API_URL` in `web/vite.config.ts`).  This is required so that Playwright's `request` fixture, whose `baseURL` is the Vite origin, can reach the backend with relative `/api/...` paths.
 
@@ -74,6 +76,9 @@ First-time setup:
 docker compose version
 docker info
 cp backend/.env.example backend/.env
+# Edit backend/.env and set BOOTSTRAP_OWNER_EMAIL, BOOTSTRAP_OWNER_PASSWORD (>= 12 chars),
+# BOOTSTRAP_TENANT_NAME, and BOOTSTRAP_OWNER_NAME so the seed creates the owner account
+# used by the recruiting smoke test.
 bun run --cwd web e2e:install
 bun run e2e:web
 ```
@@ -90,7 +95,7 @@ The web E2E flow:
 - starts Vite on `E2E_WEB_PORT`, which defaults to a repository-derived port;
 - stops its `postgres_test` compose project and removes the test volume after the run unless `E2E_KEEP_DOCKER=1` is set;
 - runs the auth smoke path: client validation visibility -> register/login mode switching -> register -> cookie refresh after reload -> protected route -> logout -> invalid login error -> successful login.
-- runs the Phase 1B recruiting smoke: register → create org unit → create requisition → approve through FSM → auto-created vacancy → create candidate → create application → move stage on Kanban → verify audit log.
+- runs the Phase 1B recruiting smoke: login as seeded owner → create org unit → create requisition → approve through FSM → auto-created vacancy → create candidate → create application → move stage on Kanban → verify audit log.
 
 Useful env:
 
@@ -101,6 +106,11 @@ E2E_BACKEND_PORT=<backend-port>
 E2E_WEB_PORT=<web-port>
 E2E_SKIP_DOCKER=1
 E2E_KEEP_DOCKER=1
+# Bootstrap owner seeded before tests run (recruiting smoke uses these to log in)
+BOOTSTRAP_TENANT_NAME="E2E Corp"
+BOOTSTRAP_OWNER_EMAIL="e2e-owner@example.com"
+BOOTSTRAP_OWNER_PASSWORD="E2eOwnerPass1!"
+BOOTSTRAP_OWNER_NAME="E2E Owner"
 ```
 
 By default, Playwright computes `POSTGRES_TEST_PORT` from the absolute repository path and refuses to run against a database that does not use the `_test` suffix. This prevents E2E from accidentally writing to development or production data. Use `DATABASE_URL` only as a low-level override; `TEST_DATABASE_URL` is the documented test entry point.
