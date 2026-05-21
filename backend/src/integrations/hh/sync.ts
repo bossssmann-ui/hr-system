@@ -1,6 +1,7 @@
 import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
 import { Prisma } from '../../generated/prisma/client'
+import { enqueueApplicationScoringJob } from '../../features/scoring/scoring.queue'
 import { createInMemoryQueue } from '../../queues'
 import { createHhClient } from './client'
 import { decryptHhSecret, encryptHhSecret } from './crypto'
@@ -138,6 +139,7 @@ export async function syncHhNegotiationsForTenant(
           vacancyId: vacancy.id,
           negotiation,
           resume,
+          env,
           actorUserId: opts.actorUserId,
         })
 
@@ -216,6 +218,7 @@ export async function upsertNegotiationFromHh(
     vacancyId: string
     negotiation: HhNegotiation
     resume: HhResume
+    env?: AppEnv
     actorUserId?: string
   },
 ) {
@@ -259,6 +262,7 @@ export async function upsertNegotiationFromHh(
   const candidateExternalIds = mergeExternalIds(existingCandidate?.externalIds, {
     hh_resume_id: input.resume.id,
     hh_negotiation_id: input.negotiation.id,
+    hh_resume_snapshot: buildResumeSnapshot(input.resume),
   })
 
   const candidate = existingCandidate
@@ -302,6 +306,8 @@ export async function upsertNegotiationFromHh(
     },
   })
 
+  let applicationIdForScoring: string
+
   if (existingApplicationByNegotiation) {
     await prisma.application.update({
       where: { id: existingApplicationByNegotiation.id },
@@ -311,6 +317,7 @@ export async function upsertNegotiationFromHh(
         externalIds: mergeExternalIds(existingApplicationByNegotiation.externalIds, applicationExternalIds),
       },
     })
+    applicationIdForScoring = existingApplicationByNegotiation.id
   } else {
     const existingPair = await prisma.application.findFirst({
       where: {
@@ -327,8 +334,9 @@ export async function upsertNegotiationFromHh(
           externalIds: mergeExternalIds(existingPair.externalIds, applicationExternalIds),
         },
       })
+      applicationIdForScoring = existingPair.id
     } else {
-      await prisma.application.create({
+      const createdApplication = await prisma.application.create({
         data: {
           tenantId: input.tenantId,
           candidateId: candidate.id,
@@ -337,6 +345,7 @@ export async function upsertNegotiationFromHh(
           externalIds: applicationExternalIds,
         },
       })
+      applicationIdForScoring = createdApplication.id
     }
   }
 
@@ -354,8 +363,45 @@ export async function upsertNegotiationFromHh(
     },
   })
 
+  if (input.env) {
+    void enqueueApplicationScoringJob({
+      prisma,
+      env: input.env,
+      applicationId: applicationIdForScoring,
+      actorUserId: input.actorUserId,
+    })
+  }
+
   return {
     importedCandidate: !existingCandidate,
+  }
+
+  function buildResumeSnapshot(resume: HhResume): Prisma.InputJsonValue {
+    return {
+      title: resume.title ?? null,
+      experience: Array.isArray(resume.experience)
+        ? resume.experience
+            .map((item) => {
+              const company = typeof item?.company?.name === 'string' ? item.company.name : null
+              const position = typeof item?.position === 'string' ? item.position : null
+              if (!company && !position) return null
+              return [position, company].filter(Boolean).join(' @ ')
+            })
+            .filter((item): item is string => Boolean(item))
+        : [],
+      education: Array.isArray(resume.education?.primary)
+        ? resume.education.primary
+            .map((item) => {
+              const name = typeof item?.name === 'string' ? item.name : null
+              const year = typeof item?.year === 'number' ? String(item.year) : null
+              return [name, year].filter(Boolean).join(' · ')
+            })
+            .filter((item): item is string => Boolean(item))
+        : [],
+      skills: Array.isArray(resume.skills) ? resume.skills : [],
+      total_experience_months: resume.total_experience?.months ?? null,
+      location: resume.area?.name ?? null,
+    } satisfies Prisma.InputJsonValue
   }
 }
 

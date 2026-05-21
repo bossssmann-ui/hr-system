@@ -48,6 +48,10 @@ const envSchema = z.object({
   HH_CLIENT_ID: optionalStringSchema,
   HH_CLIENT_SECRET: optionalStringSchema,
   HH_TOKEN_ENCRYPTION_KEY: optionalStringSchema,
+  AI_SCORING_ENABLED: booleanStringSchema,
+  LLM_SCORING_PROVIDER: stringWithDefault('anthropic'),
+  LLM_SCORING_API_KEY: optionalStringSchema,
+  LLM_SCORING_MODEL: stringWithDefault('claude-haiku-4-5-20251001'),
   SPACES_REGION: optionalStringSchema,
   SPACES_BUCKET: optionalStringSchema,
   SPACES_ENDPOINT: optionalUrlSchema,
@@ -63,6 +67,7 @@ const envSchema = z.object({
   validateCorsOrigins(env, ctx)
   validateStorageEnv(env, ctx)
   validateHhIntegrationEnv(env, ctx)
+  validateAiScoringEnv(env, ctx)
 })
 
 export type AppEnv = z.infer<typeof envSchema>
@@ -202,6 +207,18 @@ function validateHhIntegrationEnv(env: z.infer<typeof envSchema>, ctx: z.Refinem
       code: 'custom',
       path: ['HH_TOKEN_ENCRYPTION_KEY'],
       message: 'HH_TOKEN_ENCRYPTION_KEY must be at least 16 characters when HH integration is enabled',
+    })
+  }
+}
+
+function validateAiScoringEnv(env: z.infer<typeof envSchema>, ctx: z.RefinementCtx) {
+  if (!env.AI_SCORING_ENABLED) return
+
+  if (!env.LLM_SCORING_API_KEY) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['LLM_SCORING_API_KEY'],
+      message: 'LLM_SCORING_API_KEY is required when AI_SCORING_ENABLED=true',
     })
   }
 }

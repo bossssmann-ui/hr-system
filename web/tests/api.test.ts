@@ -336,6 +336,58 @@ test('ApiClient HH integration methods hit expected endpoints', async () => {
   ])
 })
 
+test('ApiClient application scoring methods hit expected endpoints', async () => {
+  const calls: Array<{ path: string; method: string }> = []
+
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(String(input))
+    calls.push({ path: url.pathname, method: init?.method ?? 'GET' })
+
+    if (url.pathname === '/api/applications/app-1/rescore') {
+      return json({ queued: true }, 202)
+    }
+
+    if (url.pathname === '/api/applications/app-1/score-feedback') {
+      return json({
+        id: 'app-1',
+        tenantId: 'tenant-1',
+        candidateId: 'cand-1',
+        vacancyId: 'vac-1',
+        stage: 'new',
+        assignedToUserId: null,
+        notes: null,
+        aiScoring: { status: 'pending' },
+        aiScoreFeedback: {
+          user_id: '11111111-1111-4111-8111-111111111111',
+          agrees: true,
+          note: 'Looks right',
+          created_at: '2026-05-21T00:00:00.000Z',
+        },
+        externalIds: {},
+        createdAt: '2026-05-21T00:00:00.000Z',
+        updatedAt: '2026-05-21T00:00:00.000Z',
+      }, 200)
+    }
+
+    return json({ error: { code: 'NOT_FOUND', message: 'Unexpected request' } }, 404)
+  }
+
+  const client = new ApiClient({
+    getAccessToken: () => 'token',
+    setAccessToken: () => undefined,
+  })
+
+  const rescore = await client.rescoreApplication('app-1')
+  const feedback = await client.submitApplicationScoreFeedback('app-1', { agrees: true, note: 'Looks right' })
+
+  expect(rescore.queued).toBe(true)
+  expect(feedback.aiScoreFeedback?.agrees).toBe(true)
+  expect(calls).toEqual([
+    { path: '/api/applications/app-1/rescore', method: 'POST' },
+    { path: '/api/applications/app-1/score-feedback', method: 'POST' },
+  ])
+})
+
 async function waitForEvent(events: string[], event: string) {
   for (let attempt = 0; attempt < 10; attempt += 1) {
     if (events.includes(event)) return

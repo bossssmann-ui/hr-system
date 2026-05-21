@@ -565,6 +565,32 @@ const APP_TRANSITIONS: Partial<Record<ApplicationStage, ApplicationStage[]>> = {
   new: ["screen", "rejected"], screen: ["tech", "rejected"], tech: ["final", "rejected"], final: ["offer", "rejected"], offer: ["hired", "rejected"],
 }
 
+function aiScoreBadge(scoring: Record<string, unknown> | null | undefined) {
+  const status = typeof scoring?.status === "string" ? scoring.status : "pending"
+  if (status === "not_configured") {
+    return { label: "AI not configured", className: "border-zinc-300 text-zinc-600", summary: "AI scoring not configured" }
+  }
+  if (status === "failed") {
+    const failure = typeof scoring?.failure === "object" && scoring.failure ? scoring.failure as Record<string, unknown> : null
+    return { label: "AI failed", className: "border-red-300 text-red-700", summary: typeof failure?.error === "string" ? failure.error : "Scoring failed" }
+  }
+  if (status === "pending") {
+    return { label: "AI scoring…", className: "border-zinc-300 text-zinc-600", summary: "Scoring in progress" }
+  }
+  if (status === "not_scored") {
+    return { label: "Not scored", className: "border-zinc-300 text-zinc-600", summary: "No score yet" }
+  }
+  const result = typeof scoring?.result === "object" && scoring.result ? scoring.result as Record<string, unknown> : null
+  if (!result) return { label: "Not scored", className: "border-zinc-300 text-zinc-600", summary: "Not scored yet" }
+  const score = typeof result.relevance_score === "number" ? result.relevance_score : 0
+  const className = score >= 75
+    ? "border-emerald-300 text-emerald-700"
+    : score >= 50
+      ? "border-amber-300 text-amber-700"
+      : "border-red-300 text-red-700"
+  return { label: `AI ${score}`, className, summary: typeof result.summary === "string" ? result.summary : "Scored" }
+}
+
 function canMoveStage(from: ApplicationStage, to: ApplicationStage): boolean {
   return Boolean(APP_TRANSITIONS[from]?.includes(to))
 }
@@ -668,12 +694,19 @@ function KanbanBoard() {
                 <div className="grid gap-2">
                   {byStage(stage).map((app) => {
                     const vac = vacancies.find((v) => v.id === app.vacancyId)
+                    const scoreBadge = aiScoreBadge((app.aiScoring ?? null) as Record<string, unknown> | null)
                     return (
                       <div key={app.id} draggable onDragStart={() => setDragging({ id: app.id, from: app.stage })} onDragEnd={() => setDragging(null)}
                         className="cursor-grab rounded-md border bg-background p-3 shadow-sm active:cursor-grabbing"
                         data-testid={"application-card-" + app.id} data-stage={app.stage}>
-                        <Typography variant="bodySm" className="font-medium">{app.candidateId.slice(0, 8)}</Typography>
+                        <div className="flex items-start justify-between gap-2">
+                          <Typography variant="bodySm" className="font-medium">{app.candidateId.slice(0, 8)}</Typography>
+                          <Badge variant="outline" className={cn("text-[11px]", scoreBadge.className)} title={scoreBadge.summary}>{scoreBadge.label}</Badge>
+                        </div>
                         {vac && <Typography variant="bodySm" tone="muted">{vac.title}</Typography>}
+                        <Link to="/applications/$applicationId" params={{ applicationId: app.id }} className="text-xs text-primary underline-offset-4 hover:underline">
+                          Open detail
+                        </Link>
                       </div>
                     )
                   })}
@@ -728,15 +761,166 @@ function NewApplicationForm({ vacancies, candidates, onSubmit, isLoading, error 
 export function ApplicationDetailPage() {
   const auth = useAuth()
   if (!auth.user) return <LoginRequired />
-  // TODO(phase-1c): full application detail with stage history and AI scoring
+  const { api } = auth
+  const params = useParams({ strict: false }) as { applicationId?: string }
+  const applicationId = params.applicationId ?? ""
+  const queryClient = useQueryClient()
+  const [feedbackNote, setFeedbackNote] = useState("")
+
+  const query = useQuery({
+    queryKey: ["applications", applicationId, "detail"],
+    queryFn: () => api.getApplication(applicationId),
+    enabled: Boolean(applicationId),
+  })
+
+  const rescoreMutation = useMutation({
+    mutationFn: () => api.rescoreApplication(applicationId),
+    onSuccess: async (result) => {
+      if (!result.queued) {
+        toast.info("AI scoring not configured")
+      } else {
+        toast.success("Re-score queued")
+      }
+      await queryClient.invalidateQueries({ queryKey: ["applications"] })
+    },
+    onError: (error: unknown) => {
+      toast.error(error instanceof ApiRequestError ? error.message : "Failed to queue re-score")
+    },
+  })
+
+  const feedbackMutation = useMutation({
+    mutationFn: (agrees: boolean) =>
+      api.submitApplicationScoreFeedback(applicationId, {
+        agrees,
+        note: feedbackNote.trim() || undefined,
+      }),
+    onSuccess: async () => {
+      toast.success("Feedback saved")
+      setFeedbackNote("")
+      await queryClient.invalidateQueries({ queryKey: ["applications"] })
+    },
+    onError: (error: unknown) => {
+      toast.error(error instanceof ApiRequestError ? error.message : "Failed to save feedback")
+    },
+  })
+
+  if (query.isPending) return <LoadingCard />
+  if (query.isError) return <ErrorCard message="Application not found or access denied" />
+
+  const app = query.data
+  const scoring = (app.aiScoring ?? null) as Record<string, unknown> | null
+  const scoreBadge = aiScoreBadge(scoring)
+  const result = scoring?.status === "scored" && typeof scoring.result === "object" && scoring.result
+    ? scoring.result as Record<string, unknown>
+    : null
+  const failure = scoring?.status === "failed" && typeof scoring.failure === "object" && scoring.failure
+    ? scoring.failure as Record<string, unknown>
+    : null
+
   return (
     <section className="mx-auto grid w-full max-w-6xl gap-6 px-5 py-12">
-      <Badge variant="outline" className="w-fit">Recruiting · Application</Badge>
-      <Typography variant="h1">Application detail</Typography>
-      <Typography tone="muted">Deep view with stage history coming in a later phase.</Typography>
+      <div className="grid gap-3">
+        <Badge variant="outline" className="w-fit">Recruiting · Application</Badge>
+        <div className="flex flex-wrap items-center gap-3">
+          <Typography variant="h1">Application detail</Typography>
+          <Badge variant="outline" className={cn("text-xs", scoreBadge.className)} title={scoreBadge.summary}>{scoreBadge.label}</Badge>
+        </div>
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Candidate + vacancy</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-2 text-sm">
+          <Typography><span className="font-medium">Candidate:</span> {app.candidate.fullName}</Typography>
+          <Typography><span className="font-medium">Vacancy:</span> {app.vacancy.title}</Typography>
+          <Typography><span className="font-medium">Stage:</span> {STAGE_LABELS[app.stage]}</Typography>
+          <Typography tone="muted">{app.vacancy.description}</Typography>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-3">
+          <div className="grid gap-1">
+            <CardTitle>AI scoring</CardTitle>
+            <CardDescription>{scoreBadge.summary}</CardDescription>
+          </div>
+          <Button variant="outline" onClick={() => rescoreMutation.mutate()} disabled={rescoreMutation.isPending} data-testid="application-rescore-button">
+            {rescoreMutation.isPending ? "Queueing..." : "Re-score"}
+          </Button>
+        </CardHeader>
+        <CardContent className="grid gap-4">
+          {scoring?.status === "not_configured" && <Typography tone="muted">AI scoring not configured.</Typography>}
+          {scoring?.status === "not_scored" && <Typography tone="muted">No AI score yet.</Typography>}
+          {scoring?.status === "pending" && <Typography tone="muted">Scoring is in progress.</Typography>}
+          {failure && (
+            <Alert variant="destructive">
+              <AlertDescription>{String(failure.error ?? "Scoring failed")}</AlertDescription>
+            </Alert>
+          )}
+          {result && (
+            <div className="grid gap-4">
+              <div className="grid gap-1">
+                <Typography variant="h3">Relevance score: {String(result.relevance_score)}</Typography>
+                <Typography>{String(result.summary ?? "")}</Typography>
+              </div>
+              <ScoringList title="Strengths" items={asStringList(result.strengths)} />
+              <ScoringList title="Gaps" items={asStringList(result.gaps)} />
+              <ScoringList title="Soft skills signals" items={asStringList(result.soft_skills_signals)} />
+              <ScoringList title="Red flags" items={asStringList(result.red_flags)} />
+              <ScoringList title="Anti-fraud signals" items={asStringList(result.anti_fraud_signals)} />
+              <ScoringList title="Interview focus areas" items={asStringList(result.interview_focus_areas)} />
+              <div>
+                <Typography variant="bodySm" tone="muted">Values fit hypothesis</Typography>
+                <Typography>{String(result.values_fit_hypothesis ?? "—")}</Typography>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Human feedback</CardTitle>
+          <CardDescription>Score is advisory. Recruiter decision is final.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3">
+          <textarea
+            value={feedbackNote}
+            onChange={(e) => setFeedbackNote(e.target.value)}
+            rows={3}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            placeholder="Optional note about why you agree or disagree"
+          />
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => feedbackMutation.mutate(true)} disabled={feedbackMutation.isPending}>Agree</Button>
+            <Button variant="outline" onClick={() => feedbackMutation.mutate(false)} disabled={feedbackMutation.isPending}>Disagree</Button>
+          </div>
+          {app.aiScoreFeedback && (
+            <Typography tone="muted" variant="bodySm">
+              Last feedback: {app.aiScoreFeedback.agrees ? "Agree" : "Disagree"} · {app.aiScoreFeedback.note ?? "No note"}
+            </Typography>
+          )}
+        </CardContent>
+      </Card>
       <Button variant="outline" asChild className="w-fit"><Link to="/applications">← Back to kanban</Link></Button>
     </section>
   )
+}
+
+function ScoringList({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div className="grid gap-1">
+      <Typography variant="bodySm" tone="muted">{title}</Typography>
+      {items.length === 0 ? <Typography tone="muted">—</Typography> : (
+        <ul className="list-disc pl-5 text-sm">
+          {items.map((item, idx) => <li key={idx}>{item}</li>)}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+function asStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
 }
 
 // ─── Admin Users ──────────────────────────────────────────────────────────────

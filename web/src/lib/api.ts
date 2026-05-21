@@ -49,6 +49,7 @@ import {
   type RefreshResponse,
   type RegisterRequest,
   type Requisition,
+  type ScoreFeedbackRequest,
   type TransitionRequisitionRequest,
   type Vacancy,
   type HhAuthorizeUrlResponse,
@@ -230,6 +231,25 @@ export class ApiClient {
   moveApplicationStage(id: string, input: MoveApplicationStageRequest): Promise<z.infer<typeof applicationSchema>> {
     return this.request(`/api/applications/${id}/stage`, applicationSchema, {
       method: 'PATCH',
+      body: input,
+      auth: true,
+    })
+  }
+
+  rescoreApplication(id: string): Promise<{ queued: boolean; reason?: string }> {
+    return this.request(
+      `/api/applications/${id}/rescore`,
+      z.object({ queued: z.boolean(), reason: z.string().optional() }),
+      {
+        method: 'POST',
+        auth: true,
+      },
+    )
+  }
+
+  submitApplicationScoreFeedback(id: string, input: ScoreFeedbackRequest): Promise<z.infer<typeof applicationSchema>> {
+    return this.request(`/api/applications/${id}/score-feedback`, applicationSchema, {
+      method: 'POST',
       body: input,
       auth: true,
     })

@@ -33,6 +33,10 @@ const env: AppEnv = {
   HH_CLIENT_ID: undefined,
   HH_CLIENT_SECRET: undefined,
   HH_TOKEN_ENCRYPTION_KEY: undefined,
+  AI_SCORING_ENABLED: false,
+  LLM_SCORING_PROVIDER: 'anthropic',
+  LLM_SCORING_API_KEY: undefined,
+  LLM_SCORING_MODEL: 'claude-haiku-4-5-20251001',
   SPACES_UPLOAD_MAX_BYTES: 10 * 1024 * 1024,
   SPACES_UPLOAD_URL_TTL_SECONDS: 900,
   SPACES_DOWNLOAD_URL_TTL_SECONDS: 300,
@@ -616,6 +620,33 @@ maybeDescribe('Phase 1B recruiting routes', () => {
       expect(res.status).toBe(200)
       const body = await res.json()
       expect(body.items.every((a: { vacancyId: string }) => a.vacancyId === vacancyId)).toBe(true)
+    })
+
+    test('re-score endpoint returns not configured when AI scoring is disabled', async () => {
+      const res = await app.request(`/api/applications/${applicationId}/rescore`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${recruiterToken}` },
+      })
+      expect(res.status).toBe(202)
+      const body = await res.json()
+      expect(body.queued).toBe(false)
+      expect(body.reason).toBe('not_configured')
+    })
+
+    test('recruiter can submit AI score feedback', async () => {
+      const res = await app.request(`/api/applications/${applicationId}/score-feedback`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${recruiterToken}`,
+        },
+        body: JSON.stringify({ agrees: false, note: 'Over-penalized missing cloud exposure' }),
+      })
+
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.aiScoreFeedback.agrees).toBe(false)
+      expect(body.aiScoreFeedback.note).toBe('Over-penalized missing cloud exposure')
     })
   })
 
