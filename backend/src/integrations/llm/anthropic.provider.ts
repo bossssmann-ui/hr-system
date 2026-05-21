@@ -104,15 +104,18 @@ function extractJson(raw: string): string | null {
   const trimmed = raw.trim()
   if (!trimmed) return null
 
+  // 1) Already pure JSON.
   if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
     return trimmed
   }
 
+  // 2) Markdown fenced block (```json ... ```).
   const codeFenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)
   if (codeFenceMatch?.[1]) {
     return codeFenceMatch[1]
   }
 
+  // 3) Mixed text where JSON object appears inline.
   const firstBrace = trimmed.indexOf('{')
   const lastBrace = trimmed.lastIndexOf('}')
   if (firstBrace >= 0 && lastBrace > firstBrace) {

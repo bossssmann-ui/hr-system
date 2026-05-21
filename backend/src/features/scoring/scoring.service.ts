@@ -59,6 +59,8 @@ export async function scoreApplication(input: ScoreApplicationInput) {
   const inputHash = hashScoringInput(scoringInput)
   const existingScoring = asRecord(snapshot.aiScoring)
 
+  // Idempotency/cost control: if we already scored the same normalized input
+  // and this is not an explicit re-score (`force=true`), skip provider calls.
   if (!force && existingScoring?.status === 'scored' && existingScoring.input_hash === inputHash) {
     return { skipped: true as const, reason: 'unchanged_input' as const }
   }
@@ -202,6 +204,9 @@ export function buildScoringInput(
 }
 
 function extractRequiredSkills(description: string) {
+  // Heuristic fallback: we split the free-form vacancy description into short
+  // skill-like fragments. This keeps scoring input deterministic even when
+  // requisitions do not yet have a dedicated required-skills field.
   return description
     .split(/[\n,•-]/)
     .map((part) => part.trim())

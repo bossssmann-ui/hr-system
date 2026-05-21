@@ -306,7 +306,7 @@ export async function upsertNegotiationFromHh(
     },
   })
 
-  let applicationIdForScoring: string
+  let applicationIdForScoring: string | null = null
 
   if (existingApplicationByNegotiation) {
     await prisma.application.update({
@@ -363,7 +363,7 @@ export async function upsertNegotiationFromHh(
     },
   })
 
-  if (input.env) {
+  if (input.env && applicationIdForScoring) {
     void enqueueApplicationScoringJob({
       prisma,
       env: input.env,
