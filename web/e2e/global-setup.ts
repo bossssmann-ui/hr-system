@@ -66,4 +66,8 @@ export default async function globalSetup() {
   }
 
   run('bun', ['run', '--cwd', 'backend', 'prisma:deploy'], env)
+  // Seed the bootstrap owner so e2e tests can authenticate as a privileged user.
+  // The seed is idempotent — safe to re-run on an already-seeded database.
+  // BOOTSTRAP_* vars come from the caller environment (CI job env or local .env).
+  run('bun', ['run', '--cwd', 'backend', 'prisma:seed'], env)
 }

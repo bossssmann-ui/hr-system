@@ -6,7 +6,13 @@ import type { DbClient } from './db'
 import type { AppEnv } from './env'
 import { createAuthRoutes } from './auth/routes'
 import { AuthService } from './auth/service'
+import { createAdminRoutes } from './features/admin/admin.routes'
+import { createApplicationsRoutes } from './features/applications/applications.routes'
+import { createCandidatesRoutes } from './features/candidates/candidates.routes'
+import { createOrgUnitsRoutes } from './features/org-units/org-units.routes'
 import { createRequisitionsRoutes } from './features/requisitions/requisitions.routes'
+import { createVacanciesRoutes } from './features/vacancies/vacancies.routes'
+import { createAuditMiddleware } from './http/audit'
 import { errorResponse, handleError } from './http/errors'
 import { createStorageServiceFromEnv, type StorageService } from './storage/service'
 
@@ -47,7 +53,7 @@ export function createApp({ env, prisma }: CreateAppOptions) {
         return env.CORS_ORIGINS.includes(origin) ? origin : null
       },
       allowHeaders: ['Content-Type', 'Authorization', 'X-Client-Platform'],
-      allowMethods: ['GET', 'POST', 'OPTIONS'],
+      allowMethods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
       credentials: true,
       maxAge: 600,
     }),
@@ -59,6 +65,9 @@ export function createApp({ env, prisma }: CreateAppOptions) {
     c.set('storageService', storageService)
     await next()
   })
+
+  // Audit middleware — runs after every mutating route; writes AuditEvent row.
+  app.use('/api/*', createAuditMiddleware({ prisma, async: true }))
 
   app.get('/', (c) => {
     return c.json({
@@ -74,7 +83,12 @@ export function createApp({ env, prisma }: CreateAppOptions) {
   })
 
   app.route('/api/auth', createAuthRoutes())
+  app.route('/api/org-units', createOrgUnitsRoutes())
   app.route('/api/requisitions', createRequisitionsRoutes())
+  app.route('/api/vacancies', createVacanciesRoutes())
+  app.route('/api/candidates', createCandidatesRoutes())
+  app.route('/api/applications', createApplicationsRoutes())
+  app.route('/api/admin', createAdminRoutes())
 
   app.doc('/openapi.json', {
     openapi: '3.0.0',

@@ -9,9 +9,46 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     permissions:
       contents: read
+
+    # Postgres is needed by the backend integration tests (bun run test:backend)
+    # and by the web Playwright smoke (bun run e2e:web).  Using a GitHub Actions
+    # service container instead of Docker Compose avoids docker-in-docker
+    # complexity and gives us a deterministic fixed port.  E2E_SKIP_DOCKER and
+    # TEST_SKIP_DOCKER tell each test runner to skip the `docker compose up`
+    # step and use TEST_DATABASE_URL directly.
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: superuser
+          POSTGRES_PASSWORD: superpassword
+          POSTGRES_DB: web_app_demo_test
+        ports:
+          - 54330:5432
+        options: >-
+          --health-cmd "pg_isready -U superuser -d web_app_demo_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      TEST_DATABASE_URL: postgresql://superuser:superpassword@localhost:54330/web_app_demo_test?schema=public
+      DATABASE_URL: postgresql://superuser:superpassword@localhost:54330/web_app_demo_test?schema=public
+      JWT_SECRET: ci-test-secret-must-be-at-least-32-characters-long
+      # Skip docker compose startup in both the backend integration test runner
+      # and the Playwright global-setup – the service container above is used
+      # instead.
+      TEST_SKIP_DOCKER: "1"
+      E2E_SKIP_DOCKER: "1"
+      # Bootstrap owner for the Playwright recruiting smoke (see backend/prisma/seed.ts).
+      # These are CI-only placeholder credentials — no real secrets.
+      BOOTSTRAP_TENANT_NAME: "E2E Corp"
+      BOOTSTRAP_OWNER_EMAIL: "e2e-owner@example.com"
+      BOOTSTRAP_OWNER_PASSWORD: "E2eOwnerPass1!"
+      BOOTSTRAP_OWNER_NAME: "E2E Owner"
 
     steps:
       - name: Checkout
@@ -45,6 +82,9 @@ jobs:
 
       - name: Install Playwright browser
         run: bun run --cwd web e2e:install
+
+      - name: Generate Prisma client
+        run: bun run --cwd backend prisma:generate
 
       - name: Web E2E smoke
         run: bun run e2e:web

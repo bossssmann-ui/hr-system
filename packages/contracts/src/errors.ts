@@ -8,6 +8,7 @@ export const apiErrorCodeSchema = z.enum([
   'CONFLICT',
   'VALIDATION_ERROR',
   'INTERNAL_ERROR',
+  'FSM_TRANSITION_DENIED',
 ])
 
 export const apiErrorSchema = z.object({

@@ -1,12 +1,5 @@
 import { z } from 'zod'
 
-/**
- * Phase 0 surfaces a single read-only endpoint for hiring requisitions so the
- * `/requisitions` page in the web client has real data to render. Mutating
- * routes (create, submit, approve) land in Phase 0.x alongside the FSM-driven
- * UI.
- */
-
 export const requisitionStatusSchema = z.enum([
   'draft',
   'submitted',
@@ -30,8 +23,11 @@ export const requisitionSchema = z.object({
   salaryMin: z.number().int(),
   salaryMax: z.number().int(),
   currency: currencySchema,
+  justification: z.string(),
   status: requisitionStatusSchema,
   orgUnitId: z.string(),
+  createdByUserId: z.string(),
+  deadlineAt: z.string().datetime().nullable(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 })
@@ -43,3 +39,23 @@ export const listRequisitionsResponseSchema = z.object({
 })
 
 export type ListRequisitionsResponse = z.infer<typeof listRequisitionsResponseSchema>
+
+export const createRequisitionRequestSchema = z.object({
+  orgUnitId: z.string().uuid(),
+  title: z.string().min(1).max(200),
+  grade: z.string().min(1).max(50),
+  salaryMin: z.number().int().min(0),
+  salaryMax: z.number().int().min(0),
+  currency: currencySchema,
+  justification: z.string().min(1),
+  deadlineAt: z.string().datetime().optional(),
+})
+
+export type CreateRequisitionRequest = z.infer<typeof createRequisitionRequestSchema>
+
+export const transitionRequisitionRequestSchema = z.object({
+  to: requisitionStatusSchema,
+  comment: z.string().optional(),
+})
+
+export type TransitionRequisitionRequest = z.infer<typeof transitionRequisitionRequestSchema>
