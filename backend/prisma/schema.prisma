@@ -211,8 +211,9 @@ model Candidate {
   createdAt   DateTime        @default(now()) @map("created_at")
   updatedAt   DateTime        @updatedAt @map("updated_at")
 
-  resumes      Resume[]
-  applications Application[]
+  resumes       Resume[]
+  applications  Application[]
+  conversations Conversation[]
 
   // Email and phone are unique only when non-null; expressed at the SQL layer
   // via partial UNIQUE indexes added in the migration (Prisma cannot model
@@ -255,6 +256,7 @@ model Application {
   vacancy      Vacancy                  @relation(fields: [vacancyId], references: [id], map: "applications_vacancy_id_fkey")
   stageEvents  ApplicationStageEvent[]
   interviews   Interview[]
+  conversations Conversation[]
 
   @@unique([candidateId, vacancyId], map: "applications_candidate_vacancy_unique")
   @@index([tenantId], map: "applications_tenant_id_idx")
@@ -347,6 +349,95 @@ model HhSyncCursor {
   @@index([tenantId], map: "hh_sync_cursors_tenant_id_idx")
   @@index([vacancyId], map: "hh_sync_cursors_vacancy_id_idx")
   @@map("hh_sync_cursors")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 1E — Candidate Messenger
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum MessageChannelType {
+  in_app
+  email
+  telegram
+  hh_chat
+
+  @@map("message_channel_type")
+}
+
+enum MessageDirection {
+  inbound
+  outbound
+
+  @@map("message_direction")
+}
+
+enum MessageStatus {
+  draft
+  queued
+  sent
+  delivered
+  failed
+  received
+
+  @@map("message_status")
+}
+
+model Conversation {
+  id            String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId      String    @db.Uuid @map("tenant_id")
+  candidateId   String    @db.Uuid @map("candidate_id")
+  applicationId String?   @db.Uuid @map("application_id")
+  subject       String?
+  lastMessageAt DateTime? @map("last_message_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  candidate   Candidate    @relation(fields: [candidateId], references: [id], onDelete: Cascade, map: "conversations_candidate_id_fkey")
+  application Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull, map: "conversations_application_id_fkey")
+  messages    Message[]
+
+  @@index([tenantId], map: "conversations_tenant_id_idx")
+  @@index([candidateId], map: "conversations_candidate_id_idx")
+  @@index([applicationId], map: "conversations_application_id_idx")
+  @@map("conversations")
+}
+
+model Message {
+  id             String             @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId       String             @db.Uuid @map("tenant_id")
+  conversationId String             @db.Uuid @map("conversation_id")
+  channel        MessageChannelType
+  direction      MessageDirection
+  body           String
+  senderUserId   String?            @db.Uuid @map("sender_user_id")
+  externalId     String?            @map("external_id")
+  status         MessageStatus      @default(draft)
+  sentAt         DateTime?          @map("sent_at")
+  createdAt      DateTime           @default(now()) @map("created_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade, map: "messages_conversation_id_fkey")
+
+  // Partial unique index (channel, external_id) where external_id IS NOT NULL
+  // enforced at the SQL layer in the migration for inbound dedup.
+  @@index([tenantId], map: "messages_tenant_id_idx")
+  @@index([conversationId], map: "messages_conversation_id_idx")
+  @@index([channel, externalId], map: "messages_channel_external_id_idx")
+  @@map("messages")
+}
+
+model MessageTemplate {
+  id            String             @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId      String             @db.Uuid @map("tenant_id")
+  name          String
+  channel       MessageChannelType?
+  subject       String?
+  body          String
+  createdByUserId String           @db.Uuid @map("created_by_user_id")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+
+  @@index([tenantId], map: "message_templates_tenant_id_idx")
+  @@map("message_templates")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

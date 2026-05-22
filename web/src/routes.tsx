@@ -14,6 +14,7 @@ import {
   VacanciesPage,
   VacancyDetailPage,
 } from './pages/recruiting'
+import { InboxPage, ConversationPage } from './pages/inbox'
 
 const rootRoute = createRootRoute({
   component: RootLayout,
@@ -100,6 +101,18 @@ const adminHhIntegrationRoute = createRoute({
   component: AdminHhIntegrationPage,
 })
 
+const inboxRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/inbox',
+  component: InboxPage,
+})
+
+const conversationRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/inbox/$conversationId',
+  component: ConversationPage,
+})
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   appRoute,
@@ -114,6 +127,8 @@ const routeTree = rootRoute.addChildren([
   adminUsersRoute,
   adminAuditLogRoute,
   adminHhIntegrationRoute,
+  inboxRoute,
+  conversationRoute,
 ])
 
 export const router = createRouter({ routeTree })

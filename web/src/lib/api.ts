@@ -27,6 +27,11 @@ import {
   registerRequestSchema,
   requisitionSchema,
   vacancySchema,
+  listConversationsResponseSchema,
+  listMessageTemplatesResponseSchema,
+  sendMessageResponseSchema,
+  aiDraftResponseSchema,
+  channelStatusListSchema,
   type ApplicationDetail,
   type AuthResponse,
   type CreateApplicationRequest,
@@ -62,6 +67,17 @@ import {
   type HhSyncResponse,
   type HhVacancyLinkResponse,
   type LinkVacancyToHhRequest,
+  type ListConversationsResponse,
+  type ListMessageTemplatesResponse,
+  type SendMessageResponse,
+  type AiDraftResponse,
+  type ChannelStatusList,
+  type ConversationDetail,
+  type MessageTemplate,
+  type CreateConversationRequest,
+  type SendMessageRequest,
+  type CreateMessageTemplateRequest,
+  type UpdateMessageTemplateRequest,
 } from '@web-app-demo/contracts'
 import { z } from 'zod'
 
@@ -375,6 +391,80 @@ export class ApiClient {
       body: payload,
       auth: false,
       retryOnUnauthorized: false,
+    })
+  }
+
+  // ─── Messaging (Phase 1E) ───────────────────────────────────────────────────
+
+  listConversations(params?: { candidateId?: string }): Promise<ListConversationsResponse> {
+    const qs = params?.candidateId ? `?candidate_id=${params.candidateId}` : ''
+    return this.request(`/api/conversations${qs}`, listConversationsResponseSchema, { auth: true })
+  }
+
+  getConversation(id: string): Promise<ConversationDetail> {
+    return this.request(`/api/conversations/${id}`, z.any(), { auth: true })
+  }
+
+  createConversation(input: CreateConversationRequest): Promise<{ conversation: ConversationDetail; created: boolean }> {
+    return this.request('/api/conversations', z.any(), {
+      method: 'POST',
+      body: input,
+      auth: true,
+    })
+  }
+
+  sendMessage(conversationId: string, input: SendMessageRequest): Promise<SendMessageResponse> {
+    return this.request(`/api/conversations/${conversationId}/messages`, sendMessageResponseSchema, {
+      method: 'POST',
+      body: input,
+      auth: true,
+    })
+  }
+
+  getAiDraft(conversationId: string, input: { hint?: string } = {}): Promise<AiDraftResponse> {
+    return this.request(`/api/conversations/${conversationId}/ai-draft`, aiDraftResponseSchema, {
+      method: 'POST',
+      body: input,
+      auth: true,
+    })
+  }
+
+  getChannelStatus(): Promise<ChannelStatusList> {
+    return this.request('/api/conversations/channels', channelStatusListSchema, { auth: true })
+  }
+
+  listMessageTemplates(): Promise<ListMessageTemplatesResponse> {
+    return this.request('/api/message-templates', listMessageTemplatesResponseSchema, { auth: true })
+  }
+
+  createMessageTemplate(input: CreateMessageTemplateRequest): Promise<MessageTemplate> {
+    return this.request('/api/message-templates', z.any(), {
+      method: 'POST',
+      body: input,
+      auth: true,
+    })
+  }
+
+  updateMessageTemplate(id: string, input: UpdateMessageTemplateRequest): Promise<MessageTemplate> {
+    return this.request(`/api/message-templates/${id}`, z.any(), {
+      method: 'PATCH',
+      body: input,
+      auth: true,
+    })
+  }
+
+  deleteMessageTemplate(id: string): Promise<{ ok: boolean }> {
+    return this.request(`/api/message-templates/${id}`, z.object({ ok: z.boolean() }), {
+      method: 'DELETE',
+      auth: true,
+    })
+  }
+
+  previewTemplate(id: string, variables: Record<string, string>): Promise<{ body: string; subject: string | null }> {
+    return this.request(`/api/message-templates/${id}/preview`, z.object({ body: z.string(), subject: z.string().nullable() }), {
+      method: 'POST',
+      body: { variables },
+      auth: true,
     })
   }
 

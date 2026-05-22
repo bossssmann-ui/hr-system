@@ -136,3 +136,22 @@ AI scoring requests must exclude direct candidate contact PII (`full_name`, `ema
 - **Application logs** = stderr / log aggregator. Used for diagnostics. Never the source of truth.
 
 These two surfaces must not be confused. Never use `console.log(applicationDiff)` as an audit substitute.
+
+## Phase 1E — Messaging audit actions
+
+| Action | Entity type | Trigger |
+| --- | --- | --- |
+| `message.sent` | `Message` | Recruiter sends outbound message (after queue delivers) |
+| `message.received` | `Message` | Inbound message ingested from any channel webhook |
+| `conversation.create` | `Conversation` | New conversation created (auto or manual) |
+| `message_template.create` | `MessageTemplate` | Template created |
+| `message_template.update` | `MessageTemplate` | Template updated |
+| `message_template.delete` | `MessageTemplate` | Template deleted |
+
+## 152-ФЗ note for candidate messaging (Phase 1E)
+
+Messages contain PII (candidate identity, contact content). They are stored in the `messages` table on the basis of the recruiting relationship/consent (same legal basis as applications). Retention applies as per the general candidate PII policy.
+
+**AI-draft prompt restriction:** The `POST /api/conversations/:id/ai-draft` endpoint sends only conversation history and non-contact role context to the LLM. Direct PII fields (`email`, `phone`, `full_name`) are **not** included in the LLM prompt.
+
+When using a non-RF LLM (e.g. Anthropic), conversation content sent to the LLM provider is a data-residency consideration for the owner. Inform tenants accordingly before enabling AI drafts.

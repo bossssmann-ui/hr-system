@@ -14,6 +14,11 @@ import { createRequisitionsRoutes } from './features/requisitions/requisitions.r
 import { createVacanciesRoutes } from './features/vacancies/vacancies.routes'
 import { createHhIntegrationRoutes } from './integrations/hh/routes'
 import { createInterviewRoutes } from './features/interviews/interviews.routes'
+import {
+  createMessagingRoutes,
+  createMessageTemplatesRoutes,
+  createTelegramWebhookRoute,
+} from './features/messaging/messaging.routes'
 import { createAuditMiddleware } from './http/audit'
 import { errorResponse, handleError } from './http/errors'
 import { createStorageServiceFromEnv, type StorageService } from './storage/service'
@@ -93,6 +98,9 @@ export function createApp({ env, prisma }: CreateAppOptions) {
   app.route('/api/interviews', createInterviewRoutes())
   app.route('/api/admin', createAdminRoutes())
   app.route('/api/integrations/hh', createHhIntegrationRoutes())
+  app.route('/api/conversations', createMessagingRoutes())
+  app.route('/api/message-templates', createMessageTemplatesRoutes())
+  app.route('/api/integrations/telegram', createTelegramWebhookRoute())
 
   app.doc('/openapi.json', {
     openapi: '3.0.0',

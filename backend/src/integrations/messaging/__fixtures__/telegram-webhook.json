@@ -1,0 +1,15 @@
+{
+  "update_id": 987654321,
+  "message": {
+    "message_id": 42,
+    "chat": { "id": 112233445 },
+    "from": {
+      "id": 112233445,
+      "first_name": "Ivan",
+      "last_name": "Petrov",
+      "username": "ivan_petrov_test"
+    },
+    "text": "Hello, I am interested in the position.",
+    "date": 1716300000
+  }
+}
