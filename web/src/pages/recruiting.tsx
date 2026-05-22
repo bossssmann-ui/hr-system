@@ -5,7 +5,7 @@
 import { useForm } from "@tanstack/react-form"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate, useParams } from "@tanstack/react-router"
-import type { Application, ApplicationStage, OrgUnit, RequisitionStatus, Vacancy } from "@web-app-demo/contracts"
+import type { Application, ApplicationStage, Interview, OrgUnit, RequisitionStatus, Vacancy } from "@web-app-demo/contracts"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 
@@ -900,6 +900,7 @@ export function ApplicationDetailPage() {
           )}
         </CardContent>
       </Card>
+      <InterviewPanel applicationId={applicationId} />
       <Button variant="outline" asChild className="w-fit"><Link to="/applications">← Back to kanban</Link></Button>
     </section>
   )
@@ -921,6 +922,424 @@ function ScoringList({ title, items }: { title: string; items: string[] }) {
 function asStringList(value: unknown): string[] {
   if (!Array.isArray(value)) return []
   return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+}
+
+// ─── Interview Panel ──────────────────────────────────────────────────────────
+
+const INTERVIEW_STATUS_LABELS: Record<Interview["status"], string> = {
+  created: "Created",
+  transcribing: "Transcribing…",
+  transcribed: "Transcribed",
+  protocol_ready: "Protocol ready",
+  failed: "Failed",
+}
+
+const INTERVIEW_STATUS_VARIANT: Record<Interview["status"], "default" | "outline" | "secondary" | "destructive"> = {
+  created: "outline",
+  transcribing: "secondary",
+  transcribed: "secondary",
+  protocol_ready: "default",
+  failed: "destructive",
+}
+
+const TRANSCRIPTION_POLLING_INTERVAL_MS = 3000 // Poll every 3s while transcription is in progress
+
+function InterviewPanel({ applicationId }: { applicationId: string }) {
+  const { api } = useAuth()
+  const queryClient = useQueryClient()
+  const [selectedInterviewId, setSelectedInterviewId] = useState<string | null>(null)
+  const [showSourceForTerm, setShowSourceForTerm] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const interviewsQuery = useQuery({
+    queryKey: ["interviews", applicationId],
+    queryFn: () => api.listInterviews(applicationId),
+    enabled: Boolean(applicationId),
+  })
+
+  const selectedInterviewQuery = useQuery({
+    queryKey: ["interviews", "detail", selectedInterviewId],
+    queryFn: () => api.getInterview(selectedInterviewId!),
+    enabled: Boolean(selectedInterviewId),
+    refetchInterval: (query) => {
+      const status = query.state.data?.status
+      return status === "transcribing" ? TRANSCRIPTION_POLLING_INTERVAL_MS : false
+    },
+  })
+
+  const createMutation = useMutation({
+    mutationFn: () => api.createInterview({ applicationId }),
+    onSuccess: async (interview) => {
+      await queryClient.invalidateQueries({ queryKey: ["interviews", applicationId] })
+      setSelectedInterviewId(interview.id)
+      toast.success("Interview created")
+    },
+    onError: (error: unknown) => toast.error(error instanceof ApiRequestError ? error.message : "Failed to create interview"),
+  })
+
+  const consentMutation = useMutation({
+    mutationFn: ({ id, value }: { id: string; value: boolean }) => api.updateInterviewConsent(id, value),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["interviews", applicationId] })
+      await queryClient.invalidateQueries({ queryKey: ["interviews", "detail", selectedInterviewId] })
+      toast.success("Consent updated")
+    },
+    onError: (error: unknown) => toast.error(error instanceof ApiRequestError ? error.message : "Failed to update consent"),
+  })
+
+  const uploadMutation = useMutation({
+    mutationFn: ({ id, file }: { id: string; file: File }) => api.uploadInterviewRecording(id, file),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["interviews", applicationId] })
+      await queryClient.invalidateQueries({ queryKey: ["interviews", "detail", selectedInterviewId] })
+      toast.success("Recording uploaded — transcription will start if consent is given")
+    },
+    onError: (error: unknown) => toast.error(error instanceof ApiRequestError ? error.message : "Upload failed"),
+  })
+
+  const transcribeMutation = useMutation({
+    mutationFn: (id: string) => api.triggerTranscription(id),
+    onSuccess: async (result) => {
+      await queryClient.invalidateQueries({ queryKey: ["interviews", "detail", selectedInterviewId] })
+      toast.info(result.queued ? "Transcription queued" : "Transcription not configured (set TRANSCRIPTION_ENABLED + ASR_API_KEY)")
+    },
+    onError: (error: unknown) => toast.error(error instanceof ApiRequestError ? error.message : "Transcription failed"),
+  })
+
+  const protocolMutation = useMutation({
+    mutationFn: (id: string) => api.triggerBuildProtocol(id),
+    onSuccess: async (result) => {
+      await queryClient.invalidateQueries({ queryKey: ["interviews", "detail", selectedInterviewId] })
+      toast.info(result.queued ? "Protocol build queued" : "LLM not configured")
+    },
+    onError: (error: unknown) => toast.error(error instanceof ApiRequestError ? error.message : "Protocol build failed"),
+  })
+
+  const interviews = interviewsQuery.data?.items ?? []
+  const interview = selectedInterviewQuery.data ?? null
+
+  const transcript = interview?.transcript ?? null
+  const protocol = interview?.protocol ?? null
+  const offerDraft = interview?.offerDraft ?? null
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between gap-3">
+          <div className="grid gap-1">
+            <CardTitle>Interviews</CardTitle>
+            <CardDescription>Upload a recording to start transcription & protocol generation.</CardDescription>
+          </div>
+          <Button size="sm" onClick={() => createMutation.mutate()} disabled={createMutation.isPending} data-testid="create-interview-button">
+            {createMutation.isPending ? "Creating…" : "New interview"}
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="grid gap-4">
+        {interviewsQuery.isPending && <Typography tone="muted">Loading…</Typography>}
+        {interviews.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {interviews.map((iv) => (
+              <button
+                key={iv.id}
+                onClick={() => setSelectedInterviewId(iv.id)}
+                className={cn(
+                  "rounded-md border px-3 py-1.5 text-sm transition-colors",
+                  iv.id === selectedInterviewId ? "border-primary bg-primary text-primary-foreground" : "border-input bg-background hover:bg-accent",
+                )}
+                data-testid={"interview-tab-" + iv.id}
+              >
+                <Badge variant={INTERVIEW_STATUS_VARIANT[iv.status]} className="mr-1 text-[10px]">{INTERVIEW_STATUS_LABELS[iv.status]}</Badge>
+                {new Date(iv.createdAt).toLocaleDateString()}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {interview && (
+          <div className="grid gap-4">
+            {/* ── Consent + upload ── */}
+            <div className="flex flex-wrap items-center gap-4 rounded-md border bg-muted/30 p-4">
+              <div className="grid gap-1">
+                <Typography variant="bodySm" className="font-medium">Recording consent (152-ФЗ)</Typography>
+                <Typography variant="bodySm" tone="muted">
+                  Transcription and protocol generation will only start after the candidate consents to recording.
+                </Typography>
+              </div>
+              <div className="flex items-center gap-2 ml-auto">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={interview.consentRecorded}
+                    onChange={(e) => consentMutation.mutate({ id: interview.id, value: e.target.checked })}
+                    disabled={consentMutation.isPending}
+                    data-testid="consent-toggle"
+                    className="h-4 w-4"
+                  />
+                  <Typography variant="bodySm">{interview.consentRecorded ? "Consent recorded" : "Consent not recorded"}</Typography>
+                </label>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2 items-center">
+              <div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="audio/mpeg,audio/mp4,audio/x-m4a,audio/wav,video/mp4,.mp3,.mp4,.m4a,.wav"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) uploadMutation.mutate({ id: interview.id, file })
+                  }}
+                  data-testid="recording-file-input"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadMutation.isPending}
+                  data-testid="upload-recording-button"
+                >
+                  {uploadMutation.isPending ? "Uploading…" : interview.recordingUrl ? "Replace recording" : "Upload recording"}
+                </Button>
+              </div>
+              {interview.recordingUrl && (
+                <Typography variant="bodySm" tone="muted" className="text-xs">{interview.recordingUrl}</Typography>
+              )}
+              {interview.recordingUrl && interview.consentRecorded && !["transcribed", "protocol_ready"].includes(interview.status) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => transcribeMutation.mutate(interview.id)}
+                  disabled={transcribeMutation.isPending}
+                  data-testid="transcribe-button"
+                >
+                  {transcribeMutation.isPending ? "Queuing…" : "Transcribe"}
+                </Button>
+              )}
+              {interview.status === "transcribed" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => protocolMutation.mutate(interview.id)}
+                  disabled={protocolMutation.isPending}
+                  data-testid="build-protocol-button"
+                >
+                  {protocolMutation.isPending ? "Queuing…" : "Build protocol"}
+                </Button>
+              )}
+            </div>
+
+            {/* ── Status ── */}
+            <div className="flex items-center gap-2">
+              <Typography variant="bodySm">Status:</Typography>
+              <Badge variant={INTERVIEW_STATUS_VARIANT[interview.status]}>{INTERVIEW_STATUS_LABELS[interview.status]}</Badge>
+              {interview.status === "failed" && (
+                <Typography variant="bodySm" tone="muted">Check backend logs or retry transcription.</Typography>
+              )}
+              {!interview.consentRecorded && (
+                <Typography variant="bodySm" tone="muted">Transcription blocked: consent required.</Typography>
+              )}
+            </div>
+
+            {/* ── Transcript viewer ── */}
+            {transcript && (
+              <div className="grid gap-2">
+                <Typography variant="h3">Transcript</Typography>
+                <Typography variant="bodySm" tone="muted">
+                  Provider: {transcript.asr_provider} · Model: {transcript.asr_model} · Language: {transcript.language}
+                </Typography>
+                <div
+                  className="max-h-72 overflow-y-auto rounded-md border bg-muted/20 p-3 space-y-2"
+                  data-testid="transcript-viewer"
+                >
+                  {transcript.segments.map((seg, idx) => (
+                    <div key={idx} className="grid gap-0.5">
+                      <Typography variant="bodySm" className="font-semibold">
+                        {seg.speaker}{" "}
+                        <span className="font-normal text-muted-foreground text-xs">
+                          ({msToTimestamp(seg.start_ms)}–{msToTimestamp(seg.end_ms)})
+                        </span>
+                      </Typography>
+                      <Typography variant="bodySm">{seg.text}</Typography>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── Protocol panel ── */}
+            {protocol && (
+              <div className="grid gap-3" data-testid="protocol-panel">
+                <Typography variant="h3">Interview Protocol</Typography>
+                <Typography variant="bodySm" tone="muted">
+                  Generated by: {protocol.model} · {new Date(protocol.generated_at).toLocaleString()}
+                </Typography>
+                <div className="grid gap-1">
+                  <Typography variant="bodySm" className="font-medium">Summary</Typography>
+                  <Typography variant="bodySm">{protocol.summary}</Typography>
+                </div>
+                <ScoringList title="Strengths" items={protocol.strengths} />
+                <ScoringList title="Concerns" items={protocol.concerns} />
+                {protocol.questions_and_answers.length > 0 && (
+                  <div className="grid gap-2">
+                    <Typography variant="bodySm" tone="muted" className="font-medium">Questions & Answers</Typography>
+                    {protocol.questions_and_answers.map((qa, idx) => (
+                      <div key={idx} className="rounded-md border bg-muted/20 p-3 grid gap-1">
+                        <Typography variant="bodySm" className="font-medium">Q: {qa.question}</Typography>
+                        <Typography variant="bodySm">A: {qa.answer}</Typography>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* Agreed terms with quote-links */}
+                <div className="grid gap-2">
+                  <Typography variant="bodySm" className="font-medium">Agreed Terms</Typography>
+                  <div className="grid gap-2 rounded-md border p-3 bg-muted/20">
+                    {protocol.agreed_terms.salary != null && (
+                      <AgreedTermRow
+                        label="Salary"
+                        value={`${protocol.agreed_terms.salary} ${protocol.agreed_terms.currency ?? ""}`}
+                        source={protocol.agreed_terms.salary_source ?? null}
+                        isOpen={showSourceForTerm === "salary"}
+                        onToggle={() => setShowSourceForTerm(showSourceForTerm === "salary" ? null : "salary")}
+                        transcript={transcript}
+                      />
+                    )}
+                    {protocol.agreed_terms.start_date && (
+                      <AgreedTermRow
+                        label="Start date"
+                        value={protocol.agreed_terms.start_date}
+                        source={protocol.agreed_terms.start_date_source ?? null}
+                        isOpen={showSourceForTerm === "start_date"}
+                        onToggle={() => setShowSourceForTerm(showSourceForTerm === "start_date" ? null : "start_date")}
+                        transcript={transcript}
+                      />
+                    )}
+                    {protocol.agreed_terms.special_conditions.map((cond, idx) => (
+                      <AgreedTermRow
+                        key={idx}
+                        label={`Condition ${idx + 1}`}
+                        value={cond}
+                        source={protocol.agreed_terms.special_conditions_sources?.[idx] ?? null}
+                        isOpen={showSourceForTerm === `cond_${idx}`}
+                        onToggle={() => setShowSourceForTerm(showSourceForTerm === `cond_${idx}` ? null : `cond_${idx}`)}
+                        transcript={transcript}
+                      />
+                    ))}
+                    {protocol.agreed_terms.salary == null && !protocol.agreed_terms.start_date && protocol.agreed_terms.special_conditions.length === 0 && (
+                      <Typography variant="bodySm" tone="muted">No agreed terms found in transcript.</Typography>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Offer Draft panel ── */}
+            {offerDraft && (
+              <div className="grid gap-3 rounded-md border bg-muted/20 p-4" data-testid="offer-draft-panel">
+                <div className="flex items-center gap-2">
+                  <Typography variant="h3">Offer Draft</Typography>
+                  <Badge variant="outline">draft</Badge>
+                  <Typography variant="bodySm" tone="muted" className="text-xs ml-auto">
+                    Phase 3 will add full offer + DocuSeal signing
+                  </Typography>
+                </div>
+                <div className="grid gap-2 text-sm">
+                  {offerDraft.salary != null && (
+                    <div className="flex gap-2">
+                      <Typography variant="bodySm" className="font-medium w-28">Salary</Typography>
+                      <Typography variant="bodySm">{offerDraft.salary} {offerDraft.currency ?? ""}</Typography>
+                    </div>
+                  )}
+                  {offerDraft.start_date && (
+                    <div className="flex gap-2">
+                      <Typography variant="bodySm" className="font-medium w-28">Start date</Typography>
+                      <Typography variant="bodySm">{offerDraft.start_date}</Typography>
+                    </div>
+                  )}
+                  {offerDraft.conditions.length > 0 && (
+                    <div className="flex gap-2">
+                      <Typography variant="bodySm" className="font-medium w-28">Conditions</Typography>
+                      <ul className="list-disc pl-5">
+                        {offerDraft.conditions.map((cond, idx) => (
+                          <li key={idx}><Typography variant="bodySm">{cond}</Typography></li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {offerDraft.salary == null && !offerDraft.start_date && offerDraft.conditions.length === 0 && (
+                    <Typography variant="bodySm" tone="muted">No terms extracted.</Typography>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {interviews.length === 0 && !interviewsQuery.isPending && (
+          <Typography tone="muted">No interviews yet. Create one to start the transcription pipeline.</Typography>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+type TermSource = { segment_index: number; quote: string } | null
+
+function AgreedTermRow({
+  label,
+  value,
+  source,
+  isOpen,
+  onToggle,
+  transcript,
+}: {
+  label: string
+  value: string
+  source: TermSource
+  isOpen: boolean
+  onToggle: () => void
+  transcript: Interview["transcript"]
+}) {
+  const segment = transcript?.segments?.[source?.segment_index ?? -1] ?? null
+
+  return (
+    <div className="grid gap-1">
+      <div className="flex items-center gap-2">
+        <Typography variant="bodySm" className="font-medium w-28">{label}</Typography>
+        <Typography variant="bodySm">{value}</Typography>
+        {source && (
+          <button
+            onClick={onToggle}
+            className="ml-auto text-xs text-primary underline-offset-4 hover:underline"
+            data-testid={"source-link-" + label.replace(/\s+/g, "-").toLowerCase()}
+          >
+            {isOpen ? "Hide source" : "Show source"}
+          </button>
+        )}
+      </div>
+      {isOpen && source && (
+        <div className="rounded-md border bg-background p-3 text-xs ml-28 grid gap-1">
+          <Typography variant="bodySm" tone="muted">Quote from segment {source.segment_index}:</Typography>
+          <Typography variant="bodySm" className="italic">"{source.quote}"</Typography>
+          {segment && (
+            <Typography variant="bodySm" tone="muted">
+              Speaker: {segment.speaker} · {msToTimestamp(segment.start_ms)}–{msToTimestamp(segment.end_ms)}
+            </Typography>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function msToTimestamp(ms: number): string {
+  const totalSecs = Math.floor(ms / 1000)
+  const mins = Math.floor(totalSecs / 60)
+  const secs = totalSecs % 60
+  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`
 }
 
 // ─── Admin Users ──────────────────────────────────────────────────────────────

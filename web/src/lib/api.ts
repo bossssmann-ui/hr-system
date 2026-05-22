@@ -4,9 +4,11 @@ import {
   applicationSchema,
   authResponseSchema,
   createCandidateResponseSchema,
+  interviewSchema,
   listApplicationsResponseSchema,
   listAuditEventsResponseSchema,
   listCandidatesResponseSchema,
+  listInterviewsResponseSchema,
   listOrgUnitsResponseSchema,
   listRequisitionsResponseSchema,
   listUsersResponseSchema,
@@ -32,9 +34,11 @@ import {
   type CreateCandidateResponse,
   type CreateOrgUnitRequest,
   type CreateRequisitionRequest,
+  type Interview,
   type ListApplicationsResponse,
   type ListAuditEventsResponse,
   type ListCandidatesResponse,
+  type ListInterviewsResponse,
   type ListOrgUnitsResponse,
   type ListRequisitionsResponse,
   type ListUsersResponse,
@@ -255,6 +259,60 @@ export class ApiClient {
     })
   }
 
+  // ─── Interviews ─────────────────────────────────────────────────────────────
+  // TODO(phase-1f+): meeting-platform integration (Telemost / Zoom / Google Meet)
+
+  listInterviews(applicationId: string): Promise<ListInterviewsResponse> {
+    return this.request(
+      `/api/interviews?application_id=${encodeURIComponent(applicationId)}`,
+      listInterviewsResponseSchema,
+      { auth: true },
+    )
+  }
+
+  getInterview(id: string): Promise<Interview> {
+    return this.request(`/api/interviews/${id}`, interviewSchema, { auth: true })
+  }
+
+  createInterview(input: { applicationId: string; scheduledAt?: string }): Promise<Interview> {
+    return this.request('/api/interviews', interviewSchema, {
+      method: 'POST',
+      body: input,
+      auth: true,
+    })
+  }
+
+  updateInterviewConsent(id: string, consentRecorded: boolean): Promise<Interview> {
+    return this.request(`/api/interviews/${id}/consent`, interviewSchema, {
+      method: 'PATCH',
+      body: { consentRecorded },
+      auth: true,
+    })
+  }
+
+  uploadInterviewRecording(id: string, file: File): Promise<Interview> {
+    return this.rawRequestMultipart(`/api/interviews/${id}/recording`, file).then(async (res) => {
+      const data = await res.json()
+      return interviewSchema.parse(data)
+    })
+  }
+
+  triggerTranscription(id: string): Promise<{ queued: boolean; reason?: string }> {
+    return this.request(
+      `/api/interviews/${id}/transcribe`,
+      z.object({ queued: z.boolean(), reason: z.string().optional() }),
+      { method: 'POST', auth: true },
+    )
+  }
+
+  triggerBuildProtocol(id: string): Promise<{ queued: boolean; reason?: string }> {
+    return this.request(
+      `/api/interviews/${id}/build-protocol`,
+      z.object({ queued: z.boolean(), reason: z.string().optional() }),
+      { method: 'POST', auth: true },
+    )
+  }
+
   // ─── Admin ──────────────────────────────────────────────────────────────────
 
   listAdminUsers(): Promise<ListUsersResponse> {
@@ -339,6 +397,28 @@ export class ApiClient {
     const response = await this.rawRequest(path, options)
     const data = await response.json()
     return schema.parse(data)
+  }
+
+  async rawRequestMultipart(path: string, file: File): Promise<Response> {
+    const accessToken = this.options.getAccessToken()
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const response = await fetch(`${apiBaseUrl}${path}`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'X-Client-Platform': 'web',
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+      body: formData,
+    })
+
+    if (!response.ok) {
+      throw await toApiError(response)
+    }
+
+    return response
   }
 
   private async rawRequest(path: string, options: RequestOptions): Promise<Response> {
