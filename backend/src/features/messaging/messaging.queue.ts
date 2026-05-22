@@ -3,7 +3,7 @@
  *
  * Handles async delivery of outbound messages via channel adapters.
  * Status transitions: queued → sent | failed.
- * Automated sends respect Quiet Hours (22:00–09:00 UTC); manual sends bypass.
+ * Automated sends respect Quiet Hours (configurable; default 15:00–23:00 UTC); manual sends bypass.
  *
  * TODO(phase-N): replace createInMemoryQueue with BullMQ + Valkey.
  */
@@ -11,7 +11,7 @@ import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
 import { createInMemoryQueue } from '../../queues'
 import type { MessageChannelAdapter } from '../../integrations/messaging'
-import { msUntilQuietHoursEnd } from './quiet-hours'
+import { msUntilQuietHoursEnd, quietHoursConfigFromEnv } from './quiet-hours'
 
 export type MessageSendJob = {
   prisma: DbClient
@@ -42,11 +42,11 @@ function ensureMessageQueueRegistered() {
 }
 
 export async function dispatchMessage(job: MessageSendJob): Promise<void> {
-  const { prisma, messageId, channel, destination, body, subject, automated, adapter } = job
+  const { prisma, env, messageId, channel, destination, body, subject, automated, adapter } = job
   const now = (job.now ?? (() => new Date))()
 
   if (automated) {
-    const delayMs = msUntilQuietHoursEnd(now)
+    const delayMs = msUntilQuietHoursEnd(now, quietHoursConfigFromEnv(env))
     if (delayMs > 0) {
       // Re-enqueue after quiet hours end.
       ensureMessageQueueRegistered()

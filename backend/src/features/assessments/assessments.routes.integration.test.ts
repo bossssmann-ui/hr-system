@@ -46,6 +46,8 @@ const env: AppEnv = {
   TRUST_WEIGHT_FOCUS: 0.4,
   TRUST_WEIGHT_KEYSTROKE: 0.25,
   TRUST_LOW_THRESHOLD: 60,
+  QUIET_HOURS_QUIET_START_UTC: 15,
+  QUIET_HOURS_QUIET_END_UTC: 23,
 }
 
 async function loginAs(app: ReturnType<typeof createApp>, email: string, password: string) {
