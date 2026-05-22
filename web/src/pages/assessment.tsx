@@ -29,6 +29,7 @@ export function PublicAssessmentPage() {
   const [consent, setConsent] = useState(false)
   const [webcamConsent, setWebcamConsent] = useState(false)
   const [submittedLocally, setSubmittedLocally] = useState(false)
+  const [nowMs, setNowMs] = useState(() => Date.now())
   const [signalState, setSignalState] = useState<SignalState>({
     pasteCount: 0,
     pasteSizes: [],
@@ -91,10 +92,12 @@ export function PublicAssessmentPage() {
     if (!assessment?.startedAt || !assessment.timeLimitMin) return null
     const startedAt = new Date(assessment.startedAt).getTime()
     const expiresAt = startedAt + assessment.timeLimitMin * 60 * 1000
-    return Math.max(0, Math.floor((expiresAt - Date.now()) / 1000))
-  }, [assessmentQuery.data])
+    return Math.max(0, Math.floor((expiresAt - nowMs) / 1000))
+  }, [assessmentQuery.data, nowMs])
 
   useEffect(() => {
+    const interval = window.setInterval(() => setNowMs(Date.now()), 1000)
+
     const onPaste = (event: ClipboardEvent) => {
       const text = event.clipboardData?.getData('text') ?? ''
       setSignalState((current) => ({
@@ -121,7 +124,7 @@ export function PublicAssessmentPage() {
       const now = Date.now()
       keyTimestampsRef.current = keyTimestampsRef.current.filter((timestamp) => now - timestamp < 1000)
       keyTimestampsRef.current.push(now)
-      // Heuristic burst signal: >20 keystrokes in 1 second is treated as anomalous.
+      // Heuristic burst signal: more than 20 keystrokes in 1 second is treated as anomalous.
       if (keyTimestampsRef.current.length > 20) {
         setSignalState((current) => ({ ...current, burstEvents: current.burstEvents + 1 }))
       }
@@ -132,6 +135,7 @@ export function PublicAssessmentPage() {
     window.addEventListener('focus', onFocus)
     window.addEventListener('keydown', onKeyDown)
     return () => {
+      window.clearInterval(interval)
       window.removeEventListener('paste', onPaste)
       window.removeEventListener('blur', onBlur)
       window.removeEventListener('focus', onFocus)

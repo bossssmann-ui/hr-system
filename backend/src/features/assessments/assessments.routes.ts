@@ -406,12 +406,10 @@ export function createPublicAssessmentRoutes() {
           },
         })
 
-        if (redFlagged) {
-          await tx.application.update({
-            where: { id: session.applicationId },
-            data: { trustFlagged: true },
-          })
-        }
+        await tx.application.update({
+          where: { id: session.applicationId },
+          data: { trustFlagged: redFlagged },
+        })
       })
 
       if (env.AI_SCORING_ENABLED) {
