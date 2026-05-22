@@ -49,6 +49,8 @@ const env: AppEnv = {
   SPACES_PUBLIC_CACHE_CONTROL: 'public, max-age=31536000, immutable',
   TELEGRAM_ENABLED: false,
   EMAIL_ENABLED: false,
+  CAREERS_PAGE_ENABLED: false,
+  CAREERS_RATE_LIMIT_PER_HOUR: 20,
 }
 
 /** Register a user with the given roles and return an access token. */

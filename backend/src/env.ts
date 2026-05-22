@@ -77,6 +77,9 @@ const envSchema = z.object({
   SMTP_USER: optionalStringSchema,
   SMTP_PASS: optionalStringSchema,
   SMTP_FROM: optionalStringSchema,
+  // Phase 1G — Public careers page
+  CAREERS_PAGE_ENABLED: booleanStringSchema,
+  CAREERS_RATE_LIMIT_PER_HOUR: z.coerce.number().int().positive().default(20),
 }).superRefine((env, ctx) => {
   validateJwtSecret(env, ctx)
   validateCorsOrigins(env, ctx)

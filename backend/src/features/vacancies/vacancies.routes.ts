@@ -12,6 +12,7 @@ import { requireRole, type RoleGuardBindings } from '../../auth/requireRole'
 import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
 import { AppError } from '../../http/errors'
+import { generateSlug } from './slug'
 
 type RouteBindings = RoleGuardBindings & {
   Variables: {
@@ -29,6 +30,7 @@ function toDto(row: {
   tenantId: string
   requisitionId: string
   orgUnitId: string
+  slug: string | null
   hhVacancyId: string | null
   createdAt: Date
   updatedAt: Date
@@ -41,6 +43,7 @@ function toDto(row: {
     tenantId: row.tenantId,
     requisitionId: row.requisitionId,
     orgUnitId: row.orgUnitId,
+    slug: row.slug,
     hhVacancyId: row.hhVacancyId,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -100,9 +103,16 @@ export function createVacanciesRoutes() {
       const existing = await prisma.vacancy.findFirst({ where: { id, tenantId } })
       if (!existing) throw new AppError(404, 'NOT_FOUND', 'Vacancy not found')
 
+      // Auto-generate a URL-safe slug from the title when publishing for the
+      // first time (slug stays fixed once set — re-publishing does not change it).
+      let slug = existing.slug
+      if (body.isPublished && !slug) {
+        slug = await generateSlug(existing.title, tenantId, prisma)
+      }
+
       const updated = await prisma.vacancy.update({
         where: { id },
-        data: { isPublished: body.isPublished },
+        data: { isPublished: body.isPublished, ...(slug !== existing.slug ? { slug } : {}) },
       })
 
       c.set('auditEntry', {
