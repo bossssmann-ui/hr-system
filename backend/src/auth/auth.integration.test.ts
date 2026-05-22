@@ -37,6 +37,8 @@ maybeDescribe('auth API integration', () => {
     SPACES_PUBLIC_CACHE_CONTROL: 'public, max-age=31536000, immutable',
   TELEGRAM_ENABLED: false,
   EMAIL_ENABLED: false,
+  QUIET_HOURS_QUIET_START_UTC: 15,
+  QUIET_HOURS_QUIET_END_UTC: 23,
   }
   const prisma = createPrisma(databaseUrl!)
   const app = createApp({ env, prisma })

@@ -18,7 +18,9 @@ import {
   ingestInboundMessage,
   getEnabledChannels,
 } from './messaging.service'
-import { isInQuietHours, msUntilQuietHoursEnd } from './quiet-hours'
+import { dispatchMessage } from './messaging.queue'
+import { isInQuietHours, msUntilQuietHoursEnd, quietHoursConfigFromEnv } from './quiet-hours'
+import type { QuietHoursConfig } from './quiet-hours'
 import { parseTelegramWebhook } from '../../integrations/messaging'
 import type { MessageChannelAdapter, SendInput, SendResult } from '../../integrations/messaging'
 import type { MessagingDraftProvider } from './messaging.draft'
@@ -60,6 +62,8 @@ const baseEnv: AppEnv = {
   SMTP_USER: undefined,
   SMTP_PASS: undefined,
   SMTP_FROM: undefined,
+  QUIET_HOURS_QUIET_START_UTC: 15,
+  QUIET_HOURS_QUIET_END_UTC: 23,
 }
 
 // ─── Prisma mock builder ──────────────────────────────────────────────────────
@@ -191,39 +195,82 @@ describe('substituteTemplateVariables', () => {
 
 // ─── Quiet Hours ──────────────────────────────────────────────────────────────
 
-describe('quiet hours', () => {
-  test('23:00 UTC is in quiet hours', () => {
-    const date = new Date('2026-05-22T23:00:00Z')
-    expect(isInQuietHours(date)).toBe(true)
+describe('quiet hours — default config (quiet 15:00–23:00 UTC)', () => {
+  // Active window: 23:00 UTC → 15:00 UTC (Vladivostok 09:00 → Moscow 18:00)
+  // Quiet  window: 15:00 UTC → 23:00 UTC
+
+  test('14:00 UTC is active (NOT in quiet hours)', () => {
+    expect(isInQuietHours(new Date('2026-05-22T14:00:00Z'))).toBe(false)
   })
 
-  test('22:00 UTC is in quiet hours (start boundary)', () => {
-    const date = new Date('2026-05-22T22:00:00Z')
-    expect(isInQuietHours(date)).toBe(true)
+  test('15:00 UTC is quiet (start boundary — inclusive)', () => {
+    expect(isInQuietHours(new Date('2026-05-22T15:00:00Z'))).toBe(true)
   })
 
-  test('09:00 UTC is NOT in quiet hours (end boundary)', () => {
-    const date = new Date('2026-05-22T09:00:00Z')
-    expect(isInQuietHours(date)).toBe(false)
+  test('16:00 UTC is quiet', () => {
+    expect(isInQuietHours(new Date('2026-05-22T16:00:00Z'))).toBe(true)
   })
 
-  test('12:00 UTC is NOT in quiet hours', () => {
-    const date = new Date('2026-05-22T12:00:00Z')
-    expect(isInQuietHours(date)).toBe(false)
+  test('22:30 UTC is quiet', () => {
+    expect(isInQuietHours(new Date('2026-05-22T22:30:00Z'))).toBe(true)
   })
 
-  test('msUntilQuietHoursEnd returns 0 outside quiet hours', () => {
-    const date = new Date('2026-05-22T12:00:00Z')
-    expect(msUntilQuietHoursEnd(date)).toBe(0)
+  test('23:00 UTC is active (end boundary — exclusive, active resumes)', () => {
+    expect(isInQuietHours(new Date('2026-05-22T23:00:00Z'))).toBe(false)
   })
 
-  test('msUntilQuietHoursEnd returns positive ms during quiet hours', () => {
-    const date = new Date('2026-05-22T23:00:00Z') // 23:00 UTC
-    const ms = msUntilQuietHoursEnd(date)
-    expect(ms).toBeGreaterThan(0)
-    // Should be 10 hours until 09:00 next day
-    const tenHoursMs = 10 * 60 * 60 * 1000
-    expect(ms).toBe(tenHoursMs)
+  test('23:30 UTC is active', () => {
+    expect(isInQuietHours(new Date('2026-05-22T23:30:00Z'))).toBe(false)
+  })
+
+  test('00:00 UTC is active (wrap-around: past-midnight is still active)', () => {
+    expect(isInQuietHours(new Date('2026-05-22T00:00:00Z'))).toBe(false)
+  })
+
+  test('msUntilQuietHoursEnd returns 0 when active (14:00 UTC)', () => {
+    expect(msUntilQuietHoursEnd(new Date('2026-05-22T14:00:00Z'))).toBe(0)
+  })
+
+  test('msUntilQuietHoursEnd returns ms until 23:00 UTC when quiet (16:00 UTC → 7 h)', () => {
+    const now = new Date('2026-05-22T16:00:00Z')
+    const expected = 7 * 60 * 60 * 1000
+    expect(msUntilQuietHoursEnd(now)).toBe(expected)
+  })
+
+  test('msUntilQuietHoursEnd returns ms until 23:00 UTC when quiet (22:30 UTC → 30 min)', () => {
+    const now = new Date('2026-05-22T22:30:00Z')
+    const expected = 30 * 60 * 1000
+    expect(msUntilQuietHoursEnd(now)).toBe(expected)
+  })
+})
+
+describe('quiet hours — config override', () => {
+  const legacyConfig: QuietHoursConfig = { quietStartUtcHour: 22, quietEndUtcHour: 9 }
+
+  test('22:00 UTC is quiet with legacy config (wrap-around start)', () => {
+    expect(isInQuietHours(new Date('2026-05-22T22:00:00Z'), legacyConfig)).toBe(true)
+  })
+
+  test('00:00 UTC is quiet with legacy config (wrap-around midnight)', () => {
+    expect(isInQuietHours(new Date('2026-05-22T00:00:00Z'), legacyConfig)).toBe(true)
+  })
+
+  test('09:00 UTC is active with legacy config (end boundary)', () => {
+    expect(isInQuietHours(new Date('2026-05-22T09:00:00Z'), legacyConfig)).toBe(false)
+  })
+
+  test('12:00 UTC is active with legacy config', () => {
+    expect(isInQuietHours(new Date('2026-05-22T12:00:00Z'), legacyConfig)).toBe(false)
+  })
+
+  test('quietHoursConfigFromEnv derives config from env fields', () => {
+    const cfg = quietHoursConfigFromEnv({ QUIET_HOURS_QUIET_START_UTC: 18, QUIET_HOURS_QUIET_END_UTC: 8 })
+    expect(cfg.quietStartUtcHour).toBe(18)
+    expect(cfg.quietEndUtcHour).toBe(8)
+    // 03:00 UTC falls in quiet window for 18→8
+    expect(isInQuietHours(new Date('2026-05-22T03:00:00Z'), cfg)).toBe(true)
+    // 10:00 UTC is active for 18→8
+    expect(isInQuietHours(new Date('2026-05-22T10:00:00Z'), cfg)).toBe(false)
   })
 })
 
@@ -504,5 +551,62 @@ describe('getEnabledChannels', () => {
     const channels = getEnabledChannels(baseEnv)
     const email = channels.find((c) => c.channel === 'email')
     expect(email?.enabled).toBe(false)
+  })
+})
+
+// ─── Quiet Hours — dispatch deferral ─────────────────────────────────────────
+
+describe('dispatchMessage quiet hours deferral', () => {
+  // 16:00 UTC is inside the default quiet window (15:00–23:00 UTC).
+  const duringQuietHours = () => new Date('2026-05-22T16:00:00Z')
+
+  test('automated send during quiet hours is deferred (not immediately dispatched)', async () => {
+    const prisma = createPrismaMock()
+    const adapter = createMockAdapter()
+
+    await dispatchMessage({
+      prisma: prisma as never,
+      env: baseEnv,
+      messageId: 'msg-1',
+      channel: 'in_app',
+      destination: 'ivan@example.com',
+      body: 'Auto message',
+      automated: true,
+      adapter,
+      now: duringQuietHours,
+    })
+
+    // Adapter must NOT be called — the job was re-queued for later.
+    expect(adapter.calls).toHaveLength(0)
+  })
+
+  test('manual send during quiet hours is NOT deferred — adapter called immediately', async () => {
+    const prisma = createPrismaMock()
+    const adapter = createMockAdapter()
+
+    // Seed the message row so the queue can update it.
+    const msgId = 'msg-manual-1'
+    ;(prisma._stores.messages as Record<string, unknown>)[msgId] = {
+      id: msgId,
+      tenantId: 'tenant-1',
+      senderUserId: 'user-1',
+      status: 'queued',
+    }
+
+    await dispatchMessage({
+      prisma: prisma as never,
+      env: baseEnv,
+      messageId: msgId,
+      channel: 'in_app',
+      destination: 'ivan@example.com',
+      body: 'Manual message',
+      automated: false,
+      adapter,
+      now: duringQuietHours,
+    })
+
+    // Adapter MUST be called — manual sends bypass quiet hours.
+    expect(adapter.calls).toHaveLength(1)
+    expect(adapter.calls[0]?.body).toBe('Manual message')
   })
 })

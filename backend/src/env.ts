@@ -77,6 +77,11 @@ const envSchema = z.object({
   SMTP_USER: optionalStringSchema,
   SMTP_PASS: optionalStringSchema,
   SMTP_FROM: optionalStringSchema,
+  // Quiet Hours — active send window: 23:00 UTC (09:00 Vladivostok) → 15:00 UTC (18:00 Moscow).
+  // quietStart is the UTC hour when the quiet period begins (automated sends deferred).
+  // quietEnd   is the UTC hour when the quiet period ends   (automated sends resume).
+  QUIET_HOURS_QUIET_START_UTC: z.coerce.number().int().min(0).max(23).default(15),
+  QUIET_HOURS_QUIET_END_UTC: z.coerce.number().int().min(0).max(23).default(23),
 }).superRefine((env, ctx) => {
   validateJwtSecret(env, ctx)
   validateCorsOrigins(env, ctx)
