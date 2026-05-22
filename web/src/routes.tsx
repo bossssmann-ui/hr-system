@@ -15,6 +15,7 @@ import {
   VacancyDetailPage,
 } from './pages/recruiting'
 import { InboxPage, ConversationPage } from './pages/inbox'
+import { CareersPage, CareersVacancyPage } from './pages/careers'
 
 const rootRoute = createRootRoute({
   component: RootLayout,
@@ -113,6 +114,20 @@ const conversationRoute = createRoute({
   component: ConversationPage,
 })
 
+// ─── Public careers routes (no auth required) ──────────────────────────────
+
+const careersRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/careers',
+  component: CareersPage,
+})
+
+const careersVacancyRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/careers/$slug',
+  component: CareersVacancyPage,
+})
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   appRoute,
@@ -129,6 +144,8 @@ const routeTree = rootRoute.addChildren([
   adminHhIntegrationRoute,
   inboxRoute,
   conversationRoute,
+  careersRoute,
+  careersVacancyRoute,
 ])
 
 export const router = createRouter({ routeTree })
