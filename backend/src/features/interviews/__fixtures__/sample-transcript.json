@@ -1,0 +1,44 @@
+{
+  "segments": [
+    {
+      "speaker": "interviewer",
+      "start_ms": 0,
+      "end_ms": 5000,
+      "text": "Добрый день! Расскажите о вашем опыте работы с TypeScript."
+    },
+    {
+      "speaker": "candidate",
+      "start_ms": 5000,
+      "end_ms": 25000,
+      "text": "Добрый день! У меня 5 лет опыта работы с TypeScript, в основном в backend-разработке с использованием Node.js и Hono."
+    },
+    {
+      "speaker": "interviewer",
+      "start_ms": 25000,
+      "end_ms": 35000,
+      "text": "Отличный опыт. Давайте обсудим условия. Мы готовы предложить 250 000 рублей в месяц."
+    },
+    {
+      "speaker": "candidate",
+      "start_ms": 35000,
+      "end_ms": 50000,
+      "text": "Звучит хорошо. Я готов выйти на работу с 1 июня 2026 года."
+    },
+    {
+      "speaker": "interviewer",
+      "start_ms": 50000,
+      "end_ms": 65000,
+      "text": "Отлично, договорились. Зарплата 250 000 рублей, выход 1 июня 2026. Есть пожелание по гибкому графику?"
+    },
+    {
+      "speaker": "candidate",
+      "start_ms": 65000,
+      "end_ms": 80000,
+      "text": "Да, хотелось бы возможность удалённой работы 2 дня в неделю."
+    }
+  ],
+  "language": "ru-RU",
+  "asr_provider": "yandex_speechkit",
+  "asr_model": "general",
+  "created_at": "2026-05-22T10:00:00.000Z"
+}

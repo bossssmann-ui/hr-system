@@ -33,11 +33,42 @@ Required fields per write:
 | Resume | `resume.upload`, `resume.soft_delete` |
 | Application | `application.create`, `application.update`, `application.move_stage`, `application.assign`, `application.delete` |
 | Application AI scoring | `application.ai_scored`, `application.rescore_requested`, `application.score_feedback` |
+| Interview (Phase 1F) | `interview.create`, `interview.consent_updated`, `interview.recording_uploaded`, `interview.transcribe_requested`, `interview.build_protocol_requested`, `interview.transcribed`, `interview.protocol_built`, `interview.offer_draft_built` |
 | Integrations (HH.ru) | `hh.sync.candidate_imported` |
 | Auth | `auth.login`, `auth.logout`, `auth.refresh`, `auth.password_changed` |
 | Admin | `user.role_added`, `user.role_removed` |
 
 New actions require a one-line entry in this table and a `TODO(phase-N)` comment if not implemented yet.
+
+---
+
+## Phase 1F — Recording consent PII note (152-ФЗ)
+
+Interview recordings and transcripts contain **personal data** including voice, name, and employment-related statements. The legal basis for processing is the **candidate's explicit consent to being recorded** (`consent_recorded = true`), set via `PATCH /api/interviews/:id/consent` by a recruiter before transcription begins.
+
+### What is processed and where
+
+| Data | Storage | Legal basis |
+| --- | --- | --- |
+| Recording file | Local Docker volume (stub); real DigitalOcean Spaces in Phase 3 | Candidate's recorded consent |
+| Transcript (diarized segments) | PostgreSQL JSONB on `Interview.transcript` | Same consent |
+| Interview protocol | PostgreSQL JSONB on `Interview.protocol` | Same consent (protocol is derived from transcript) |
+| Offer draft | PostgreSQL JSONB on `Interview.offer_draft` | Same consent (deterministic mapping from protocol) |
+
+### LLM data residency
+
+When building the interview protocol, the transcript is sent to the configured LLM provider (default: Anthropic Claude via `LLM_SCORING_API_KEY`). Unlike Phase 1C resume scoring, PII is **not stripped** here — the protocol legitimately needs full interview context (candidate name, quoted statements, etc.).
+
+If using a **non-RF LLM** provider (e.g. Anthropic), this is a **data-residency consideration** for the system owner under 152-ФЗ. Mitigations:
+1. Use Yandex SpeechKit for ASR (data stays in RF).
+2. Self-host Whisper + a local LLM (see `backend/src/integrations/asr/` — WhisperProvider seam is ready).
+3. Or accept the cross-border transfer with appropriate consent and safeguards.
+
+**Document the owner's choice** in the tenant's privacy notice. This system does not block deployment based on the LLM provider — the owner must weigh the tradeoff.
+
+### Consent audit trail
+
+Every time `consent_recorded` is updated, an `interview.consent_updated` `AuditEvent` is written with the actor, entity, and new value. The consent field itself is a `boolean` on `Interview` — not stripped by the audit redact rules.
 
 ## What never goes into `diff`
 

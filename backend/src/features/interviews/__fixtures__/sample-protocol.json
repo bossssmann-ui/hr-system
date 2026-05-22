@@ -1,0 +1,40 @@
+{
+  "summary": "Кандидат имеет 5 лет опыта работы с TypeScript и Node.js. В ходе собеседования были согласованы основные условия трудоустройства: зарплата 250 000 рублей, дата выхода 1 июня 2026 года, возможность удалённой работы 2 дня в неделю.",
+  "questions_and_answers": [
+    {
+      "question": "Расскажите о вашем опыте работы с TypeScript.",
+      "answer": "У меня 5 лет опыта работы с TypeScript, в основном в backend-разработке с использованием Node.js и Hono.",
+      "segment_indices": [0, 1]
+    },
+    {
+      "question": "Есть пожелание по гибкому графику?",
+      "answer": "Да, хотелось бы возможность удалённой работы 2 дня в неделю.",
+      "segment_indices": [4, 5]
+    }
+  ],
+  "agreed_terms": {
+    "salary": 250000,
+    "currency": "RUB",
+    "start_date": "2026-06-01",
+    "special_conditions": ["Удалённая работа 2 дня в неделю"],
+    "salary_source": {
+      "segment_index": 4,
+      "quote": "Зарплата 250 000 рублей"
+    },
+    "start_date_source": {
+      "segment_index": 4,
+      "quote": "выход 1 июня 2026"
+    },
+    "special_conditions_sources": [
+      {
+        "segment_index": 5,
+        "quote": "возможность удалённой работы 2 дня в неделю"
+      }
+    ]
+  },
+  "strengths": ["5 лет опыта TypeScript", "Backend expertise с Node.js и Hono"],
+  "concerns": [],
+  "model": "claude-haiku-4-5-20251001",
+  "generated_at": "2026-05-22T10:05:00.000Z",
+  "schema_version": 1
+}
