@@ -244,6 +244,8 @@ maybeDescribe('Phase 1D assessment routes', () => {
 
     const session = await prisma.assessmentSession.findUniqueOrThrow({ where: { inviteToken: inviteToken } })
     expect(session.trustScore).toBeLessThan(100)
+    const application = await prisma.application.findUniqueOrThrow({ where: { id: applicationId } })
+    expect(application.trustFlagged).toBe(true)
   })
 
   test('open-answer grading job is enqueued after submit when AI is enabled', async () => {

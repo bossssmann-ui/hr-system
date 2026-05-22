@@ -11,9 +11,6 @@ ALTER TABLE "interviews" DROP CONSTRAINT "interviews_application_id_fkey";
 ALTER TABLE "applications" ADD COLUMN     "ai_interview_questions" JSONB,
 ADD COLUMN     "trust_flagged" BOOLEAN NOT NULL DEFAULT false;
 
--- AlterTable
-ALTER TABLE "interviews" ALTER COLUMN "updated_at" DROP DEFAULT;
-
 -- CreateTable
 CREATE TABLE "assessment_templates" (
     "id" UUID NOT NULL DEFAULT uuidv7(),

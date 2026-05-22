@@ -289,7 +289,7 @@ export function createPublicAssessmentRoutes() {
       throw new AppError(410, 'BAD_REQUEST', 'Assessment session expired')
     }
     if (!['invited', 'consented', 'in_progress'].includes(session.status)) {
-      throw new AppError(409, 'BAD_REQUEST', 'Assessment session is no longer available')
+      throw new AppError(409, 'CONFLICT', 'Assessment session is no longer available')
     }
 
     return c.json(publicAssessmentViewSchema.parse(toPublicView(session)))

@@ -43,7 +43,7 @@ export function PublicAssessmentPage() {
     queryKey: ['assessment-public', token],
     queryFn: () => api.getPublicAssessment(token),
     enabled: Boolean(token),
-    refetchInterval: (query) => query.state.data?.status === 'in_progress' ? 2000 : false,
+    refetchInterval: (query) => query.state.data?.status === 'in_progress' ? 5000 : false,
   })
 
   const consentMutation = useMutation({
@@ -120,6 +120,7 @@ export function PublicAssessmentPage() {
     const onKeyDown = () => {
       const now = Date.now()
       keyTimestampsRef.current = [...keyTimestampsRef.current.filter((timestamp) => now - timestamp < 1000), now]
+      // Heuristic burst signal: >20 keystrokes in 1 second is treated as anomalous.
       if (keyTimestampsRef.current.length > 20) {
         setSignalState((current) => ({ ...current, burstEvents: current.burstEvents + 1 }))
       }

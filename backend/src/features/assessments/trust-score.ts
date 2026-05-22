@@ -14,6 +14,12 @@ type NormalizedPenaltyInput = {
   keystrokeAnomalies: number
 }
 
+const PASTE_EVENT_PENALTY_THRESHOLD = 8
+const PASTED_CHAR_PENALTY_THRESHOLD = 3000
+const FOCUS_LOSS_EVENT_PENALTY_THRESHOLD = 10
+const FOCUS_AWAY_MS_PENALTY_THRESHOLD = 300000
+const KEYSTROKE_ANOMALY_PENALTY_THRESHOLD = 6
+
 export function computeTrustScore(signalsInput: unknown, weights: TrustScoreWeights): number {
   const signals = trustSignalsSchema.parse(signalsInput)
   const normalized = normalizePenaltyInput(signals)
@@ -21,9 +27,19 @@ export function computeTrustScore(signalsInput: unknown, weights: TrustScoreWeig
 
   if (totalWeight <= 0) return 100
 
-  const pastePenalty = Math.min(1, normalized.pasteEvents / 8 + normalized.pastedChars / 3000)
-  const focusPenalty = Math.min(1, normalized.focusLossEvents / 10 + normalized.focusAwayMs / 300000)
-  const keystrokePenalty = Math.min(1, normalized.keystrokeAnomalies / 6)
+  const pastePenalty =
+    Math.min(
+      1,
+      normalized.pasteEvents / PASTE_EVENT_PENALTY_THRESHOLD +
+      normalized.pastedChars / PASTED_CHAR_PENALTY_THRESHOLD,
+    )
+  const focusPenalty =
+    Math.min(
+      1,
+      normalized.focusLossEvents / FOCUS_LOSS_EVENT_PENALTY_THRESHOLD +
+      normalized.focusAwayMs / FOCUS_AWAY_MS_PENALTY_THRESHOLD,
+    )
+  const keystrokePenalty = Math.min(1, normalized.keystrokeAnomalies / KEYSTROKE_ANOMALY_PENALTY_THRESHOLD)
 
   const weightedPenalty =
     (pastePenalty * Math.max(0, weights.paste) +
