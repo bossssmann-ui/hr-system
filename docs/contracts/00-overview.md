@@ -66,6 +66,10 @@ The following items are **explicitly deferred** to later phases. If a task seems
 - `Notifier` is an abstraction with `email`, `telegram`, `in_app` channels — only `in_app` is implemented; the others log "not implemented". Adding SMTP/Telegram later does not change call sites.
 - `Queue` is an in-process `setTimeout`-backed stub today. Swapping to BullMQ + Valkey later must not change producer call sites.
 - Backend emits domain events via the `Notifier` so a future real-time layer (Valkey Pub/Sub) can subscribe without invasive changes.
+- **Quiet Hours** (Phase 1E): automated outbound messages are deferred outside the active send window.
+  - *Business context*: this company spans Vladivostok (UTC+10) → Moscow (UTC+3), so the active window is 09:00 Vladivostok → 18:00 Moscow = **23:00 UTC → 15:00 UTC** (wraps past midnight).
+  - *Configuration*: `QUIET_HOURS_QUIET_START_UTC` (default 15) and `QUIET_HOURS_QUIET_END_UTC` (default 23) env vars control the quiet period boundaries.
+  - *Central helper*: `backend/src/features/messaging/quiet-hours.ts` — import and reuse for any future automated-outbound path (scheduled jobs, Notifier transports, etc.) rather than reimplementing the logic.
 
 ## How to add a new feature
 

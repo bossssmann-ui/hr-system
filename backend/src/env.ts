@@ -80,6 +80,11 @@ const envSchema = z.object({
   // Phase 1G — Public careers page
   CAREERS_PAGE_ENABLED: booleanStringSchema,
   CAREERS_RATE_LIMIT_PER_HOUR: z.coerce.number().int().positive().default(20),
+  // Quiet Hours — active send window: 23:00 UTC (09:00 Vladivostok) → 15:00 UTC (18:00 Moscow).
+  // QUIET_HOURS_QUIET_START_UTC is the UTC hour when the quiet period begins (automated sends deferred).
+  // QUIET_HOURS_QUIET_END_UTC   is the UTC hour when the quiet period ends (automated sends resume).
+  QUIET_HOURS_QUIET_START_UTC: z.coerce.number().int().min(0).max(23).default(15),
+  QUIET_HOURS_QUIET_END_UTC: z.coerce.number().int().min(0).max(23).default(23),
 }).superRefine((env, ctx) => {
   validateJwtSecret(env, ctx)
   validateCorsOrigins(env, ctx)

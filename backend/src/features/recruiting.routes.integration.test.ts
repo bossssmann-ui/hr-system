@@ -51,6 +51,8 @@ const env: AppEnv = {
   EMAIL_ENABLED: false,
   CAREERS_PAGE_ENABLED: false,
   CAREERS_RATE_LIMIT_PER_HOUR: 20,
+  QUIET_HOURS_QUIET_START_UTC: 15,
+  QUIET_HOURS_QUIET_END_UTC: 23,
 }
 
 /** Register a user with the given roles and return an access token. */
