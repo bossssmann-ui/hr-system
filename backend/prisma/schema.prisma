@@ -58,6 +58,21 @@ enum ApplicationStage {
   rejected
 }
 
+enum AssessmentQuestionType {
+  open
+  single_choice
+  multi_choice
+}
+
+enum AssessmentSessionStatus {
+  invited
+  consented
+  in_progress
+  submitted
+  graded
+  expired
+}
+
 enum NotificationChannel {
   email
   telegram
@@ -193,6 +208,7 @@ model Vacancy {
   orgUnit      OrgUnit           @relation(fields: [orgUnitId], references: [id], map: "vacancies_org_unit_id_fkey")
   applications Application[]
   hhSyncCursor HhSyncCursor?
+  assessmentTemplates AssessmentTemplate[]
 
   @@unique([tenantId, slug], map: "vacancies_tenant_id_slug_key")
   @@index([tenantId], map: "vacancies_tenant_id_idx")
@@ -250,6 +266,8 @@ model Application {
   notes             String?
   aiScoring         Json?            @map("ai_scoring")
   aiScoreFeedback   Json?            @map("ai_score_feedback")
+  aiInterviewQuestions Json?         @map("ai_interview_questions")
+  trustFlagged      Boolean          @default(false) @map("trust_flagged")
   externalIds       Json             @default("{}") @map("external_ids")
   createdAt         DateTime         @default(now()) @map("created_at")
   updatedAt         DateTime         @updatedAt @map("updated_at")
@@ -259,6 +277,7 @@ model Application {
   stageEvents  ApplicationStageEvent[]
   interviews   Interview[]
   conversations Conversation[]
+  assessmentSessions AssessmentSession[]
 
   @@unique([candidateId, vacancyId], map: "applications_candidate_vacancy_unique")
   @@index([tenantId], map: "applications_tenant_id_idx")
@@ -266,6 +285,87 @@ model Application {
   @@index([stage], map: "applications_stage_idx")
   @@index([assignedToUserId], map: "applications_assigned_to_user_id_idx")
   @@map("applications")
+}
+
+model AssessmentTemplate {
+  id           String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId     String   @db.Uuid @map("tenant_id")
+  vacancyId    String?  @db.Uuid @map("vacancy_id")
+  title        String
+  description  String?
+  timeLimitMin Int?     @map("time_limit_min")
+  createdBy    String   @db.Uuid @map("created_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  vacancy  Vacancy?               @relation(fields: [vacancyId], references: [id], onDelete: SetNull, map: "assessment_templates_vacancy_id_fkey")
+  questions AssessmentQuestion[]
+  sessions  AssessmentSession[]
+
+  @@index([tenantId], map: "assessment_templates_tenant_id_idx")
+  @@index([vacancyId], map: "assessment_templates_vacancy_id_idx")
+  @@map("assessment_templates")
+}
+
+model AssessmentQuestion {
+  id         String                 @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  templateId String                 @db.Uuid @map("template_id")
+  order      Int                    @map("question_order")
+  type       AssessmentQuestionType
+  prompt     String
+  options    Json?
+  rubric     String?
+  competency String?
+  weight     Float                  @default(1)
+  createdAt  DateTime               @default(now()) @map("created_at")
+  updatedAt  DateTime               @updatedAt @map("updated_at")
+
+  template AssessmentTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade, map: "assessment_questions_template_id_fkey")
+  answers  AssessmentAnswer[]
+
+  @@index([templateId], map: "assessment_questions_template_id_idx")
+  @@unique([templateId, order], map: "assessment_questions_template_order_key")
+  @@map("assessment_questions")
+}
+
+model AssessmentSession {
+  id              String                  @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId        String                  @db.Uuid @map("tenant_id")
+  templateId      String                  @db.Uuid @map("template_id")
+  applicationId   String                  @db.Uuid @map("application_id")
+  inviteToken     String                  @unique @map("invite_token")
+  status          AssessmentSessionStatus @default(invited)
+  consentRecorded Boolean                 @default(false) @map("consent_recorded")
+  startedAt       DateTime?               @map("started_at")
+  submittedAt     DateTime?               @map("submitted_at")
+  trustScore      Int?                    @map("trust_score")
+  trustSignals    Json?                   @map("trust_signals")
+  createdAt       DateTime                @default(now()) @map("created_at")
+
+  template    AssessmentTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade, map: "assessment_sessions_template_id_fkey")
+  application Application        @relation(fields: [applicationId], references: [id], onDelete: Cascade, map: "assessment_sessions_application_id_fkey")
+  answers     AssessmentAnswer[]
+
+  @@index([tenantId], map: "assessment_sessions_tenant_id_idx")
+  @@index([applicationId], map: "assessment_sessions_application_id_idx")
+  @@map("assessment_sessions")
+}
+
+model AssessmentAnswer {
+  id         String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  sessionId  String   @db.Uuid @map("session_id")
+  questionId String   @db.Uuid @map("question_id")
+  answer     Json
+  aiGrade    Json?    @map("ai_grade")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  session  AssessmentSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade, map: "assessment_answers_session_id_fkey")
+  question AssessmentQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade, map: "assessment_answers_question_id_fkey")
+
+  @@index([sessionId], map: "assessment_answers_session_id_idx")
+  @@index([questionId], map: "assessment_answers_question_id_idx")
+  @@unique([sessionId, questionId], map: "assessment_answers_session_question_key")
+  @@map("assessment_answers")
 }
 
 model ApplicationStageEvent {

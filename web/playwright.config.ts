@@ -31,6 +31,8 @@ const backendEnv = normalizeEnv({
     process.env.JWT_SECRET ?? 'web-e2e-secret-at-least-thirty-two-characters',
   CORS_ORIGINS: [frontendUrl, 'http://localhost:5173'].join(','),
   COOKIE_SECURE: 'false',
+  ASSESSMENTS_ENABLED: 'true',
+  PROCTORING_WEBCAM_ENABLED: 'false',
 })
 
 export default defineConfig({

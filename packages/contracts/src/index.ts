@@ -1,4 +1,5 @@
 export * from './admin'
+export * from './assessments'
 export * from './applications'
 export * from './auth'
 export * from './candidates'

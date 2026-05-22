@@ -5,7 +5,7 @@
 import { useForm } from "@tanstack/react-form"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate, useParams } from "@tanstack/react-router"
-import type { Application, ApplicationStage, Interview, OrgUnit, RequisitionStatus, Vacancy } from "@web-app-demo/contracts"
+import type { Application, ApplicationStage, AssessmentTemplate, Interview, OrgUnit, RequisitionStatus, Vacancy } from "@web-app-demo/contracts"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 
@@ -766,10 +766,23 @@ export function ApplicationDetailPage() {
   const applicationId = params.applicationId ?? ""
   const queryClient = useQueryClient()
   const [feedbackNote, setFeedbackNote] = useState("")
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("")
+  const [latestInviteLink, setLatestInviteLink] = useState<string | null>(null)
 
   const query = useQuery({
     queryKey: ["applications", applicationId, "detail"],
     queryFn: () => api.getApplication(applicationId),
+    enabled: Boolean(applicationId),
+  })
+
+  const templatesQuery = useQuery({
+    queryKey: ["assessment-templates"],
+    queryFn: () => api.listAssessmentTemplates(),
+  })
+
+  const sessionsQuery = useQuery({
+    queryKey: ["assessment-sessions", applicationId],
+    queryFn: () => api.listAssessmentSessions(applicationId),
     enabled: Boolean(applicationId),
   })
 
@@ -804,6 +817,37 @@ export function ApplicationDetailPage() {
     },
   })
 
+  const generateQuestionsMutation = useMutation({
+    mutationFn: () => api.generateInterviewQuestions(applicationId),
+    onSuccess: async () => {
+      toast.success("Interview questions generated")
+      await queryClient.invalidateQueries({ queryKey: ["applications"] })
+      await queryClient.invalidateQueries({ queryKey: ["applications", applicationId, "detail"] })
+    },
+    onError: (error: unknown) => {
+      toast.error(error instanceof ApiRequestError ? error.message : "Failed to generate interview questions")
+    },
+  })
+
+  const inviteAssessmentMutation = useMutation({
+    mutationFn: () => {
+      if (!selectedTemplateId) throw new Error("template_required")
+      return api.inviteAssessment(selectedTemplateId, { applicationId })
+    },
+    onSuccess: async (result) => {
+      setLatestInviteLink(result.link)
+      toast.success("Assessment invite created")
+      await queryClient.invalidateQueries({ queryKey: ["assessment-sessions", applicationId] })
+    },
+    onError: (error: unknown) => {
+      if (error instanceof Error && error.message === "template_required") {
+        toast.error("Select a template first")
+        return
+      }
+      toast.error(error instanceof ApiRequestError ? error.message : "Failed to invite candidate")
+    },
+  })
+
   if (query.isPending) return <LoadingCard />
   if (query.isError) return <ErrorCard message="Application not found or access denied" />
 
@@ -816,6 +860,9 @@ export function ApplicationDetailPage() {
   const failure = scoring?.status === "failed" && typeof scoring.failure === "object" && scoring.failure
     ? scoring.failure as Record<string, unknown>
     : null
+  const templates = templatesQuery.data?.items ?? []
+  const assessmentSessions = sessionsQuery.data?.items ?? []
+  const aiInterviewQuestions = Array.isArray(app.aiInterviewQuestions) ? app.aiInterviewQuestions : []
 
   return (
     <section className="mx-auto grid w-full max-w-6xl gap-6 px-5 py-12">
@@ -897,6 +944,94 @@ export function ApplicationDetailPage() {
             <Typography tone="muted" variant="bodySm">
               Last feedback: {app.aiScoreFeedback.agrees ? "Agree" : "Disagree"} · {app.aiScoreFeedback.note ?? "No note"}
             </Typography>
+          )}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-3">
+          <div className="grid gap-1">
+            <CardTitle>AI interview questions</CardTitle>
+            <CardDescription>Advisory only — recruiter picks what to use.</CardDescription>
+          </div>
+          <Button variant="outline" onClick={() => generateQuestionsMutation.mutate()} disabled={generateQuestionsMutation.isPending} data-testid="generate-questions-button">
+            {generateQuestionsMutation.isPending ? "Generating…" : "Generate"}
+          </Button>
+        </CardHeader>
+        <CardContent className="grid gap-3">
+          {aiInterviewQuestions.length === 0 ? (
+            <Typography tone="muted">No generated questions yet.</Typography>
+          ) : (
+            <ul className="grid gap-3">
+              {aiInterviewQuestions.map((item, idx) => {
+                const question = item as Record<string, unknown>
+                return (
+                  <li key={idx} className="rounded-md border p-3">
+                    <Typography className="font-medium">{String(question.question ?? "—")}</Typography>
+                    <Typography variant="bodySm" tone="muted">{String(question.competency ?? "—")}</Typography>
+                    <Typography variant="bodySm">{String(question.rationale ?? "—")}</Typography>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Assessments</CardTitle>
+          <CardDescription>Create a tokenized invite and review trust-score outcomes.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              className="min-w-[240px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={selectedTemplateId}
+              onChange={(event) => setSelectedTemplateId(event.target.value)}
+              data-testid="assessment-template-select"
+            >
+              <option value="">Select template…</option>
+              {templates.map((template: AssessmentTemplate) => (
+                <option key={template.id} value={template.id}>{template.title}</option>
+              ))}
+            </select>
+            <Button
+              variant="outline"
+              onClick={() => inviteAssessmentMutation.mutate()}
+              disabled={!selectedTemplateId || inviteAssessmentMutation.isPending}
+              data-testid="assessment-invite-button"
+            >
+              {inviteAssessmentMutation.isPending ? "Inviting…" : "Invite candidate"}
+            </Button>
+          </div>
+          {latestInviteLink && (
+            <Typography variant="bodySm" data-testid="assessment-invite-link">
+              Candidate link: <a className="underline" href={latestInviteLink}>{latestInviteLink}</a>
+            </Typography>
+          )}
+          {assessmentSessions.length === 0 ? (
+            <Typography tone="muted">No assessment sessions yet.</Typography>
+          ) : (
+            <ul className="grid gap-2">
+              {assessmentSessions.map((session) => {
+                const trustSignals = (session.trustSignals ?? {}) as Record<string, unknown>
+                const paste = (trustSignals.paste_events ?? {}) as Record<string, unknown>
+                const focus = (trustSignals.focus_loss_events ?? {}) as Record<string, unknown>
+                const keys = (trustSignals.keystroke_timing ?? {}) as Record<string, unknown>
+                return (
+                  <li key={session.id} className="rounded-md border p-3" data-testid={"assessment-session-" + session.id}>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant={session.trustScore !== null && session.trustScore < 60 ? "destructive" : "outline"}>
+                        Trust Score: {session.trustScore ?? "—"}
+                      </Badge>
+                      <Badge variant="secondary">{session.status}</Badge>
+                    </div>
+                    <Typography variant="bodySm" tone="muted">
+                      paste={String(paste.count ?? 0)} · focus={String(focus.count ?? 0)} · keystroke={String(Number(keys.anomaly_flags ?? 0) + Number(keys.burst_events ?? 0))}
+                    </Typography>
+                  </li>
+                )
+              })}
+            </ul>
           )}
         </CardContent>
       </Card>

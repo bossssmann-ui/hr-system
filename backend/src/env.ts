@@ -85,6 +85,13 @@ const envSchema = z.object({
   // QUIET_HOURS_QUIET_END_UTC   is the UTC hour when the quiet period ends (automated sends resume).
   QUIET_HOURS_QUIET_START_UTC: z.coerce.number().int().min(0).max(23).default(15),
   QUIET_HOURS_QUIET_END_UTC: z.coerce.number().int().min(0).max(23).default(23),
+  // Phase 1D — Assessments / proctoring
+  ASSESSMENTS_ENABLED: booleanStringSchema,
+  PROCTORING_WEBCAM_ENABLED: booleanStringSchema,
+  TRUST_WEIGHT_PASTE: z.coerce.number().nonnegative().default(0.35),
+  TRUST_WEIGHT_FOCUS: z.coerce.number().nonnegative().default(0.4),
+  TRUST_WEIGHT_KEYSTROKE: z.coerce.number().nonnegative().default(0.25),
+  TRUST_LOW_THRESHOLD: z.coerce.number().int().min(0).max(100).default(50),
 }).superRefine((env, ctx) => {
   validateJwtSecret(env, ctx)
   validateCorsOrigins(env, ctx)

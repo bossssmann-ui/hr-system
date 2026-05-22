@@ -349,6 +349,76 @@ Each `agreed_term` carries a `source: { segment_index, quote }` — the quote-li
 
 ---
 
+## Phase 1D additions — Proctored assessments + AI interview questions
+
+### `Application` (extended)
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `ai_interview_questions` | jsonb? | Advisory AI-generated questions list: `[{question, rationale, competency}]`. Recruiter-curated, never auto-rejects. |
+| `trust_flagged` | bool | Advisory risk flag set when assessment `trust_score` is below configured threshold. Does **not** auto-reject. |
+
+### `AssessmentTemplate`
+
+Reusable assessment definition, optionally tied to a vacancy.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | UUID | PK |
+| `tenant_id` | UUID | RLS tenant key |
+| `vacancy_id` | UUID? | Optional FK → `Vacancy` |
+| `title` / `description` | text | Recruiter-facing template metadata |
+| `time_limit_min` | int? | Optional timer limit |
+| `created_by` | UUID | FK → `User` |
+| `created_at` / `updated_at` | timestamp | |
+
+### `AssessmentQuestion`
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | UUID | PK |
+| `template_id` | UUID | FK → `AssessmentTemplate` |
+| `question_order` | int | Stable render/grading order |
+| `type` | enum | `open`, `single_choice`, `multi_choice` |
+| `prompt` | text | Candidate-visible question |
+| `options` | jsonb? | Choice options for choice-based questions |
+| `rubric` | text? | Optional rubric for AI open-answer grading |
+| `competency` | text? | Optional competency tag |
+| `weight` | float | Weighted contribution |
+
+### `AssessmentSession`
+
+One candidate test attempt linked to an application and a tokenized public link.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | UUID | PK |
+| `tenant_id` | UUID | RLS tenant key |
+| `template_id` | UUID | FK → `AssessmentTemplate` |
+| `application_id` | UUID | FK → `Application` |
+| `invite_token` | text (unique) | Candidate link token (`/assessment/:token`) |
+| `status` | enum | `invited`, `consented`, `in_progress`, `submitted`, `graded`, `expired` |
+| `consent_recorded` | bool | Mandatory proctoring consent gate |
+| `started_at` / `submitted_at` | timestamp? | Session timeline |
+| `trust_score` | int? | 0–100 (server-computed only) |
+| `trust_signals` | jsonb? | Raw behavioral proctoring signals + consent payload |
+| `created_at` | timestamp | |
+
+### `AssessmentAnswer`
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | UUID | PK |
+| `session_id` | UUID | FK → `AssessmentSession` |
+| `question_id` | UUID | FK → `AssessmentQuestion` |
+| `answer` | jsonb | Candidate answer payload |
+| `ai_grade` | jsonb? | Optional AI grade for open answers: `{score, rationale}` |
+| `created_at` | timestamp | |
+
+RLS: `assessment_templates` and `assessment_sessions` are tenant-scoped. `assessment_questions` and `assessment_answers` inherit tenant isolation through parent-row joins in policy predicates.
+
+---
+
 ## Phase 1E — Candidate Messenger
 
 ### Conversation

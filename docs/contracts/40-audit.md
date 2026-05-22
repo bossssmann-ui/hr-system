@@ -33,6 +33,8 @@ Required fields per write:
 | Resume | `resume.upload`, `resume.soft_delete` |
 | Application | `application.create`, `application.update`, `application.move_stage`, `application.assign`, `application.delete` |
 | Application AI scoring | `application.ai_scored`, `application.rescore_requested`, `application.score_feedback` |
+| Application AI interview prep (Phase 1D) | `application.questions_generated` |
+| Assessments (Phase 1D) | `assessment_template.create`, `assessment_template.update`, `assessment_session.invited`, `assessment_session.consented`, `assessment_session.submitted` |
 | Interview (Phase 1F) | `interview.create`, `interview.consent_updated`, `interview.recording_uploaded`, `interview.transcribe_requested`, `interview.build_protocol_requested`, `interview.transcribed`, `interview.protocol_built`, `interview.offer_draft_built` |
 | Integrations (HH.ru) | `hh.sync.candidate_imported` |
 | Auth | `auth.login`, `auth.logout`, `auth.refresh`, `auth.password_changed` |
@@ -129,6 +131,18 @@ For `hh.sync.candidate_imported`, the candidate record keeps consent context ind
 ## 152-ФЗ note for AI scoring (Phase 1C)
 
 AI scoring requests must exclude direct candidate contact PII (`full_name`, `email`, `phone`) before sending payloads to third-party LLM providers. The scoring input is restricted to job-relevant resume evidence (experience, education, skills, location, total experience) plus vacancy/requisition profile data.
+
+## 152-ФЗ note for proctored assessments + AI interview prep (Phase 1D)
+
+Assessment proctoring processes behavioral anti-fraud signals (`paste_events`, `focus_loss_events`, `keystroke_timing`) and may process webcam snapshots **only** when:
+1. `PROCTORING_WEBCAM_ENABLED=true`; and
+2. candidate provides separate explicit webcam consent.
+
+The assessment cannot start until proctoring consent is recorded (`assessment_sessions.consent_recorded = true`). No consent → `POST /api/public/assessment/:token/start` must fail with consent error.
+
+Trust Score is computed server-side from raw signals and stored as an advisory field (`assessment_sessions.trust_score`). A low score may set `applications.trust_flagged = true` for recruiter review, but it must never auto-reject candidates.
+
+AI-generated interview questions and optional open-answer grading follow the same PII rule as Phase 1C: prompt payloads must include job-relevant content only and must exclude direct contact PII (`full_name`, `email`, `phone`).
 
 ## Logging vs audit
 

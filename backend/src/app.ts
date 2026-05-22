@@ -11,6 +11,7 @@ import { createApplicationsRoutes } from './features/applications/applications.r
 import { createCandidatesRoutes } from './features/candidates/candidates.routes'
 import { createOrgUnitsRoutes } from './features/org-units/org-units.routes'
 import { createPublicCareersRoutes } from './features/public/public.routes'
+import { createAssessmentRoutes, createPublicAssessmentRoutes } from './features/assessments/assessments.routes'
 import { createRequisitionsRoutes } from './features/requisitions/requisitions.routes'
 import { createVacanciesRoutes } from './features/vacancies/vacancies.routes'
 import { createHhIntegrationRoutes } from './integrations/hh/routes'
@@ -102,6 +103,8 @@ export function createApp({ env, prisma }: CreateAppOptions) {
   app.route('/api/conversations', createMessagingRoutes())
   app.route('/api/message-templates', createMessageTemplatesRoutes())
   app.route('/api/integrations/telegram', createTelegramWebhookRoute())
+  app.route('/api/assessments', createAssessmentRoutes())
+  app.route('/api/public/assessment', createPublicAssessmentRoutes())
   app.route('/api/public', createPublicCareersRoutes())
 
   app.doc('/openapi.json', {
