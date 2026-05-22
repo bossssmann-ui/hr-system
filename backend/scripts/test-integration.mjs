@@ -69,4 +69,4 @@ if (process.env.TEST_SKIP_DOCKER !== '1') {
 
 run('bun', ['run', 'prisma:generate'], { env })
 run('bun', ['run', 'prisma:deploy'], { env })
-run('bun', ['test', 'src/auth/auth.integration.test.ts', 'src/features/requisitions/requisitions.rls.integration.test.ts', 'src/features/recruiting.routes.integration.test.ts', 'src/features/phase1b.rls.integration.test.ts'], { env })
+run('bun', ['test', 'src/auth/auth.integration.test.ts', 'src/features/requisitions/requisitions.rls.integration.test.ts', 'src/features/recruiting.routes.integration.test.ts', 'src/features/phase1b.rls.integration.test.ts', 'src/features/assessments/assessments.routes.integration.test.ts'], { env })

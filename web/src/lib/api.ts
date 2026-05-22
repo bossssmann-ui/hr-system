@@ -31,7 +31,20 @@ import {
   listMessageTemplatesResponseSchema,
   sendMessageResponseSchema,
   aiDraftResponseSchema,
+  assessmentConsentRequestSchema,
+  assessmentSessionSchema,
+  assessmentSubmitRequestSchema,
+  assessmentSubmitResponseSchema,
+  assessmentTemplateSchema,
+  createAssessmentTemplateRequestSchema,
   channelStatusListSchema,
+  generateInterviewQuestionsResponseSchema,
+  inviteAssessmentRequestSchema,
+  inviteAssessmentResponseSchema,
+  listAssessmentTemplatesResponseSchema,
+  publicAssessmentViewSchema,
+  trustPreviewRequestSchema,
+  trustPreviewResponseSchema,
   type ApplicationDetail,
   type AuthResponse,
   type CreateApplicationRequest,
@@ -71,6 +84,11 @@ import {
   type ListMessageTemplatesResponse,
   type SendMessageResponse,
   type AiDraftResponse,
+  type AssessmentConsentRequest,
+  type AssessmentSession,
+  type AssessmentSubmitRequest,
+  type AssessmentSubmitResponse,
+  type AssessmentTemplate,
   type ChannelStatusList,
   type ConversationDetail,
   type MessageTemplate,
@@ -78,6 +96,14 @@ import {
   type SendMessageRequest,
   type CreateMessageTemplateRequest,
   type UpdateMessageTemplateRequest,
+  type CreateAssessmentTemplateRequest,
+  type GenerateInterviewQuestionsResponse,
+  type InviteAssessmentRequest,
+  type InviteAssessmentResponse,
+  type ListAssessmentTemplatesResponse,
+  type PublicAssessmentView,
+  type TrustPreviewRequest,
+  type TrustPreviewResponse,
 } from '@web-app-demo/contracts'
 import { z } from 'zod'
 
@@ -272,6 +298,85 @@ export class ApiClient {
       method: 'POST',
       body: input,
       auth: true,
+    })
+  }
+
+  generateInterviewQuestions(id: string): Promise<GenerateInterviewQuestionsResponse> {
+    return this.request(`/api/applications/${id}/generate-questions`, generateInterviewQuestionsResponseSchema, {
+      method: 'POST',
+      auth: true,
+    })
+  }
+
+  // ─── Assessments (Phase 1D) ─────────────────────────────────────────────────
+
+  listAssessmentTemplates(): Promise<ListAssessmentTemplatesResponse> {
+    return this.request('/api/assessments/templates', listAssessmentTemplatesResponseSchema, {
+      auth: true,
+    })
+  }
+
+  createAssessmentTemplate(input: CreateAssessmentTemplateRequest): Promise<AssessmentTemplate> {
+    const payload = createAssessmentTemplateRequestSchema.parse(input)
+    return this.request('/api/assessments/templates', assessmentTemplateSchema, {
+      method: 'POST',
+      body: payload,
+      auth: true,
+    })
+  }
+
+  inviteAssessment(templateId: string, input: InviteAssessmentRequest): Promise<InviteAssessmentResponse> {
+    const payload = inviteAssessmentRequestSchema.parse(input)
+    return this.request(`/api/assessments/${templateId}/invite`, inviteAssessmentResponseSchema, {
+      method: 'POST',
+      body: payload,
+      auth: true,
+    })
+  }
+
+  listAssessmentSessions(applicationId: string): Promise<{ items: AssessmentSession[] }> {
+    return this.request(`/api/assessments/sessions?applicationId=${encodeURIComponent(applicationId)}`, z.object({
+      items: z.array(assessmentSessionSchema),
+    }), { auth: true })
+  }
+
+  trustPreview(input: TrustPreviewRequest): Promise<TrustPreviewResponse> {
+    const payload = trustPreviewRequestSchema.parse(input)
+    return this.request('/api/assessments/trust-preview', trustPreviewResponseSchema, {
+      method: 'POST',
+      body: payload,
+      auth: true,
+    })
+  }
+
+  getPublicAssessment(token: string): Promise<PublicAssessmentView> {
+    return this.request(`/api/public/assessment/${token}`, publicAssessmentViewSchema, {
+      auth: false,
+    })
+  }
+
+  consentPublicAssessment(token: string, input: AssessmentConsentRequest): Promise<{ consented: boolean }> {
+    const payload = assessmentConsentRequestSchema.parse(input)
+    return this.request(`/api/public/assessment/${token}/consent`, z.object({ consented: z.boolean() }), {
+      method: 'POST',
+      body: payload,
+      auth: false,
+    })
+  }
+
+  startPublicAssessment(token: string): Promise<{ status: string }> {
+    return this.request(`/api/public/assessment/${token}/start`, z.object({ status: z.string() }), {
+      method: 'POST',
+      auth: false,
+    })
+  }
+
+  submitPublicAssessment(token: string, input: AssessmentSubmitRequest): Promise<AssessmentSubmitResponse> {
+    const payload = assessmentSubmitRequestSchema.parse(input)
+    return this.request(`/api/public/assessment/${token}/submit`, assessmentSubmitResponseSchema, {
+      method: 'POST',
+      body: payload,
+      auth: false,
     })
   }
 

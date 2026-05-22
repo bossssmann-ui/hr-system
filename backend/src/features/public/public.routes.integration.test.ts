@@ -59,6 +59,12 @@ function makeEnv(overrides: Partial<AppEnv> = {}): AppEnv {
     EMAIL_ENABLED: false,
     CAREERS_PAGE_ENABLED: true,
     CAREERS_RATE_LIMIT_PER_HOUR: 20,
+  ASSESSMENTS_ENABLED: false,
+  PROCTORING_WEBCAM_ENABLED: false,
+  TRUST_WEIGHT_PASTE: 0.35,
+  TRUST_WEIGHT_FOCUS: 0.4,
+  TRUST_WEIGHT_KEYSTROKE: 0.25,
+  TRUST_LOW_THRESHOLD: 50,
     ...overrides,
   }
 }

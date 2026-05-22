@@ -7,6 +7,7 @@ import type {
   Vacancy,
 } from '@web-app-demo/contracts'
 import {
+  generateInterviewQuestionsResponseSchema,
   applicationDetailSchema,
   aiScoreFeedbackSchema,
   aiScoringSchema,
@@ -26,6 +27,7 @@ import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
 import { AppError } from '../../http/errors'
 import { canTransition } from '../applications/applications.fsm'
+import { generateInterviewQuestions } from '../assessments/assessments.service'
 import { enqueueApplicationScoringJob } from '../scoring/scoring.queue'
 import { withScoringPresentation } from '../scoring/scoring.service'
 
@@ -47,6 +49,8 @@ type RawApplication = {
   notes: string | null
   aiScoring: unknown
   aiScoreFeedback: unknown
+  aiInterviewQuestions: unknown
+  trustFlagged: boolean
   externalIds: unknown
   createdAt: Date
   updatedAt: Date
@@ -63,6 +67,8 @@ function toDto(row: RawApplication, env: AppEnv): Application {
     notes: row.notes,
     aiScoring: aiScoringSchema.parse(withScoringPresentation(row.aiScoring, env)),
     aiScoreFeedback: aiScoreFeedbackSchema.nullable().parse(asNullableRecord(row.aiScoreFeedback)),
+    aiInterviewQuestions: Array.isArray(row.aiInterviewQuestions) ? row.aiInterviewQuestions : null,
+    trustFlagged: Boolean(row.trustFlagged),
     externalIds: asRecord(row.externalIds),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -293,6 +299,40 @@ export function createApplicationsRoutes() {
   )
 
   // ─── Re-score ───────────────────────────────────────────────────────────────
+
+  app.post(
+    '/:id/generate-questions',
+    requireRole('owner', 'hr_admin', 'recruiter'),
+    async (c) => {
+      const prisma = c.get('prisma')
+      const env = c.get('env')
+      const tenantId = c.get('tenantId')
+      const userId = c.get('userId')
+      const { id } = c.req.param()
+
+      const row = await prisma.application.findFirst({ where: { id, tenantId } })
+      if (!row) throw new AppError(404, 'NOT_FOUND', 'Application not found')
+
+      const result = await generateInterviewQuestions({
+        prisma,
+        env,
+        applicationId: id,
+        actorUserId: userId,
+      })
+      if (!result.ok) {
+        throw new AppError(503, 'INTERNAL_ERROR', 'AI question generation is not configured')
+      }
+
+      c.set('auditEntry', {
+        action: 'application.questions_generated',
+        entityType: 'Application',
+        entityId: id,
+        diff: { count: result.items.length },
+      })
+
+      return c.json(generateInterviewQuestionsResponseSchema.parse({ items: result.items }), 201)
+    },
+  )
 
   app.post(
     '/:id/rescore',

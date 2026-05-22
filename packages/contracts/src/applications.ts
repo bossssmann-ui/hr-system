@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { aiInterviewQuestionSchema } from './assessments'
 import { candidateSchema } from './candidates'
 import { vacancySchema } from './vacancies'
 
@@ -68,6 +69,8 @@ export const applicationSchema = z.object({
   notes: z.string().nullable(),
   aiScoring: aiScoringSchema.nullable().optional(),
   aiScoreFeedback: aiScoreFeedbackSchema.nullable().optional(),
+  aiInterviewQuestions: z.array(aiInterviewQuestionSchema).nullable().optional(),
+  trustFlagged: z.boolean().optional().default(false),
   externalIds: z.record(z.string(), z.unknown()).optional().default({}),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),

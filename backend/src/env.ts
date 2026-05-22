@@ -80,6 +80,13 @@ const envSchema = z.object({
   // Phase 1G — Public careers page
   CAREERS_PAGE_ENABLED: booleanStringSchema,
   CAREERS_RATE_LIMIT_PER_HOUR: z.coerce.number().int().positive().default(20),
+  // Phase 1D — Assessments / proctoring
+  ASSESSMENTS_ENABLED: booleanStringSchema,
+  PROCTORING_WEBCAM_ENABLED: booleanStringSchema,
+  TRUST_WEIGHT_PASTE: z.coerce.number().nonnegative().default(0.35),
+  TRUST_WEIGHT_FOCUS: z.coerce.number().nonnegative().default(0.4),
+  TRUST_WEIGHT_KEYSTROKE: z.coerce.number().nonnegative().default(0.25),
+  TRUST_LOW_THRESHOLD: z.coerce.number().int().min(0).max(100).default(50),
 }).superRefine((env, ctx) => {
   validateJwtSecret(env, ctx)
   validateCorsOrigins(env, ctx)

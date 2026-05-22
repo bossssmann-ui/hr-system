@@ -16,6 +16,7 @@ import {
 } from './pages/recruiting'
 import { InboxPage, ConversationPage } from './pages/inbox'
 import { CareersPage, CareersVacancyPage } from './pages/careers'
+import { PublicAssessmentPage } from './pages/assessment'
 
 const rootRoute = createRootRoute({
   component: RootLayout,
@@ -128,6 +129,12 @@ const careersVacancyRoute = createRoute({
   component: CareersVacancyPage,
 })
 
+const publicAssessmentRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/assessment/$token',
+  component: PublicAssessmentPage,
+})
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   appRoute,
@@ -146,6 +153,7 @@ const routeTree = rootRoute.addChildren([
   conversationRoute,
   careersRoute,
   careersVacancyRoute,
+  publicAssessmentRoute,
 ])
 
 export const router = createRouter({ routeTree })

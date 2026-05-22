@@ -388,6 +388,102 @@ test('ApiClient application scoring methods hit expected endpoints', async () =>
   ])
 })
 
+test('ApiClient assessment methods hit expected endpoints', async () => {
+  const calls: Array<{ path: string; method: string }> = []
+
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(String(input))
+    calls.push({ path: url.pathname + url.search, method: init?.method ?? 'GET' })
+
+    if (url.pathname === '/api/assessments/templates') {
+      if ((init?.method ?? 'GET') === 'GET') {
+        return json({ items: [] }, 200)
+      }
+      return json({
+        id: '11111111-1111-4111-8111-111111111111',
+        tenantId: '22222222-2222-4222-8222-222222222222',
+        vacancyId: null,
+        title: 'Template',
+        description: null,
+        timeLimitMin: 30,
+        createdBy: '33333333-3333-4333-8333-333333333333',
+        createdAt: '2026-05-21T00:00:00.000Z',
+        updatedAt: '2026-05-21T00:00:00.000Z',
+        questions: [],
+      }, 201)
+    }
+
+    if (url.pathname === '/api/assessments/tpl-1/invite') {
+      return json({
+        sessionId: '44444444-4444-4444-8444-444444444444',
+        token: 'assessmenttoken1234567890',
+        link: '/assessment/assessmenttoken1234567890',
+      }, 201)
+    }
+
+    if (url.pathname === '/api/assessments/sessions') return json({ items: [] }, 200)
+    if (url.pathname === '/api/public/assessment/token-1') {
+      return json({
+        sessionId: '44444444-4444-4444-8444-444444444444',
+        status: 'invited',
+        title: 'Template',
+        description: null,
+        timeLimitMin: 30,
+        startedAt: null,
+        questions: [],
+      }, 200)
+    }
+    if (url.pathname === '/api/public/assessment/token-1/consent') return json({ consented: true }, 200)
+    if (url.pathname === '/api/public/assessment/token-1/start') return json({ status: 'in_progress' }, 200)
+    if (url.pathname === '/api/public/assessment/token-1/submit') {
+      return json({ submitted: true, trustScore: 72, redFlagged: false }, 200)
+    }
+    if (url.pathname === '/api/applications/app-1/generate-questions') {
+      return json({ items: [{ question: 'Q', rationale: 'R', competency: 'C' }] }, 201)
+    }
+
+    return json({ error: { code: 'NOT_FOUND', message: 'Unexpected request' } }, 404)
+  }
+
+  const client = new ApiClient({
+    getAccessToken: () => 'token',
+    setAccessToken: () => undefined,
+  })
+
+  await client.listAssessmentTemplates()
+  await client.createAssessmentTemplate({
+    title: 'Template',
+    timeLimitMin: 30,
+    questions: [{ order: 1, type: 'open', prompt: 'Q', weight: 1 }],
+  })
+  await client.inviteAssessment('tpl-1', { applicationId: '11111111-1111-4111-8111-111111111111' })
+  await client.listAssessmentSessions('11111111-1111-4111-8111-111111111111')
+  await client.getPublicAssessment('token-1')
+  await client.consentPublicAssessment('token-1', { proctoring_consent: true })
+  await client.startPublicAssessment('token-1')
+  await client.submitPublicAssessment('token-1', {
+    answers: [],
+    signals: {
+      paste_events: { count: 0, sizes: [] },
+      focus_loss_events: { count: 0, total_away_ms: 0 },
+      keystroke_timing: { anomaly_flags: 0, burst_events: 0 },
+    },
+  })
+  await client.generateInterviewQuestions('app-1')
+
+  expect(calls.map((call) => `${call.method} ${call.path}`)).toEqual([
+    'GET /api/assessments/templates',
+    'POST /api/assessments/templates',
+    'POST /api/assessments/tpl-1/invite',
+    'GET /api/assessments/sessions?applicationId=11111111-1111-4111-8111-111111111111',
+    'GET /api/public/assessment/token-1',
+    'POST /api/public/assessment/token-1/consent',
+    'POST /api/public/assessment/token-1/start',
+    'POST /api/public/assessment/token-1/submit',
+    'POST /api/applications/app-1/generate-questions',
+  ])
+})
+
 async function waitForEvent(events: string[], event: string) {
   for (let attempt = 0; attempt < 10; attempt += 1) {
     if (events.includes(event)) return
