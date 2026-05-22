@@ -35,6 +35,9 @@ describe('assessments.service', () => {
     )
 
     const serialized = JSON.stringify(input)
+    expect(serialized).toContain('Backend Engineer')
+    expect(serialized).toContain('TypeScript APIs')
+    expect(serialized).toContain('Moscow')
     expect(serialized).not.toContain('private@example.com')
     expect(serialized).not.toContain('another@example.com')
     expect(serialized).not.toContain('+70000000000')

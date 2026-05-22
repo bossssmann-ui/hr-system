@@ -119,7 +119,8 @@ export function PublicAssessmentPage() {
     }
     const onKeyDown = () => {
       const now = Date.now()
-      keyTimestampsRef.current = [...keyTimestampsRef.current.filter((timestamp) => now - timestamp < 1000), now]
+      keyTimestampsRef.current = keyTimestampsRef.current.filter((timestamp) => now - timestamp < 1000)
+      keyTimestampsRef.current.push(now)
       // Heuristic burst signal: >20 keystrokes in 1 second is treated as anomalous.
       if (keyTimestampsRef.current.length > 20) {
         setSignalState((current) => ({ ...current, burstEvents: current.burstEvents + 1 }))
