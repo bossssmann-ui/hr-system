@@ -402,7 +402,7 @@ Dedup: partial unique index on `(channel, external_id)` WHERE `external_id IS NO
 | --- | --- | --- | --- |
 | `in_app` | Always on | — | DB-only |
 | `hh_chat` | `HH_INTEGRATION_ENABLED` | `HH_CLIENT_ID/SECRET/TOKEN` | Via HH sync |
-| `telegram` | `TELEGRAM_ENABLED` | `TELEGRAM_BOT_TOKEN` | Webhook `POST /api/integrations/telegram/webhook` |
+| `telegram` | `TELEGRAM_ENABLED=true` | `TELEGRAM_ENABLED`, `TELEGRAM_BOT_TOKEN` | Webhook `POST /api/integrations/telegram/webhook` |
 | `email` | `EMAIL_ENABLED` | `SMTP_HOST/PORT/USER/PASS/FROM` | Out of scope (Phase 1E+) |
 
 ### Candidate ↔ channel mapping (externalIds)
