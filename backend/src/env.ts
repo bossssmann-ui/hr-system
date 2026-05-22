@@ -68,12 +68,22 @@ const envSchema = z.object({
   SPACES_UPLOAD_URL_TTL_SECONDS: z.coerce.number().int().positive().max(7 * 24 * 60 * 60).default(15 * 60),
   SPACES_DOWNLOAD_URL_TTL_SECONDS: z.coerce.number().int().positive().max(7 * 24 * 60 * 60).default(5 * 60),
   SPACES_PUBLIC_CACHE_CONTROL: stringWithDefault('public, max-age=31536000, immutable'),
+  // Phase 1E — Candidate messenger channels
+  TELEGRAM_ENABLED: booleanStringSchema,
+  TELEGRAM_BOT_TOKEN: optionalStringSchema,
+  EMAIL_ENABLED: booleanStringSchema,
+  SMTP_HOST: optionalStringSchema,
+  SMTP_PORT: z.coerce.number().int().positive().optional(),
+  SMTP_USER: optionalStringSchema,
+  SMTP_PASS: optionalStringSchema,
+  SMTP_FROM: optionalStringSchema,
 }).superRefine((env, ctx) => {
   validateJwtSecret(env, ctx)
   validateCorsOrigins(env, ctx)
   validateStorageEnv(env, ctx)
   validateHhIntegrationEnv(env, ctx)
   validateAiScoringEnv(env, ctx)
+  validateMessagingEnv(env, ctx)
 })
 
 export type AppEnv = z.infer<typeof envSchema>
@@ -226,5 +236,28 @@ function validateAiScoringEnv(env: z.infer<typeof envSchema>, ctx: z.RefinementC
       path: ['LLM_SCORING_API_KEY'],
       message: 'LLM_SCORING_API_KEY is required when AI_SCORING_ENABLED=true',
     })
+  }
+}
+
+function validateMessagingEnv(env: z.infer<typeof envSchema>, ctx: z.RefinementCtx) {
+  if (env.TELEGRAM_ENABLED && !env.TELEGRAM_BOT_TOKEN) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['TELEGRAM_BOT_TOKEN'],
+      message: 'TELEGRAM_BOT_TOKEN is required when TELEGRAM_ENABLED=true',
+    })
+  }
+
+  if (env.EMAIL_ENABLED) {
+    const requiredSmtpKeys = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_FROM'] as const
+    for (const key of requiredSmtpKeys) {
+      if (!env[key]) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [key],
+          message: `${key} is required when EMAIL_ENABLED=true`,
+        })
+      }
+    }
   }
 }

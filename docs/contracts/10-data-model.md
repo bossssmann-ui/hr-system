@@ -343,3 +343,70 @@ Each `agreed_term` carries a `source: { segment_index, quote }` — the quote-li
 | `INTERVIEW_RECORDING_MAX_BYTES` | `524288000` (500 MB) | Max upload size. |
 
 **Privacy note (152-ФЗ):** Recording + transcript contain PII. They are stored in our PostgreSQL database under the candidate's consent (`consent_recorded = true`). When building the protocol, the transcript is sent to the configured LLM provider. If using a non-RF LLM (e.g. Anthropic), this is a data-residency consideration for the owner. See `40-audit.md` for consent basis documentation.
+
+---
+
+## Phase 1E — Candidate Messenger
+
+### Conversation
+
+One conversation thread per candidate (by default). Spans multiple channels.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | uuidv7 |
+| `tenant_id` | `uuid` | FK → tenants |
+| `candidate_id` | `uuid` | FK → candidates (CASCADE) |
+| `application_id` | `uuid?` | FK → applications (SET NULL) |
+| `subject` | `text?` | Optional thread subject |
+| `last_message_at` | `timestamptz?` | Updated on each new message |
+| `created_at` | `timestamptz` | |
+| `updated_at` | `timestamptz` | |
+
+RLS: tenant-scoped, `recruiter` / `hr_admin` / `owner` read+write.
+
+### Message
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | uuidv7 |
+| `tenant_id` | `uuid` | FK → tenants |
+| `conversation_id` | `uuid` | FK → conversations (CASCADE) |
+| `channel` | `enum` | `in_app` \| `email` \| `telegram` \| `hh_chat` |
+| `direction` | `enum` | `inbound` \| `outbound` |
+| `body` | `text` | Message content |
+| `sender_user_id` | `uuid?` | Set for outbound recruiter messages |
+| `external_id` | `text?` | Channel-side ID for dedup |
+| `status` | `enum` | `draft` \| `queued` \| `sent` \| `delivered` \| `failed` \| `received` |
+| `sent_at` | `timestamptz?` | When successfully sent/received |
+| `created_at` | `timestamptz` | |
+
+Dedup: partial unique index on `(channel, external_id)` WHERE `external_id IS NOT NULL`.
+
+### MessageTemplate
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | uuidv7 |
+| `tenant_id` | `uuid` | FK → tenants |
+| `name` | `text` | Template name shown in picker |
+| `channel` | `enum?` | Optional channel filter |
+| `subject` | `text?` | For email |
+| `body` | `text` | Template with `{{variable}}` placeholders |
+| `created_by_user_id` | `uuid` | |
+| `created_at` / `updated_at` | `timestamptz` | |
+
+### Channel adapters
+
+| Channel | Feature flag | Env vars | Inbound |
+| --- | --- | --- | --- |
+| `in_app` | Always on | — | DB-only |
+| `hh_chat` | `HH_INTEGRATION_ENABLED` | `HH_CLIENT_ID/SECRET/TOKEN` | Via HH sync |
+| `telegram` | `TELEGRAM_ENABLED=true` | `TELEGRAM_ENABLED`, `TELEGRAM_BOT_TOKEN` | Webhook `POST /api/integrations/telegram/webhook` |
+| `email` | `EMAIL_ENABLED` | `SMTP_HOST/PORT/USER/PASS/FROM` | Out of scope (Phase 1E+) |
+
+### Candidate ↔ channel mapping (externalIds)
+
+The `Candidate.externalIds` JSONB column stores channel-specific IDs:
+- `telegram_chat_id`: Telegram chat ID
+- `hh_messages_url`: HH negotiation messages URL

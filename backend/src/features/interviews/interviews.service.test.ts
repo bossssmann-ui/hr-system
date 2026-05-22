@@ -45,6 +45,8 @@ const baseEnv: AppEnv = {
   SPACES_UPLOAD_URL_TTL_SECONDS: 900,
   SPACES_DOWNLOAD_URL_TTL_SECONDS: 300,
   SPACES_PUBLIC_CACHE_CONTROL: 'public, max-age=31536000, immutable',
+  TELEGRAM_ENABLED: false,
+  EMAIL_ENABLED: false,
 }
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
