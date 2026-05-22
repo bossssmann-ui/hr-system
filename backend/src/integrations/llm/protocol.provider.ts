@@ -57,6 +57,7 @@ type AnthropicProtocolProviderOptions = {
 export class AnthropicProtocolProvider implements ProtocolProvider {
   private readonly model: string
   private readonly client: AnthropicClientLike
+  private static readonly PROTOCOL_MAX_TOKENS = 2000
 
   constructor(options: AnthropicProtocolProviderOptions) {
     this.model = options.model
@@ -98,7 +99,7 @@ export class AnthropicProtocolProvider implements ProtocolProvider {
 
     const response = await this.client.messages.create({
       model: this.model,
-      max_tokens: 2000,
+      max_tokens: AnthropicProtocolProvider.PROTOCOL_MAX_TOKENS,
       system: PROTOCOL_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: `${userMessage}${reminder}` }],
     })

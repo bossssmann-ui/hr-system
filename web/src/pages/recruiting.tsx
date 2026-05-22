@@ -942,6 +942,8 @@ const INTERVIEW_STATUS_VARIANT: Record<Interview["status"], "default" | "outline
   failed: "destructive",
 }
 
+const TRANSCRIPTION_POLLING_INTERVAL_MS = 3000 // Poll every 3s while transcription is in progress
+
 function InterviewPanel({ applicationId }: { applicationId: string }) {
   const { api } = useAuth()
   const queryClient = useQueryClient()
@@ -961,7 +963,7 @@ function InterviewPanel({ applicationId }: { applicationId: string }) {
     enabled: Boolean(selectedInterviewId),
     refetchInterval: (query) => {
       const status = query.state.data?.status
-      return status === "transcribing" ? 3000 : false
+      return status === "transcribing" ? TRANSCRIPTION_POLLING_INTERVAL_MS : false
     },
   })
 
@@ -1105,7 +1107,7 @@ function InterviewPanel({ applicationId }: { applicationId: string }) {
               {interview.recordingUrl && (
                 <Typography variant="bodySm" tone="muted" className="text-xs">{interview.recordingUrl}</Typography>
               )}
-              {interview.recordingUrl && interview.consentRecorded && interview.status !== "transcribed" && interview.status !== "protocol_ready" && (
+              {interview.recordingUrl && interview.consentRecorded && !["transcribed", "protocol_ready"].includes(interview.status) && (
                 <Button
                   variant="outline"
                   size="sm"

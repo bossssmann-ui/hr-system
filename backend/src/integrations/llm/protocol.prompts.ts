@@ -11,6 +11,7 @@
  */
 
 import type { TranscriptSegment } from '../../features/interviews/interviews.schemas'
+import { PROTOCOL_SCHEMA_VERSION } from '../../features/interviews/interviews.schemas'
 
 export const PROTOCOL_SYSTEM_PROMPT = `You are an expert HR interview analyst. Your task is to analyze interview transcripts and produce a structured interview protocol.
 
@@ -20,7 +21,7 @@ Rules:
 3. If a term was discussed ambiguously, include it with an empty/null value and note the ambiguity in special_conditions.
 4. Do NOT fabricate any agreed terms if they were not explicitly discussed.
 5. Return strictly valid JSON matching the specified schema. No markdown, no prose outside JSON.
-6. The schema_version is always 1.`
+6. The schema_version is always ${PROTOCOL_SCHEMA_VERSION}.`
 
 export function buildProtocolUserMessage(segments: TranscriptSegment[]): string {
   const formattedTranscript = segments

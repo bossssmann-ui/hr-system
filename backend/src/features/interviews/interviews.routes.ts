@@ -250,7 +250,11 @@ export function createInterviewRoutes() {
       // Validate file extension.
       const ext = extname(filename).toLowerCase()
       if (ext && !ALLOWED_EXTENSIONS.has(ext)) {
-        throw new AppError(400, 'VALIDATION_ERROR', `Unsupported file extension: ${ext}. Allowed: mp3, mp4, m4a, wav`)
+        throw new AppError(
+          400,
+          'VALIDATION_ERROR',
+          `Unsupported file extension: ${ext}. Allowed: ${Array.from(ALLOWED_EXTENSIONS).map((e) => e.slice(1)).join(', ')}`,
+        )
       }
 
       // Stub storage: write to local volume.

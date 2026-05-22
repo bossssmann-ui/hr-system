@@ -119,12 +119,7 @@ export async function transcribeInterview(input: TranscribeInput) {
       data: { status: 'failed' },
     })
 
-    const message =
-      error instanceof TranscriptionProviderError
-        ? error.message
-        : error instanceof Error
-          ? error.message
-          : 'Unknown transcription error'
+    const message = error instanceof Error ? error.message : 'Unknown transcription error'
 
     return { skipped: false as const, status: 'failed' as const, error: message }
   }

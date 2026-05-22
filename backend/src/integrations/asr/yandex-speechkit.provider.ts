@@ -53,7 +53,8 @@ type YandexOperationResponse = {
 }
 
 const POLL_INTERVAL_MS = 2_000
-const MAX_POLL_ATTEMPTS = 150 // 5 minutes maximum
+const MAX_POLL_TIMEOUT_MS = 5 * 60 * 1000 // 5 minutes
+const MAX_POLL_ATTEMPTS = Math.ceil(MAX_POLL_TIMEOUT_MS / POLL_INTERVAL_MS)
 
 export class YandexSpeechKitProvider implements TranscriptionProvider {
   private readonly apiKey: string
@@ -192,8 +193,10 @@ function parseYandexResponse(operation: YandexOperationResponse, language: strin
 }
 
 function parseTimeSecs(value: string): number {
-  // Yandex returns time as "1.234s"
-  const num = parseFloat(value.replace(/[^0-9.]/g, ''))
+  // Yandex returns time as "1.234s" — extract only the leading decimal number
+  const match = /^(\d+(?:\.\d+)?)s?$/.exec(value.trim())
+  if (!match) return 0
+  const num = parseFloat(match[1] ?? '0')
   return Number.isFinite(num) ? num : 0
 }
 
