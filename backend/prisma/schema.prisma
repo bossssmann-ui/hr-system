@@ -182,6 +182,7 @@ model Vacancy {
   requisitionId String   @unique @db.Uuid @map("requisition_id")
   orgUnitId     String   @db.Uuid @map("org_unit_id")
   hhVacancyId   String?  @unique @map("hh_vacancy_id")
+  slug          String?  @map("slug")
   title         String
   description   String
   isPublished   Boolean  @default(false) @map("is_published")
@@ -193,6 +194,7 @@ model Vacancy {
   applications Application[]
   hhSyncCursor HhSyncCursor?
 
+  @@unique([tenantId, slug], map: "vacancies_tenant_id_slug_key")
   @@index([tenantId], map: "vacancies_tenant_id_idx")
   @@index([orgUnitId], map: "vacancies_org_unit_id_idx")
   @@map("vacancies")

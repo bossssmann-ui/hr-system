@@ -88,6 +88,7 @@ The externally-visible posting for an approved requisition.
 | `requisition_id` | UUID | FK → `HiringRequisition`. `@unique` (1:1). |
 | `org_unit_id` | UUID | Denormalised from the requisition for query simplicity. |
 | `hh_vacancy_id` | string? | HH.ru vacancy identifier for negotiations sync. Nullable until linked by admin, unique when present. |
+| `slug` | string? | URL-safe slug for the public careers page (e.g. `frontend-engineer`). Auto-generated from `title` on first publish. Unique per tenant (partial unique index on `(tenant_id, slug) WHERE slug IS NOT NULL`). Nullable until published. |
 | `title` | string | May differ from the requisition title (job-board friendly wording). |
 | `description` | text | Job-board friendly description. |
 | `is_published` | bool | |
@@ -96,6 +97,8 @@ The externally-visible posting for an approved requisition.
 Invariants:
 - `requisition_id` is unique (one vacancy per requisition).
 - A vacancy may only be `is_published = true` when its requisition is in `approved` or `in_recruitment`.
+- `slug` is set automatically on first publish (see `backend/src/features/vacancies/slug.ts`); re-publishing does not change an existing slug.
+- The public careers API (`GET /api/public/vacancies`) only returns vacancies where `is_published = true` AND `slug IS NOT NULL`.
 
 ### `Candidate`
 
@@ -109,9 +112,9 @@ A person who applied or was sourced. Independent of any single vacancy.
 | `email` | string? | Unique when non-null (partial index). |
 | `phone` | string? | Unique when non-null (partial index). |
 | `location` | string? | Free text city/country. |
-| `source` | enum | `manual`, `hh_ru`, `sberpodbor`, `avito`, `rabota_ru`, `referral`, `careers_page`. |
+| `source` | enum | `manual`, `hh_ru`, `sberpodbor`, `avito`, `rabota_ru`, `referral`, `careers_page`. Phase 1G: `careers_page` is set when the candidate applies via the public careers form. |
 | `external_ids` | jsonb | e.g. `{"hh_id": "..."}`. Populated by Phase 1+ integrations. |
-| `consent_context` | jsonb? | Consent/legal basis context for imported candidates (e.g. HH applicant-initiated negotiation). |
+| `consent_context` | jsonb? | Consent/legal basis context. Structure: `{basis, consent_text_version, consented_at, ip?}`. For `careers_page` applicants: `basis = "public_careers_form"`, `consent_text_version = "1.0"`, `consented_at = <ISO 8601>`. For HH imports: applicant-initiated negotiation. |
 | `created_at` / `updated_at` | timestamp | |
 
 Invariants:

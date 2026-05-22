@@ -8,6 +8,7 @@ export const vacancySchema = z.object({
   tenantId: z.string(),
   requisitionId: z.string(),
   orgUnitId: z.string(),
+  slug: z.string().nullable().optional(),
   hhVacancyId: z.string().nullable().optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
@@ -32,3 +33,41 @@ export const linkVacancyToHhRequestSchema = z.object({
 })
 
 export type LinkVacancyToHhRequest = z.infer<typeof linkVacancyToHhRequestSchema>
+
+// ─── Public careers API contracts ────────────────────────────────────────────
+
+/** Public-safe vacancy fields — no internal ids, no salary, no requisition details. */
+export const publicVacancySchema = z.object({
+  slug: z.string(),
+  title: z.string(),
+  description: z.string(),
+})
+
+export type PublicVacancy = z.infer<typeof publicVacancySchema>
+
+export const listPublicVacanciesResponseSchema = z.object({
+  items: z.array(publicVacancySchema),
+})
+
+export type ListPublicVacanciesResponse = z.infer<typeof listPublicVacanciesResponseSchema>
+
+export const publicApplyRequestSchema = z.object({
+  full_name: z.string().min(1).max(200),
+  email: z.string().email(),
+  phone: z.string().min(1).max(50).optional(),
+  cover_note: z.string().max(5000).optional(),
+  resume_link: z.string().url().optional(),
+  resume_text: z.string().max(20000).optional(),
+  consent: z.boolean(),
+  /** Honeypot — must be absent or empty string; filled submissions are rejected. */
+  website: z.string().optional(),
+})
+
+export type PublicApplyRequest = z.infer<typeof publicApplyRequestSchema>
+
+export const publicApplyResponseSchema = z.object({
+  reference: z.string(),
+  message: z.string(),
+})
+
+export type PublicApplyResponse = z.infer<typeof publicApplyResponseSchema>

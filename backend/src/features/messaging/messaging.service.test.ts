@@ -57,6 +57,8 @@ const baseEnv: AppEnv = {
   TELEGRAM_ENABLED: false,
   TELEGRAM_BOT_TOKEN: undefined,
   EMAIL_ENABLED: false,
+  CAREERS_PAGE_ENABLED: false,
+  CAREERS_RATE_LIMIT_PER_HOUR: 20,
   SMTP_HOST: undefined,
   SMTP_PORT: undefined,
   SMTP_USER: undefined,

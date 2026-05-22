@@ -148,6 +148,56 @@ These two surfaces must not be confused. Never use `console.log(applicationDiff)
 | `message_template.update` | `MessageTemplate` | Template updated |
 | `message_template.delete` | `MessageTemplate` | Template deleted |
 
+## 152-ФЗ note for careers-page applicants (Phase 1G)
+
+Candidates who apply via the public careers form (`POST /api/public/vacancies/:slug/apply`) submit their personal data voluntarily under Federal Law No. 152-ФЗ. The legal basis for processing is:
+
+> The subject's own submission of their resume, contact details, and cover note in response to a publicly advertised vacancy, accompanied by an explicit consent checkbox on the form.
+
+### What is processed and where
+
+| Data | Storage | Legal basis |
+| --- | --- | --- |
+| `full_name`, `email`, `phone` | PostgreSQL `candidates` table | Applicant-initiated submission + explicit consent |
+| `cover_note` | PostgreSQL `applications.notes` | Same |
+| `resume_link` / `resume_text` | Not persisted in Phase 1G (reserved for Phase 2 stub upload) | — |
+| `consent_context` | PostgreSQL `candidates.consent_context` JSONB | Records `basis`, `consent_text_version`, `consented_at`, `ip` |
+
+### Consent context fields
+
+When a candidate is created or updated via the careers form, `consent_context` is set to:
+
+```json
+{
+  "basis": "public_careers_form",
+  "consent_text_version": "1.0",
+  "consented_at": "<ISO 8601 timestamp>",
+  "ip": "<submitter IP>"
+}
+```
+
+The `consent_text_version` must be bumped if the consent wording on the form changes materially (update the careers page component and this doc together).
+
+### Audit trail
+
+Every careers-page application emits an `application.created` `AuditEvent` with `diff.via = "careers_page"`. This allows administrators to audit all inbound applications from the careers channel.
+
+### Anti-spam
+
+A honeypot hidden field silently rejects bot submissions. A per-IP rate limit (default 20/hour, configurable via `CAREERS_RATE_LIMIT_PER_HOUR`) prevents automated flooding. CAPTCHA is not implemented in Phase 1G — add `// TODO(phase-1g+): stronger anti-spam` if needed.
+
+### Feature flag
+
+The `CAREERS_PAGE_ENABLED` env variable (default `false`) gates the `/api/public/` endpoints and the `/careers*` frontend routes. When off, the public API returns 404 and the authed app is unaffected.
+
+## Phase 1G — Careers audit actions
+
+| Action | Entity type | Trigger |
+| --- | --- | --- |
+| `application.created` | `Application` | Public apply form submission; `diff.via = "careers_page"` |
+
+
+
 ## 152-ФЗ note for candidate messaging (Phase 1E)
 
 Messages contain PII (candidate identity, contact content). They are stored in the `messages` table on the basis of the recruiting relationship/consent (same legal basis as applications). Retention applies as per the general candidate PII policy.
