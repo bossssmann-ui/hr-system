@@ -147,7 +147,8 @@ A candidate's pursuit of a specific vacancy. The Kanban funnel operates on this 
 | `stage` | enum | See `20-fsm.md`. |
 | `assigned_to_user_id` | UUID? | Recruiter handling the application. |
 | `notes` | text? | Free-text recruiter notes. |
-| `ai_scoring` | jsonb? | Populated by Phase 1+. |
+| `ai_scoring` | jsonb? | Phase 1C advisory score payload: `{status, input_hash, result?, failure?}`. |
+| `ai_score_feedback` | jsonb? | Phase 1C recruiter feedback payload: `{user_id, agrees, note, created_at}`. |
 | `external_ids` | jsonb | Integration ids, e.g. `{"hh_negotiation_id":"..."}`. |
 | `created_at` / `updated_at` | timestamp | |
 

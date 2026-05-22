@@ -72,6 +72,18 @@ export type HhResume = {
   total_experience?: {
     months?: number
   } | null
+  experience?: Array<{
+    company?: {
+      name?: string
+    }
+    position?: string
+  }>
+  education?: {
+    primary?: Array<{
+      name?: string
+      year?: number
+    }>
+  }
   skills?: string[]
   contact?: HhResumeContact[]
 }

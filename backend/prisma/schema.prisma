@@ -246,6 +246,7 @@ model Application {
   assignedToUserId  String?          @db.Uuid @map("assigned_to_user_id")
   notes             String?
   aiScoring         Json?            @map("ai_scoring")
+  aiScoreFeedback   Json?            @map("ai_score_feedback")
   externalIds       Json             @default("{}") @map("external_ids")
   createdAt         DateTime         @default(now()) @map("created_at")
   updatedAt         DateTime         @updatedAt @map("updated_at")

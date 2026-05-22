@@ -1,0 +1,25 @@
+{
+  "candidate": {
+    "location": "Moscow",
+    "externalIds": {
+      "hh_resume_snapshot": {
+        "title": "Backend engineer",
+        "experience": ["Senior Engineer @ Acme"],
+        "education": ["MIPT · 2018"],
+        "skills": ["TypeScript", "PostgreSQL"],
+        "total_experience_months": 72,
+        "location": "Moscow"
+      }
+    }
+  },
+  "vacancy": {
+    "title": "Senior Backend Engineer",
+    "description": "TypeScript, PostgreSQL, API design",
+    "requisition": {
+      "grade": "M3",
+      "salaryMin": 200000,
+      "salaryMax": 300000,
+      "currency": "RUB"
+    }
+  }
+}

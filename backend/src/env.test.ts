@@ -17,6 +17,10 @@ describe('loadEnv', () => {
     expect(env.HH_CLIENT_ID).toBeUndefined()
     expect(env.HH_CLIENT_SECRET).toBeUndefined()
     expect(env.HH_TOKEN_ENCRYPTION_KEY).toBeUndefined()
+    expect(env.AI_SCORING_ENABLED).toBe(false)
+    expect(env.LLM_SCORING_PROVIDER).toBe('anthropic')
+    expect(env.LLM_SCORING_API_KEY).toBeUndefined()
+    expect(env.LLM_SCORING_MODEL).toBe('claude-haiku-4-5-20251001')
     expect(env.CORS_ORIGINS).toEqual(['http://localhost:5173', 'http://localhost:8081'])
     expect(env.SPACES_REGION).toBeUndefined()
     expect(env.SPACES_UPLOAD_MAX_BYTES).toBe(10 * 1024 * 1024)
@@ -132,5 +136,25 @@ describe('loadEnv', () => {
 
     expect(env.HH_INTEGRATION_ENABLED).toBe(true)
     expect(env.HH_CLIENT_ID).toBe('client-id')
+  })
+
+  test('requires LLM scoring API key when AI scoring is enabled', () => {
+    expect(() =>
+      loadEnv({
+        DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/web_app_demo',
+        JWT_SECRET: '12345678901234567890123456789012',
+        AI_SCORING_ENABLED: 'true',
+      }),
+    ).toThrow('LLM_SCORING_API_KEY')
+
+    const env = loadEnv({
+      DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/web_app_demo',
+      JWT_SECRET: '12345678901234567890123456789012',
+      AI_SCORING_ENABLED: 'true',
+      LLM_SCORING_API_KEY: 'test-key',
+    })
+
+    expect(env.AI_SCORING_ENABLED).toBe(true)
+    expect(env.LLM_SCORING_API_KEY).toBe('test-key')
   })
 })

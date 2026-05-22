@@ -32,6 +32,7 @@ Required fields per write:
 | Candidate | `candidate.create`, `candidate.update`, `candidate.delete` |
 | Resume | `resume.upload`, `resume.soft_delete` |
 | Application | `application.create`, `application.update`, `application.move_stage`, `application.assign`, `application.delete` |
+| Application AI scoring | `application.ai_scored`, `application.rescore_requested`, `application.score_feedback` |
 | Integrations (HH.ru) | `hh.sync.candidate_imported` |
 | Auth | `auth.login`, `auth.logout`, `auth.refresh`, `auth.password_changed` |
 | Admin | `user.role_added`, `user.role_removed` |
@@ -93,6 +94,10 @@ In Phase 0 the admin page exposes pagination + filters on `actor_user_id`, `enti
 ## 152-ФЗ note for HH imports
 
 For `hh.sync.candidate_imported`, the candidate record keeps consent context indicating the applicant-initiated HH negotiation source, import timestamp, and negotiation id. This is the legal basis for storing HH-imported candidate data in Phase 1A.
+
+## 152-ФЗ note for AI scoring (Phase 1C)
+
+AI scoring requests must exclude direct candidate contact PII (`full_name`, `email`, `phone`) before sending payloads to third-party LLM providers. The scoring input is restricted to job-relevant resume evidence (experience, education, skills, location, total experience) plus vacancy/requisition profile data.
 
 ## Logging vs audit
 

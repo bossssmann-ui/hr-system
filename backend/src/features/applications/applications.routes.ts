@@ -3,15 +3,19 @@ import type {
   Candidate,
   CreateApplicationRequest,
   MoveApplicationStageRequest,
+  ScoreFeedbackRequest,
   Vacancy,
 } from '@web-app-demo/contracts'
 import {
   applicationDetailSchema,
+  aiScoreFeedbackSchema,
+  aiScoringSchema,
   applicationSchema,
   applicationStageSchema,
   createApplicationRequestSchema,
   listApplicationsResponseSchema,
   moveApplicationStageRequestSchema,
+  scoreFeedbackRequestSchema,
 } from '@web-app-demo/contracts'
 import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
@@ -22,6 +26,8 @@ import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
 import { AppError } from '../../http/errors'
 import { canTransition } from '../applications/applications.fsm'
+import { enqueueApplicationScoringJob } from '../scoring/scoring.queue'
+import { withScoringPresentation } from '../scoring/scoring.service'
 
 type RouteBindings = RoleGuardBindings & {
   Variables: {
@@ -39,12 +45,14 @@ type RawApplication = {
   stage: string
   assignedToUserId: string | null
   notes: string | null
+  aiScoring: unknown
+  aiScoreFeedback: unknown
   externalIds: unknown
   createdAt: Date
   updatedAt: Date
 }
 
-function toDto(row: RawApplication): Application {
+function toDto(row: RawApplication, env: AppEnv): Application {
   return {
     id: row.id,
     tenantId: row.tenantId,
@@ -53,6 +61,8 @@ function toDto(row: RawApplication): Application {
     stage: row.stage as Application['stage'],
     assignedToUserId: row.assignedToUserId,
     notes: row.notes,
+    aiScoring: aiScoringSchema.parse(withScoringPresentation(row.aiScoring, env)),
+    aiScoreFeedback: aiScoreFeedbackSchema.nullable().parse(asNullableRecord(row.aiScoreFeedback)),
     externalIds: asRecord(row.externalIds),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -87,6 +97,7 @@ export function createApplicationsRoutes() {
     ),
     async (c) => {
       const prisma = c.get('prisma')
+      const env = c.get('env')
       const tenantId = c.get('tenantId')
       const { vacancy_id, stage } = c.req.valid('query')
 
@@ -100,7 +111,7 @@ export function createApplicationsRoutes() {
         take: 200,
       })
 
-      return c.json(listApplicationsResponseSchema.parse({ items: rows.map(toDto) }))
+      return c.json(listApplicationsResponseSchema.parse({ items: rows.map((row) => toDto(row, env)) }))
     },
   )
 
@@ -111,6 +122,7 @@ export function createApplicationsRoutes() {
     requireRole('owner', 'hr_admin', 'recruiter', 'hiring_manager'),
     async (c) => {
       const prisma = c.get('prisma')
+      const env = c.get('env')
       const tenantId = c.get('tenantId')
       const { id } = c.req.param()
 
@@ -153,7 +165,7 @@ export function createApplicationsRoutes() {
 
       return c.json(
         applicationDetailSchema.parse({
-          ...toDto(row),
+          ...toDto(row, env),
           candidate,
           vacancy,
         }),
@@ -169,7 +181,9 @@ export function createApplicationsRoutes() {
     zValidator('json', createApplicationRequestSchema),
     async (c) => {
       const prisma = c.get('prisma')
+      const env = c.get('env')
       const tenantId = c.get('tenantId')
+      const userId = c.get('userId')
       const body: CreateApplicationRequest = c.req.valid('json')
 
       // Verify candidate and vacancy belong to the tenant.
@@ -208,7 +222,14 @@ export function createApplicationsRoutes() {
         diff: body,
       })
 
-      return c.json(applicationSchema.parse(toDto(row)), 201)
+      void enqueueApplicationScoringJob({
+        prisma,
+        env,
+        applicationId: row.id,
+        actorUserId: userId,
+      })
+
+      return c.json(applicationSchema.parse(toDto(row, env)), 201)
     },
   )
 
@@ -220,6 +241,7 @@ export function createApplicationsRoutes() {
     zValidator('json', moveApplicationStageRequestSchema),
     async (c) => {
       const prisma = c.get('prisma')
+      const env = c.get('env')
       const tenantId = c.get('tenantId')
       const roles = c.get('roles')
       const userId = c.get('userId')
@@ -266,7 +288,89 @@ export function createApplicationsRoutes() {
         diff: { from: row.stage, to: body.to, comment: body.comment, actorUserId: userId },
       })
 
-      return c.json(applicationSchema.parse(toDto(updated)))
+      return c.json(applicationSchema.parse(toDto(updated, env)))
+    },
+  )
+
+  // ─── Re-score ───────────────────────────────────────────────────────────────
+
+  app.post(
+    '/:id/rescore',
+    requireRole('owner', 'hr_admin', 'recruiter'),
+    async (c) => {
+      const prisma = c.get('prisma')
+      const env = c.get('env')
+      const tenantId = c.get('tenantId')
+      const userId = c.get('userId')
+      const { id } = c.req.param()
+
+      const row = await prisma.application.findFirst({ where: { id, tenantId } })
+      if (!row) throw new AppError(404, 'NOT_FOUND', 'Application not found')
+
+      const queueResult = await enqueueApplicationScoringJob({
+        prisma,
+        env,
+        applicationId: id,
+        actorUserId: userId,
+        force: true,
+      })
+
+      c.set('auditEntry', {
+        action: 'application.rescore_requested',
+        entityType: 'Application',
+        entityId: id,
+        diff: {
+          queued: queueResult.queued,
+          reason: 'reason' in queueResult ? queueResult.reason : null,
+        },
+      })
+
+      return c.json(queueResult, 202)
+    },
+  )
+
+  // ─── Score feedback ─────────────────────────────────────────────────────────
+
+  app.post(
+    '/:id/score-feedback',
+    requireRole('owner', 'hr_admin', 'recruiter'),
+    zValidator('json', scoreFeedbackRequestSchema),
+    async (c) => {
+      const prisma = c.get('prisma')
+      const env = c.get('env')
+      const tenantId = c.get('tenantId')
+      const userId = c.get('userId')
+      const { id } = c.req.param()
+      const body: ScoreFeedbackRequest = c.req.valid('json')
+
+      const row = await prisma.application.findFirst({ where: { id, tenantId } })
+      if (!row) throw new AppError(404, 'NOT_FOUND', 'Application not found')
+
+      const feedback = {
+        user_id: userId,
+        agrees: body.agrees,
+        note: body.note ?? null,
+        created_at: new Date().toISOString(),
+      }
+
+      const updated = await prisma.application.update({
+        where: { id },
+        data: {
+          aiScoreFeedback: feedback,
+        },
+      })
+
+      c.set('auditEntry', {
+        action: 'application.score_feedback',
+        entityType: 'Application',
+        entityId: id,
+        diff: {
+          agrees: feedback.agrees,
+          has_note: Boolean(feedback.note),
+        },
+      })
+
+      return c.json(applicationSchema.parse(toDto(updated, env)))
     },
   )
 
