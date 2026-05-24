@@ -380,6 +380,152 @@ export class ApiClient {
     })
   }
 
+  // ─── Selection System (Phase 2) ─────────────────────────────────────────────
+
+  createSelectionSession(input: {
+    vacancyId: string
+    applicationId?: string
+    role: 'logist' | 'sales_manager'
+  }): Promise<{ sessionId: string; token: string; assessmentUrl: string }> {
+    return this.request(
+      '/api/selection/sessions',
+      z.object({ sessionId: z.string(), token: z.string(), assessmentUrl: z.string() }),
+      { method: 'POST', body: input, auth: true },
+    )
+  }
+
+  getSelectionSession(token: string): Promise<{
+    sessionId: string
+    status: string
+    role: string
+    currentStage: number | null
+    stageData: unknown
+    startedAt: string | null
+  }> {
+    return this.request(
+      `/api/selection/sessions/${token}`,
+      z.object({
+        sessionId: z.string(),
+        status: z.string(),
+        role: z.string(),
+        currentStage: z.number().nullable(),
+        stageData: z.unknown(),
+        startedAt: z.string().nullable(),
+        message: z.string().optional(),
+      }),
+      { auth: false },
+    )
+  }
+
+  submitSelectionStage(
+    token: string,
+    stage: number,
+    answers: Record<string, unknown>,
+  ): Promise<{ submitted: boolean; nextStatus: string }> {
+    return this.request(
+      `/api/selection/sessions/${token}/stage/${stage}`,
+      z.object({ submitted: z.boolean(), nextStatus: z.string() }),
+      { method: 'POST', body: { answers }, auth: false },
+    )
+  }
+
+  getSelectionVerdict(sessionId: string): Promise<{
+    sessionId: string
+    status: string
+    role: string
+    verdict: string | null
+    totalWeightedScore: string | null
+    stageScores: unknown
+    crossCheckFlags: unknown
+    lieScaleResult: unknown
+    verdictReason: string | null
+    hrNotes: string | null
+    createdAt: string
+  }> {
+    return this.request(
+      `/api/selection/sessions/${sessionId}/verdict`,
+      z.object({
+        sessionId: z.string(),
+        status: z.string(),
+        role: z.string(),
+        verdict: z.string().nullable(),
+        totalWeightedScore: z.string().nullable(),
+        stageScores: z.unknown(),
+        crossCheckFlags: z.unknown(),
+        lieScaleResult: z.unknown(),
+        verdictReason: z.string().nullable(),
+        hrNotes: z.string().nullable(),
+        createdAt: z.string(),
+      }),
+      { auth: true },
+    )
+  }
+
+  listSelectionSessions(params?: {
+    page?: number
+    pageSize?: number
+    vacancyId?: string
+    role?: 'logist' | 'sales_manager'
+  }): Promise<{
+    total: number
+    page: number
+    pageSize: number
+    items: Array<{
+      id: string
+      token: string
+      status: string
+      role: string
+      vacancyId: string
+      applicationId: string | null
+      startedAt: string | null
+      completedAt: string | null
+      createdAt: string
+      verdict: {
+        verdict: string
+        totalWeightedScore: string | null
+        crossCheckFlags: unknown
+        createdAt: string
+      } | null
+    }>
+  }> {
+    const qs = new URLSearchParams()
+    if (params?.page) qs.set('page', String(params.page))
+    if (params?.pageSize) qs.set('pageSize', String(params.pageSize))
+    if (params?.vacancyId) qs.set('vacancyId', params.vacancyId)
+    if (params?.role) qs.set('role', params.role)
+    const query = qs.toString() ? `?${qs.toString()}` : ''
+    return this.request(
+      `/api/selection/admin${query}`,
+      z.object({
+        total: z.number(),
+        page: z.number(),
+        pageSize: z.number(),
+        items: z.array(
+          z.object({
+            id: z.string(),
+            token: z.string(),
+            status: z.string(),
+            role: z.string(),
+            vacancyId: z.string(),
+            applicationId: z.string().nullable(),
+            startedAt: z.string().nullable(),
+            completedAt: z.string().nullable(),
+            createdAt: z.string(),
+            verdict: z
+              .object({
+                verdict: z.string(),
+                totalWeightedScore: z.string().nullable(),
+                crossCheckFlags: z.unknown(),
+                createdAt: z.string(),
+              })
+              .nullable(),
+          }),
+        ),
+      }),
+      { auth: true },
+    )
+  }
+
   // ─── Interviews ─────────────────────────────────────────────────────────────
   // TODO(phase-1f+): meeting-platform integration (Telemost / Zoom / Google Meet)
 

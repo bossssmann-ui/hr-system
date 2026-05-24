@@ -17,6 +17,8 @@ import {
 import { InboxPage, ConversationPage } from './pages/inbox'
 import { CareersPage, CareersVacancyPage } from './pages/careers'
 import { PublicAssessmentPage } from './pages/assessment'
+import { PublicSelectionPage } from './pages/selection'
+import { SelectionDashboardPage } from './pages/selection-dashboard'
 
 const rootRoute = createRootRoute({
   component: RootLayout,
@@ -135,6 +137,20 @@ const publicAssessmentRoute = createRoute({
   component: PublicAssessmentPage,
 })
 
+// ─── Phase 2 — Selection System routes ────────────────────────────────────
+
+const publicSelectionRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/selection/$token',
+  component: PublicSelectionPage,
+})
+
+const selectionDashboardRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/selection/dashboard',
+  component: SelectionDashboardPage,
+})
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   appRoute,
@@ -154,6 +170,8 @@ const routeTree = rootRoute.addChildren([
   careersRoute,
   careersVacancyRoute,
   publicAssessmentRoute,
+  publicSelectionRoute,
+  selectionDashboardRoute,
 ])
 
 export const router = createRouter({ routeTree })

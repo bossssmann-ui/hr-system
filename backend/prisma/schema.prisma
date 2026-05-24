@@ -209,6 +209,7 @@ model Vacancy {
   applications Application[]
   hhSyncCursor HhSyncCursor?
   assessmentTemplates AssessmentTemplate[]
+  selectionTemplates  SelectionTemplate[]  @relation("SelectionTemplates")
 
   @@unique([tenantId, slug], map: "vacancies_tenant_id_slug_key")
   @@index([tenantId], map: "vacancies_tenant_id_idx")
@@ -540,6 +541,81 @@ model MessageTemplate {
 
   @@index([tenantId], map: "message_templates_tenant_id_idx")
   @@map("message_templates")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 2 — Automated Selection System (Onboardix 4-stage screening)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model SelectionTemplate {
+  id        String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId  String   @db.Uuid @map("tenant_id")
+  vacancyId String   @db.Uuid @map("vacancy_id")
+  role      String   // 'logist' | 'sales_manager'
+  stages    Json
+  createdAt DateTime @default(now()) @map("created_at")
+
+  vacancy  Vacancy             @relation("SelectionTemplates", fields: [vacancyId], references: [id])
+  sessions SelectionSession[]
+
+  @@index([tenantId], map: "selection_templates_tenant_id_idx")
+  @@index([vacancyId], map: "selection_templates_vacancy_id_idx")
+  @@map("selection_templates")
+}
+
+model SelectionSession {
+  id            String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId      String    @db.Uuid @map("tenant_id")
+  applicationId String?   @db.Uuid @map("application_id")
+  templateId    String    @db.Uuid @map("template_id")
+  token         String    @unique @default(dbgenerated("uuidv7()"))
+  status        String    @default("pending")
+  // pending|stage_1|stage_2|stage_3|stage_4|completed|rejected|expired
+  startedAt     DateTime? @map("started_at")
+  completedAt   DateTime? @map("completed_at")
+  expiresAt     DateTime? @map("expires_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  template     SelectionTemplate      @relation(fields: [templateId], references: [id])
+  stageResults SelectionStageResult[]
+  verdict      SelectionVerdict?
+
+  @@index([tenantId], map: "selection_sessions_tenant_id_idx")
+  @@index([applicationId], map: "selection_sessions_application_id_idx")
+  @@map("selection_sessions")
+}
+
+model SelectionStageResult {
+  id            String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  sessionId     String   @db.Uuid @map("session_id")
+  stageNumber   Int      @map("stage_number")
+  answers       Json
+  scores        Json?
+  flags         Json?
+  aiEvaluation  Json?    @map("ai_evaluation")
+  submittedAt   DateTime @default(now()) @map("submitted_at")
+
+  session SelectionSession @relation(fields: [sessionId], references: [id])
+
+  @@index([sessionId], map: "selection_stage_results_session_id_idx")
+  @@map("selection_stage_results")
+}
+
+model SelectionVerdict {
+  id                 String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  sessionId          String   @unique @db.Uuid @map("session_id")
+  verdict            String   // ДОПУСТИТЬ|ОТКЛОНИТЬ|НА РУЧНУЮ ПРОВЕРКУ HR
+  totalWeightedScore Decimal? @map("total_weighted_score")
+  stageScores        Json?    @map("stage_scores")
+  crossCheckFlags    Json?    @map("cross_check_flags")
+  lieScaleResult     Json?    @map("lie_scale_result")
+  verdictReason      String?  @map("verdict_reason")
+  hrNotes            String?  @map("hr_notes")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  session SelectionSession @relation(fields: [sessionId], references: [id])
+
+  @@map("selection_verdicts")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

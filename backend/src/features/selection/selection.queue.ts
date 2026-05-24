@@ -1,0 +1,306 @@
+/**
+ * Phase 2 — Selection System queue and background worker.
+ *
+ * Cross-check flag logic and BullMQ-compatible in-process worker
+ * that calls the Anthropic AI evaluator after all 4 stages are submitted.
+ */
+
+import Anthropic from '@anthropic-ai/sdk'
+import { Prisma } from '../../generated/prisma/client'
+import type { DbClient } from '../../db'
+import type { AppEnv } from '../../env'
+import { createInMemoryQueue } from '../../queues'
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export interface CrossCheckFlag {
+  id: number
+  type: 'RED' | 'ORANGE'
+  description: string
+  triggeredAt: number // stage number
+}
+
+interface StageSnapshot {
+  stageNumber: number
+  answers: Record<string, unknown>
+  flags: CrossCheckFlag[]
+}
+
+// ─── Cross-check flag computation ─────────────────────────────────────────────
+
+/**
+ * Compute cross-check flags for the current stage being submitted.
+ * Rules per docs/assessment-system-design.md — Anti-lie mechanisms.
+ */
+export function computeCrossCheckFlags(
+  stageNumber: number,
+  answers: Record<string, unknown>,
+  role: 'logist' | 'sales_manager',
+  previousStages: StageSnapshot[],
+): CrossCheckFlag[] {
+  const flags: CrossCheckFlag[] = []
+
+  if (stageNumber === 1) {
+    // RED-1: Trap question — candidate claimed to know a non-existent TMS/methodology
+    // For logist: LogiTrack PRO X7; for sales_manager: LogiSales Framework 4.0
+    const trapAnswer1 = answers['trap_answer_1'] ?? answers['trap_answer']
+    if (trapAnswer1 === true || trapAnswer1 === 'active' || trapAnswer1 === 'partial') {
+      flags.push({
+        id: 1,
+        type: 'RED',
+        description:
+          role === 'logist'
+            ? 'Кандидат подтвердил знание несуществующей TMS LogiTrack PRO X7 (ловушка №1)'
+            : 'Кандидат подтвердил знание несуществующей методологии LogiSales Framework 4.0 (ловушка №1)',
+        triggeredAt: 1,
+      })
+    }
+
+    // RED-2: Second trap — non-existent Incoterms term FOR (logist) or fake competitor (sales_manager)
+    const trapAnswer2 = answers['trap_answer_2']
+    if (trapAnswer2 === true || trapAnswer2 === 'regular' || trapAnswer2 === 'rare') {
+      flags.push({
+        id: 2,
+        type: 'RED',
+        description:
+          role === 'logist'
+            ? 'Кандидат заявил использование устаревшего термина FOR (Инкотермс) как рабочего (ловушка №2)'
+            : 'Кандидат описал деятельность несуществующей компании «ТрансЛогик Северо-Запад» (ловушка №2)',
+        triggeredAt: 1,
+      })
+    }
+  }
+
+  if (stageNumber === 3) {
+    // ORANGE-5: L-scale — 3 or more answers of "5" in psychology test (questions 17–20)
+    const lScaleAnswers = [
+      answers['q17'], answers['q18'], answers['q19'], answers['q20'],
+    ]
+    const lScoreFivesCount = lScaleAnswers.filter((a) => a === 5 || a === '5').length
+    if (lScoreFivesCount >= 3) {
+      flags.push({
+        id: 5,
+        type: 'ORANGE',
+        description: `L-шкала психотеста: ${lScoreFivesCount} ответа «5» из 4 — высокий риск социально-желательных ответов`,
+        triggeredAt: 3,
+      })
+    }
+  }
+
+  return flags
+}
+
+// ─── AI evaluation prompt ─────────────────────────────────────────────────────
+
+const SELECTION_SYSTEM_PROMPT = `Ты — AI-оценщик системы подбора персонала Onboardix. Твоя задача: принять данные кандидата по всем 4 этапам отбора и выдать ЕДИНЫЙ ВЕРДИКТ по одной из трёх позиций: ДОПУСТИТЬ / ОТКЛОНИТЬ / НА РУЧНУЮ ПРОВЕРКУ HR.
+
+## ВХОДНЫЕ ДАННЫЕ
+
+Ты получаешь структурированный JSON с данными кандидата:
+- candidate_id: идентификатор
+- role: "logist" | "sales_manager"
+- stage_1: данные анкеты (ответы, флаги стоп-критериев, флаги ловушек)
+- stage_2: результаты профессионального теста (баллы по вопросам, открытые ответы)
+- stage_3: результаты психологического теста (баллы по блокам, L-шкала)
+- stage_4: тестовое задание (текст ответа кандидата)
+- cross_check_flags: массив флагов несоответствий, выявленных на предыдущих этапах
+
+## ВЕСА ЭТАПОВ
+
+| Этап | Вес в итоговой оценке |
+|------|-----------------------|
+| Этап 1 (Анкета) | Бинарный фильтр — при стоп-критерии: ОТКЛОНИТЬ без дальнейшего анализа |
+| Этап 2 (Профтест) | 40% итоговой оценки |
+| Этап 3 (Психотест) | 20% итоговой оценки |
+| Этап 4 (Тестовое задание) | 40% итоговой оценки |
+
+Итоговый балл = (Этап2_балл / Этап2_макс) × 40 + (Этап3_балл / Этап3_макс) × 20 + (Этап4_балл / Этап4_макс) × 40
+
+## ПРАВИЛА ВЫНЕСЕНИЯ ВЕРДИКТА
+
+### ОТКЛОНИТЬ — автоматически, если выполняется ХОТЯ БЫ ОДНО:
+1. Сработал стоп-критерий на Этапе 1.
+2. Кандидат подтвердил знание несуществующего продукта/компании (ловушки анкеты) — КРАСНЫЙ флаг.
+3. Итоговый балл Этапа 2 ниже порога (< 22/35 для обеих ролей).
+4. Итоговый балл Этапа 4 ниже порога (< 16/25 для логиста, < 15/23 для менеджера продаж).
+5. Итоговый взвешенный балл < 50%.
+6. Сработало 2 и более КРАСНЫХ флага cross-check.
+
+### ДОПУСТИТЬ — если выполняются ВСЕ условия:
+1. Ни одного стоп-критерия на Этапе 1.
+2. Ни одного КРАСНОГО флага cross-check.
+3. Этап 2 ≥ 22 балла.
+4. Этап 4 ≥ порог роли.
+5. Итоговый взвешенный балл ≥ 65%.
+6. L-шкала: не более 1 ответа «5».
+
+### НА РУЧНУЮ ПРОВЕРКУ HR — во всех остальных случаях.
+
+## ФОРМАТ ВЫВОДА
+
+Верни результат строго в следующем формате JSON (без markdown, без prose вне JSON):
+
+{
+  "candidate_id": "...",
+  "role": "...",
+  "verdict": "ДОПУСТИТЬ" | "ОТКЛОНИТЬ" | "НА РУЧНУЮ ПРОВЕРКУ HR",
+  "total_weighted_score": число от 0 до 100,
+  "stage_scores": {
+    "stage_2_score": X,
+    "stage_2_max": 35,
+    "stage_3_score": X,
+    "stage_3_max": 64,
+    "stage_4_score": X,
+    "stage_4_max": 25
+  },
+  "cross_check_flags": [
+    {
+      "flag_id": 1,
+      "type": "RED" | "ORANGE",
+      "description": "краткое описание несоответствия",
+      "impact": "краткое описание влияния на вердикт"
+    }
+  ],
+  "lie_scale_result": {
+    "score_5_count": число,
+    "reliability": "RELIABLE" | "MODERATE_RISK" | "UNRELIABLE"
+  },
+  "verdict_reason": "Краткое обоснование вердикта (3–5 предложений).",
+  "hr_notes": "Для HR: что именно проверить/уточнить на живом интервью."
+}
+
+## ВАЖНЫЕ ОГРАНИЧЕНИЯ
+
+- Ты НЕ даёшь расплывчатых ответов. Вердикт всегда один из трёх.
+- Ты НЕ снижаешь стандарты из соображений «дефицита кандидатов». Планка фиксирована.
+- Ты НЕ интерпретируешь флаги лжи «в пользу кандидата». Красный флаг = красный флаг.
+- При любом сомнении — НА РУЧНУЮ ПРОВЕРКУ HR, не ДОПУСТИТЬ.`
+
+// ─── Queue & worker ────────────────────────────────────────────────────────────
+
+type EvaluateJob = {
+  prisma: DbClient
+  env: AppEnv
+  sessionId: string
+}
+
+const evaluateQueue = createInMemoryQueue<EvaluateJob>('assessment:evaluate')
+let registered = false
+
+function ensureRegistered() {
+  if (registered) return
+  registered = true
+  evaluateQueue.process(async (job) => {
+    await runEvaluation(job)
+  })
+}
+
+export async function enqueueSelectionEvaluate(input: EvaluateJob) {
+  ensureRegistered()
+  await evaluateQueue.enqueue(input)
+  return { queued: true as const }
+}
+
+async function runEvaluation({ prisma, env, sessionId }: EvaluateJob): Promise<void> {
+  // 1. Load full session with all stage results
+  const session = await prisma.selectionSession.findUnique({
+    where: { id: sessionId },
+    include: {
+      template: true,
+      stageResults: { orderBy: { stageNumber: 'asc' } },
+    },
+  })
+  if (!session) {
+    console.error(JSON.stringify({ level: 'error', msg: 'selection.evaluator.session_not_found', sessionId }))
+    return
+  }
+
+  // 2. Collect all cross-check flags from stage results
+  const allFlags: CrossCheckFlag[] = session.stageResults.flatMap(
+    (r) => (Array.isArray(r.flags) ? (r.flags as unknown as CrossCheckFlag[]) : []),
+  )
+
+  // 3. Build the AI prompt payload
+  const stageMap: Record<number, Record<string, unknown>> = {}
+  for (const result of session.stageResults) {
+    stageMap[result.stageNumber] = result.answers as Record<string, unknown>
+  }
+
+  const promptPayload = {
+    candidate_id: session.applicationId ?? session.id,
+    role: session.template.role,
+    stage_1: stageMap[1] ?? {},
+    stage_2: stageMap[2] ?? {},
+    stage_3: stageMap[3] ?? {},
+    stage_4: stageMap[4] ?? {},
+    cross_check_flags: allFlags,
+  }
+
+  // 4. Call Anthropic API
+  if (!env.LLM_SCORING_API_KEY) {
+    console.error(JSON.stringify({
+      level: 'error',
+      msg: 'selection.evaluator.no_api_key',
+      sessionId,
+    }))
+    return
+  }
+
+  const client = new Anthropic({ apiKey: env.LLM_SCORING_API_KEY })
+
+  let rawText: string
+  try {
+    const response = await client.messages.create({
+      model: env.LLM_SCORING_MODEL,
+      max_tokens: 2000,
+      system: SELECTION_SYSTEM_PROMPT,
+      messages: [
+        {
+          role: 'user',
+          content: `Оцени кандидата. Данные:\n\n${JSON.stringify(promptPayload, null, 2)}\n\nВерни результат строго в формате JSON.`,
+        },
+      ],
+    })
+
+    const firstContent = response.content[0]
+    rawText = firstContent?.type === 'text' ? firstContent.text : ''
+  } catch (err) {
+    console.error(JSON.stringify({ level: 'error', msg: 'selection.evaluator.api_error', sessionId, err: String(err) }))
+    return
+  }
+
+  // 5. Parse JSON from response
+  let parsed: Record<string, unknown> | null = null
+  try {
+    // Extract JSON from response (may have prose around it)
+    const jsonMatch = rawText.match(/\{[\s\S]*\}/)
+    if (jsonMatch) {
+      parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>
+    }
+  } catch {
+    console.error(JSON.stringify({ level: 'error', msg: 'selection.evaluator.parse_error', sessionId, rawText }))
+    return
+  }
+
+  if (!parsed) return
+
+  // 6. Write verdict to database
+  try {
+    await prisma.selectionVerdict.create({
+      data: {
+        sessionId,
+        verdict: String(parsed['verdict'] ?? 'НА РУЧНУЮ ПРОВЕРКУ HR'),
+        totalWeightedScore: parsed['total_weighted_score'] != null
+          ? new Prisma.Decimal(String(parsed['total_weighted_score']))
+          : null,
+        stageScores: (parsed['stage_scores'] ?? null) as Prisma.InputJsonValue,
+        crossCheckFlags: (parsed['cross_check_flags'] ?? allFlags) as Prisma.InputJsonValue,
+        lieScaleResult: (parsed['lie_scale_result'] ?? null) as Prisma.InputJsonValue,
+        verdictReason: parsed['verdict_reason'] != null ? String(parsed['verdict_reason']) : null,
+        hrNotes: parsed['hr_notes'] != null ? String(parsed['hr_notes']) : null,
+      },
+    })
+  } catch (err) {
+    console.error(JSON.stringify({ level: 'error', msg: 'selection.evaluator.db_error', sessionId, err: String(err) }))
+  }
+}

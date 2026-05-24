@@ -12,6 +12,7 @@ import { createCandidatesRoutes } from './features/candidates/candidates.routes'
 import { createOrgUnitsRoutes } from './features/org-units/org-units.routes'
 import { createPublicCareersRoutes } from './features/public/public.routes'
 import { createAssessmentRoutes, createPublicAssessmentRoutes } from './features/assessments/assessments.routes'
+import { createSelectionRoutes } from './features/selection/selection.routes'
 import { createRequisitionsRoutes } from './features/requisitions/requisitions.routes'
 import { createVacanciesRoutes } from './features/vacancies/vacancies.routes'
 import { createHhIntegrationRoutes } from './integrations/hh/routes'
@@ -106,6 +107,7 @@ export function createApp({ env, prisma }: CreateAppOptions) {
   app.route('/api/assessments', createAssessmentRoutes())
   app.route('/api/public/assessment', createPublicAssessmentRoutes())
   app.route('/api/public', createPublicCareersRoutes())
+  app.route('/api/selection', createSelectionRoutes())
 
   app.doc('/openapi.json', {
     openapi: '3.0.0',

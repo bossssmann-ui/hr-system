@@ -87,6 +87,8 @@ const envSchema = z.object({
   QUIET_HOURS_QUIET_END_UTC: z.coerce.number().int().min(0).max(23).default(23),
   // Phase 1D — Assessments / proctoring
   ASSESSMENTS_ENABLED: booleanStringSchema,
+  // Phase 2 — Automated selection system (Onboardix 4-stage screening)
+  ASSESSMENT_SYSTEM_ENABLED: booleanStringSchema,
   PROCTORING_WEBCAM_ENABLED: booleanStringSchema,
   TRUST_WEIGHT_PASTE: z.coerce.number().nonnegative().default(0.35),
   TRUST_WEIGHT_FOCUS: z.coerce.number().nonnegative().default(0.4),
