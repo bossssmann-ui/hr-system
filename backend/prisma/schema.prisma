@@ -105,6 +105,7 @@ model User {
   updatedAt    DateTime      @updatedAt @map("updated_at")
   sessions     AuthSession[]
   roles        UserRole[]
+  employee     Employee?
 
   @@map("users")
 }
@@ -155,6 +156,7 @@ model OrgUnit {
 
   requisitions HiringRequisition[]
   vacancies    Vacancy[]
+  employees    Employee[]
 
   @@index([tenantId], map: "org_units_tenant_id_idx")
   @@index([parentId], map: "org_units_parent_id_idx")
@@ -279,6 +281,7 @@ model Application {
   interviews   Interview[]
   conversations Conversation[]
   assessmentSessions AssessmentSession[]
+  employee     Employee?
 
   @@unique([candidateId, vacancyId], map: "applications_candidate_vacancy_unique")
   @@index([tenantId], map: "applications_tenant_id_idx")
@@ -650,4 +653,224 @@ model Interview {
   @@index([tenantId], map: "interviews_tenant_id_idx")
   @@index([applicationId], map: "interviews_application_id_idx")
   @@map("interviews")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 4.1 — Employee Lifecycle
+// Spec: docs/employee-lifecycle-design.md §2 (+ §1.3 reuse).
+// Tenant-scoped; uuidv7() PKs; snake_case via @map; invariants encoded as
+// partial unique / CHECK constraints in the migration SQL.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum EmployeeStatus {
+  pre_onboarding
+  probation
+  active
+  on_leave
+  terminated
+  alumni
+
+  @@map("employee_status")
+}
+
+enum EmploymentType {
+  full_time
+  part_time
+  contract
+  internship
+
+  @@map("employment_type")
+}
+
+enum TerminationGround {
+  voluntary_resignation
+  involuntary
+  end_of_contract
+  probation_fail
+  mutual_agreement
+  retirement
+  other
+
+  @@map("termination_ground")
+}
+
+enum ProbationOutcome {
+  passed
+  failed
+  extended
+
+  @@map("probation_outcome")
+}
+
+enum OnboardingTaskStatus {
+  pending
+  in_progress
+  completed
+  skipped
+  blocked
+
+  @@map("onboarding_task_status")
+}
+
+enum LifecycleEventType {
+  hired
+  probation_started
+  probation_passed
+  probation_failed
+  probation_extended
+  role_change
+  transfer
+  leave_started
+  leave_ended
+  terminated
+  rehired
+
+  @@map("lifecycle_event_type")
+}
+
+enum EmploymentDocumentType {
+  offer_letter
+  employment_contract
+  nda
+  addendum
+  termination_letter
+  certificate
+  other
+
+  @@map("employment_document_type")
+}
+
+enum EmploymentDocumentStatus {
+  draft
+  pending_signature
+  signed
+  declined
+  expired
+  archived
+
+  @@map("employment_document_status")
+}
+
+model Employee {
+  id                String             @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId          String             @db.Uuid @map("tenant_id")
+  userId            String?            @unique @db.Uuid @map("user_id")
+  applicationId    String?            @unique @db.Uuid @map("application_id")
+  orgUnitId         String?            @db.Uuid @map("org_unit_id")
+  fullName          String             @map("full_name")
+  email             String?
+  phone             String?
+  jobTitle          String?            @map("job_title")
+  employmentType    EmploymentType     @map("employment_type")
+  status            EmployeeStatus     @default(pre_onboarding)
+  hireDate          DateTime?          @db.Date @map("hire_date")
+  probationEndsAt   DateTime?          @map("probation_ends_at")
+  probationOutcome  ProbationOutcome?  @map("probation_outcome")
+  terminatedAt      DateTime?          @map("terminated_at")
+  terminationGround TerminationGround? @map("termination_ground")
+  terminationNote   String?            @map("termination_note")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+
+  user            User?                    @relation(fields: [userId], references: [id], onDelete: SetNull, map: "employees_user_id_fkey")
+  application     Application?             @relation(fields: [applicationId], references: [id], onDelete: SetNull, map: "employees_application_id_fkey")
+  orgUnit         OrgUnit?                 @relation(fields: [orgUnitId], references: [id], onDelete: SetNull, map: "employees_org_unit_id_fkey")
+  lifecycleEvents EmployeeLifecycleEvent[]
+  checklists      OnboardingChecklist[]
+  documents       EmploymentDocument[]
+
+  @@index([tenantId], map: "employees_tenant_id_idx")
+  @@index([orgUnitId], map: "employees_org_unit_id_idx")
+  @@index([status], map: "employees_status_idx")
+  @@index([userId], map: "employees_user_id_idx")
+  @@map("employees")
+}
+
+model EmployeeLifecycleEvent {
+  id          String             @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId    String             @db.Uuid @map("tenant_id")
+  employeeId  String             @db.Uuid @map("employee_id")
+  type        LifecycleEventType
+  fromStatus  EmployeeStatus?    @map("from_status")
+  toStatus    EmployeeStatus?    @map("to_status")
+  effectiveAt DateTime           @default(now()) @map("effective_at")
+  actorUserId String?            @db.Uuid @map("actor_user_id")
+  payload     Json?
+  note        String?
+  createdAt   DateTime           @default(now()) @map("created_at")
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade, map: "employee_lifecycle_events_employee_id_fkey")
+
+  @@index([tenantId], map: "employee_lifecycle_events_tenant_id_idx")
+  @@index([employeeId, effectiveAt], map: "employee_lifecycle_events_employee_effective_idx")
+  @@index([type], map: "employee_lifecycle_events_type_idx")
+  @@map("employee_lifecycle_events")
+}
+
+model OnboardingChecklist {
+  id          String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId    String   @db.Uuid @map("tenant_id")
+  employeeId  String   @db.Uuid @map("employee_id")
+  title       String
+  description String?
+  dueDate     DateTime? @db.Date @map("due_date")
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  employee Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade, map: "onboarding_checklists_employee_id_fkey")
+  tasks    OnboardingTask[]
+
+  @@index([tenantId], map: "onboarding_checklists_tenant_id_idx")
+  @@index([employeeId], map: "onboarding_checklists_employee_id_idx")
+  @@map("onboarding_checklists")
+}
+
+model OnboardingTask {
+  id              String               @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId        String               @db.Uuid @map("tenant_id")
+  checklistId     String               @db.Uuid @map("checklist_id")
+  order           Int                  @map("task_order")
+  title           String
+  description     String?
+  status          OnboardingTaskStatus @default(pending)
+  assigneeUserId  String?              @db.Uuid @map("assignee_user_id")
+  dueDate         DateTime?            @db.Date @map("due_date")
+  completedAt     DateTime?            @map("completed_at")
+  completedByUserId String?            @db.Uuid @map("completed_by_user_id")
+  createdAt       DateTime             @default(now()) @map("created_at")
+  updatedAt       DateTime             @updatedAt @map("updated_at")
+
+  checklist OnboardingChecklist @relation(fields: [checklistId], references: [id], onDelete: Cascade, map: "onboarding_tasks_checklist_id_fkey")
+
+  @@index([tenantId], map: "onboarding_tasks_tenant_id_idx")
+  @@index([checklistId], map: "onboarding_tasks_checklist_id_idx")
+  @@index([status], map: "onboarding_tasks_status_idx")
+  @@unique([checklistId, order], map: "onboarding_tasks_checklist_order_key")
+  @@map("onboarding_tasks")
+}
+
+model EmploymentDocument {
+  id           String                   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId     String                   @db.Uuid @map("tenant_id")
+  employeeId   String                   @db.Uuid @map("employee_id")
+  type         EmploymentDocumentType
+  status       EmploymentDocumentStatus @default(draft)
+  title        String
+  fileUrl      String?                  @map("file_url")
+  metadata     Json?
+  issuedAt     DateTime?                @map("issued_at")
+  signedAt     DateTime?                @map("signed_at")
+  expiresAt    DateTime?                @map("expires_at")
+  createdByUserId String                @db.Uuid @map("created_by_user_id")
+  createdAt    DateTime                 @default(now()) @map("created_at")
+  updatedAt    DateTime                 @updatedAt @map("updated_at")
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade, map: "employment_documents_employee_id_fkey")
+
+  @@index([tenantId], map: "employment_documents_tenant_id_idx")
+  @@index([employeeId], map: "employment_documents_employee_id_idx")
+  @@index([type], map: "employment_documents_type_idx")
+  @@index([status], map: "employment_documents_status_idx")
+  @@map("employment_documents")
 }
