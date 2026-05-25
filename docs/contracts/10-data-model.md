@@ -483,3 +483,126 @@ Dedup: partial unique index on `(channel, external_id)` WHERE `external_id IS NO
 The `Candidate.externalIds` JSONB column stores channel-specific IDs:
 - `telegram_chat_id`: Telegram chat ID
 - `hh_messages_url`: HH negotiation messages URL
+
+---
+
+## Phase 4.1 additions — Employee lifecycle
+
+Tracks the post-hire side of the funnel: an `Application` that reaches `hired`
+is handed off to an `Employee`, which then progresses through `prehire →
+probation → active → on_leave?` and eventually `terminated → alumni`.
+
+The full FSM, transition matrix, and side-effects are owned by the
+`docs/employee-lifecycle-design.md` spec; this section documents the schema
+shape only.
+
+### `Employee`
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | UUID | PK, `uuidv7()`. |
+| `tenant_id` | UUID | RLS key. |
+| `user_id` | UUID? | FK → `User`. Unique when present. Null until the employee gets a login. |
+| `application_id` | UUID? | FK → `Application`. **Unique** — one Employee per hired Application. |
+| `org_unit_id` | UUID | FK → `OrgUnit`. |
+| `manager_user_id` | UUID? | FK → `User`. Direct manager. |
+| `full_name` | string | |
+| `work_email` / `personal_email` / `phone` | string? | Contact info. |
+| `employment_type` | enum | `permanent`, `fixed_term`, `contractor`, `intern`, `part_time`. |
+| `status` | enum | `prehire`, `probation`, `active`, `on_leave`, `terminated`, `alumni`. |
+| `hire_date` | date | Offer accepted / contract date. |
+| `start_date` | date? | First working day. |
+| `probation_ends_at` | date? | **Required when `status = 'probation'`** (CHECK). |
+| `probation_outcome` | enum? | `passed`, `failed`, `extended`. |
+| `termination_date` | date? | **Required when `status = 'terminated'`** (CHECK). |
+| `termination_ground` | enum? | **Required when `status = 'terminated'`** (CHECK). One of `voluntary`, `mutual_agreement`, `employer_initiative`, `probation_failed`, `fixed_term_expiry`, `redundancy`, `for_cause`, `other`. |
+| `termination_note` | text? | Free-text supplement. |
+| `compensation` | jsonb? | Current snapshot `{salary, currency, grade}`. |
+| `external_ids` | jsonb | Integration ids (1C, payroll, …). |
+| `created_at` / `updated_at` | timestamp | |
+| `deleted_at` | timestamp? | Soft delete (retention is a Phase 11 concern). |
+
+Indexes: `tenant_id`, `org_unit_id`, `manager_user_id`, `status`,
+`(tenant_id, status)`. Unique: `user_id`, `application_id`.
+
+### `EmployeeLifecycleEvent`
+
+Append-only audit trail of the employee FSM (parallel to
+`ApplicationStageEvent`). Insert-only — no `UPDATE` / `DELETE` policy.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | UUID | PK |
+| `tenant_id` | UUID | |
+| `employee_id` | UUID | FK → `Employee` (CASCADE). |
+| `event_type` | enum | `hired`, `probation_started`, `probation_extended`, `probation_passed`, `probation_failed`, `transferred`, `role_changed`, `compensation_changed`, `leave_started`, `leave_ended`, `terminated`, `rehired`. |
+| `from_status` / `to_status` | enum? | Optional — populated for status transitions. |
+| `effective_at` | timestamp | Business effective date. |
+| `actor_user_id` | UUID? | Null for system actions. |
+| `payload` | jsonb | Event-specific delta. |
+| `comment` | text? | |
+| `created_at` | timestamp | |
+
+Indexes: `tenant_id`, `(employee_id, effective_at)`, `event_type`.
+
+### `OnboardingChecklist`
+
+One checklist per employee (unique on `employee_id`).
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | UUID | PK |
+| `tenant_id` | UUID | |
+| `employee_id` | UUID | FK → `Employee` (CASCADE). Unique. |
+| `template_key` | string? | Identifier of the template the checklist was generated from. |
+| `started_at` / `completed_at` | timestamp? | |
+| `created_at` / `updated_at` | timestamp | |
+
+### `OnboardingTask`
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | UUID | PK |
+| `tenant_id` | UUID | |
+| `checklist_id` | UUID | FK → `OnboardingChecklist` (CASCADE). |
+| `title` / `description` | text | |
+| `task_order` | int | Stable render order. `UNIQUE (checklist_id, task_order)`. |
+| `status` | enum | `pending`, `in_progress`, `done`, `blocked`, `skipped`. |
+| `assignee_user_id` | UUID? | FK → `User`. |
+| `due_at` / `completed_at` | timestamp? | |
+| `completed_by_user_id` | UUID? | FK → `User`. |
+| `metadata` | jsonb? | |
+| `created_at` / `updated_at` | timestamp | |
+
+### `EmploymentDocument`
+
+Employee-side documents (contract, NDA, transfer / termination orders, ID
+copies, etc.). DocuSeal / e-signature wiring is a later phase.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | UUID | PK |
+| `tenant_id` | UUID | |
+| `employee_id` | UUID | FK → `Employee` (CASCADE). |
+| `type` | enum | `employment_contract`, `additional_agreement`, `nda`, `transfer_order`, `termination_order`, `id_document`, `tax_form`, `medical_certificate`, `other`. |
+| `status` | enum | `draft`, `pending_signature`, `signed`, `archived`, `expired`. |
+| `title` | string | |
+| `file_url` | string? | Private URL; presigned at read time. |
+| `effective_at` / `expires_at` / `signed_at` | timestamp? | |
+| `signed_by_user_id` | UUID? | FK → `User`. |
+| `external_ref` | string? | DocuSeal envelope id, etc. |
+| `metadata` | jsonb? | |
+| `created_at` / `updated_at` | timestamp | |
+| `deleted_at` | timestamp? | Soft delete. |
+
+Indexes: `tenant_id`, `employee_id`, `(employee_id, type)`, `status`.
+
+### RLS summary (Phase 4.1)
+
+| Table | Read | Write |
+| --- | --- | --- |
+| `employees` | `owner` / `hr_admin` / `recruiter`; `hiring_manager` for their reports; `employee` for their own row | `owner` / `hr_admin` |
+| `employee_lifecycle_events` | same as `employees` | **insert-only**; `owner` / `hr_admin` |
+| `onboarding_checklists` | `owner` / `hr_admin`; `hiring_manager` for their reports; `employee` for their own | `owner` / `hr_admin` |
+| `onboarding_tasks` | as checklist + assignee | `owner` / `hr_admin` (full); assignee may `UPDATE` their own tasks |
+| `employment_documents` | `owner` / `hr_admin`; `hiring_manager` for their reports; `employee` for their own | `owner` / `hr_admin` |
