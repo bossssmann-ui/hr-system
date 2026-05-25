@@ -223,9 +223,9 @@ ALTER TABLE "onboarding_tasks" ADD CONSTRAINT "onboarding_tasks_checklist_id_fke
 -- ─────────────────────────────────────────────────────────────────────────────
 
 CREATE TABLE "employment_documents" (
-    "employee_id"         UUID                         NOT NULL,
     "id"                  UUID                         NOT NULL DEFAULT uuidv7(),
     "tenant_id"           UUID                         NOT NULL,
+    "employee_id"         UUID                         NOT NULL,
     "type"                "employment_document_type"   NOT NULL,
     "status"              "employment_document_status" NOT NULL DEFAULT 'draft',
     "title"               TEXT                         NOT NULL,
