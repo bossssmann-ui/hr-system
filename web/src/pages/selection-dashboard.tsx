@@ -12,7 +12,7 @@ import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Typography } from '@/components/ui/typography'
 import { ApiRequestError } from '@/lib/api'
 import { useAuth } from '@/lib/use-auth'
@@ -235,7 +235,7 @@ export function SelectionDashboardPage() {
 
   const moveToInterviewMutation = useMutation({
     mutationFn: (applicationId: string) =>
-      api.moveApplicationStage(applicationId, { stage: 'tech' }),
+      api.moveApplicationStage(applicationId, { to: 'tech' }),
     onSuccess: () => {
       toast.success('Кандидат переведён на этап интервью')
       void queryClient.invalidateQueries({ queryKey: ['selection-sessions'] })
@@ -246,7 +246,7 @@ export function SelectionDashboardPage() {
 
   const rejectMutation = useMutation({
     mutationFn: (applicationId: string) =>
-      api.moveApplicationStage(applicationId, { stage: 'rejected' }),
+      api.moveApplicationStage(applicationId, { to: 'rejected' }),
     onSuccess: () => {
       toast.success('Кандидат отклонён')
       void queryClient.invalidateQueries({ queryKey: ['selection-sessions'] })
