@@ -62,7 +62,7 @@ Prisma models and PostgreSQL enums introduced in Phase 4. The Prisma schema in `
 | Enum | Values |
 | --- | --- |
 | `EmployeeStatus` | `pre_onboarding`, `onboarding`, `probation`, `active`, `notice`, `terminated` |
-| `EmploymentType` | `td` (трудовой договор, **preferred**), `gph` (договор ГПХ), `self_employed` (самозанятый), `ip` (ИП) |
+| `EmploymentType` | `td` (трудовой договор), `gph` (договор ГПХ), `self_employed` (самозанятый), `ip` (ИП) |
 | `TerminationGround` | `probation_failed`, `voluntary`, `mutual`, `for_cause`, `other` |
 | `ProbationOutcome` | `pending`, `passed`, `failed`, `extended` |
 | `OnboardingTaskStatus` | `pending`, `in_progress`, `done`, `failed`, `skipped` |
@@ -250,7 +250,7 @@ Exit: `hr_admin` triggers `pre_onboarding → onboarding` on or after the start 
 
 The onboarding checklist is generated from a `template_key`. The seeded template for the first role is `logist`. See **Appendix A.2** for the full task list. Day-1 essentials: ATI (ati.su) account, corporate email, corporate phone, **YouGile** (CRM — note: not Bitrix24/AmoCRM), and **«Умная Логистика»** (the TMS used by the company **instead of 1C**). Training over weeks 1–2 covers internal regulations (регламенты), sales scripts, «Умная Логистика», and YouGile regulations.
 
-Default employment document is **ТД** (трудовой договор) — preferred per director decision. ГПХ / self-employed / ИП are alternatives chosen by candidate competencies; see **Appendix A.1**.
+Employment form for the first role is **under discussion — no default decided (owner, 2026-05-26).** ТД / ГПХ / self-employed / ИП all remain open and are chosen per candidate by competencies and tax position, then snapshotted as `agreed_employment_type`; see **Appendix A.1**.
 
 Exit: all non-`skipped` tasks reach `done` → `checklist.completed_at` is set → `hr_admin` may transition `onboarding → probation` (or `→ active` if probation is not configured).
 
@@ -410,7 +410,7 @@ Captures the first-role rules grounded in real director decisions. Sub-issues #2
 
 ### A.1 Employment form by candidate competencies (sub-issue §9.6)
 
-The director decision: **ТД (трудовой договор) is the preferred default.** Alternatives are selected per candidate based on competencies and tax position:
+Owner decision (2026-05-26): **employment form is still under discussion — no default. All variants stay open** and are selected per candidate based on competencies and tax position:
 
 | Form | When chosen | Notes |
 | --- | --- | --- |
@@ -434,7 +434,7 @@ The seeded `logist` template (`template_version = 1`) materialises the following
 | `provision_corp_phone` | Корпоративный телефон / SIM | `it` | `true` |
 | `provision_yougile` | Аккаунт **YouGile** (CRM) | `it` | `true` |
 | `provision_smart_logistics` | Аккаунт **«Умная Логистика»** (TMS, used instead of 1C) | `it` | `true` |
-| `sign_td_default` | Подписать ТД (или альтернативу из А.1) | `hr_admin` | `false` |
+| `sign_td_default` | Подписать договор по выбранной форме (см. А.1) | `hr_admin` | `false` |
 | `sign_nda` | Подписать NDA / соглашение о коммерческой тайне | `hr_admin` | `false` |
 | `sign_materials_responsibility` | Договор о материальной ответственности (если применимо) | `hr_admin` | `false` |
 
@@ -477,4 +477,5 @@ Payload shape (illustrative):
 
 ## Change log
 
-- **v1.2** — initial spec for Phase 4 EPIC (#21). Covers §1–§7 + Appendix A; consolidates director decisions on CRM (YouGile), TMS («Умная Логистика» instead of 1C), and ТД-preferred employment form for the first role.
+- **v1.3** — owner review 2026-05-26: TMS confirmed («Умная Логистика», not 1C); logist probation kept as **two independent variants** (200–300k₽ marginal contribution AND/OR 3–5 closed deals/month, recorded as data, no auto-gate); first-role **employment form reverted to undecided — all variants (ТД/ГПХ/self-employed/ИП) open, no default.**
+- **v1.2** — initial spec for Phase 4 EPIC (#21). Covers §1–§7 + Appendix A; consolidates decisions on CRM (YouGile) and TMS («Умная Логистика» instead of 1C). (Employment-form default from v1.2 superseded in v1.3.)
