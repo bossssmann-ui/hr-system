@@ -8,6 +8,7 @@ import {
   canTransition,
   canTransitionWithInvariants,
   isTerminalStatus,
+  satisfiesProbationTransitionInvariant,
   satisfiesOnboardingExitInvariant,
   type EmployeeStatus,
 } from './employees.fsm'
@@ -144,5 +145,18 @@ describe('employees FSM', () => {
         probationEndsAt: null,
       }),
     ).toBe(false)
+  })
+
+  test('probation exit invariant requires passed -> active and failed -> notice', () => {
+    expect(satisfiesProbationTransitionInvariant('probation', 'active', 'passed')).toBe(true)
+    expect(satisfiesProbationTransitionInvariant('probation', 'active', 'failed')).toBe(false)
+    expect(satisfiesProbationTransitionInvariant('probation', 'active', 'extended')).toBe(false)
+
+    expect(satisfiesProbationTransitionInvariant('probation', 'notice', 'failed')).toBe(true)
+    expect(satisfiesProbationTransitionInvariant('probation', 'notice', 'passed')).toBe(false)
+    expect(satisfiesProbationTransitionInvariant('probation', 'notice', null)).toBe(false)
+
+    expect(satisfiesProbationTransitionInvariant('probation', 'probation', 'extended')).toBe(true)
+    expect(satisfiesProbationTransitionInvariant('active', 'notice', 'failed')).toBe(true)
   })
 })

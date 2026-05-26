@@ -1,4 +1,5 @@
 import { createBackendRuntime, type BackendRuntime } from './runtime'
+import { sendProbationReminders } from './features/employees/employees.service'
 
 type CronTask = (runtime: BackendRuntime) => Promise<void>
 
@@ -9,6 +10,12 @@ const cronTasks = {
   'db:ping': async ({ prisma }) => {
     await prisma.$queryRaw`SELECT 1`
     console.log('Cron db:ping task completed.')
+  },
+  'probation.reminder': async ({ prisma }) => {
+    const result = await sendProbationReminders({ prisma })
+    console.log(
+      `Cron probation.reminder task completed. employees=${result.employeesMatched} notifications=${result.notificationsSent}`,
+    )
   },
 } satisfies Record<string, CronTask>
 
