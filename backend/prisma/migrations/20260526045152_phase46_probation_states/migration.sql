@@ -8,15 +8,3 @@
 
 ALTER TYPE "employee_status" ADD VALUE 'onboarding';
 ALTER TYPE "employee_status" ADD VALUE 'notice';
-
--- AlterTable
-ALTER TABLE "employees" ALTER COLUMN "updated_at" DROP DEFAULT;
-
--- AlterTable
-ALTER TABLE "employment_documents" ALTER COLUMN "updated_at" DROP DEFAULT;
-
--- AlterTable
-ALTER TABLE "onboarding_checklists" ALTER COLUMN "updated_at" DROP DEFAULT;
-
--- AlterTable
-ALTER TABLE "onboarding_tasks" ALTER COLUMN "updated_at" DROP DEFAULT;

@@ -780,7 +780,7 @@ model Employee {
   terminationGround TerminationGround? @map("termination_ground")
   terminationNote   String?            @map("termination_note")
   createdAt         DateTime           @default(now()) @map("created_at")
-  updatedAt         DateTime           @updatedAt @map("updated_at")
+  updatedAt         DateTime           @default(now()) @updatedAt @map("updated_at")
 
   user            User?                    @relation(fields: [userId], references: [id], onDelete: SetNull, map: "employees_user_id_fkey")
   application     Application?             @relation(fields: [applicationId], references: [id], onDelete: SetNull, map: "employees_application_id_fkey")
@@ -830,7 +830,7 @@ model OnboardingChecklist {
   dueDate     DateTime? @db.Date @map("due_date")
   completedAt DateTime? @map("completed_at")
   createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at")
 
   employee Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade, map: "onboarding_checklists_employee_id_fkey")
   tasks    OnboardingTask[]
@@ -853,7 +853,7 @@ model OnboardingTask {
   completedAt     DateTime?            @map("completed_at")
   completedByUserId String?            @db.Uuid @map("completed_by_user_id")
   createdAt       DateTime             @default(now()) @map("created_at")
-  updatedAt       DateTime             @updatedAt @map("updated_at")
+  updatedAt       DateTime             @default(now()) @updatedAt @map("updated_at")
 
   checklist OnboardingChecklist @relation(fields: [checklistId], references: [id], onDelete: Cascade, map: "onboarding_tasks_checklist_id_fkey")
 
@@ -878,7 +878,7 @@ model EmploymentDocument {
   expiresAt    DateTime?                @map("expires_at")
   createdByUserId String                @db.Uuid @map("created_by_user_id")
   createdAt    DateTime                 @default(now()) @map("created_at")
-  updatedAt    DateTime                 @updatedAt @map("updated_at")
+  updatedAt    DateTime                 @default(now()) @updatedAt @map("updated_at")
 
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade, map: "employment_documents_employee_id_fkey")
 

@@ -358,18 +358,16 @@ export async function sendProbationReminders(input: SendProbationRemindersInput)
     },
   })
 
-  const recipientsByTenant = new Map<string, string[]>()
+  const recipientsByTenant = new Map<string, Set<string>>()
   for (const membership of memberships) {
-    const existing = recipientsByTenant.get(membership.tenantId) ?? []
-    if (!existing.includes(membership.userId)) {
-      existing.push(membership.userId)
-      recipientsByTenant.set(membership.tenantId, existing)
-    }
+    const existing = recipientsByTenant.get(membership.tenantId) ?? new Set<string>()
+    existing.add(membership.userId)
+    recipientsByTenant.set(membership.tenantId, existing)
   }
 
   let notificationsSent = 0
   for (const employee of employees) {
-    const recipientUserIds = recipientsByTenant.get(employee.tenantId) ?? []
+    const recipientUserIds = [...(recipientsByTenant.get(employee.tenantId) ?? new Set<string>())]
     await Promise.all(
       recipientUserIds.map(async (userId) => {
         await notifier.notify({
