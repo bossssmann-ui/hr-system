@@ -28,6 +28,7 @@ import type { AppEnv } from '../../env'
 import { AppError } from '../../http/errors'
 import { canTransition } from '../applications/applications.fsm'
 import { generateInterviewQuestions } from '../assessments/assessments.service'
+import { createFromApplication } from '../employees/employees.service'
 import { enqueueApplicationScoringJob } from '../scoring/scoring.queue'
 import { withScoringPresentation } from '../scoring/scoring.service'
 
@@ -270,12 +271,12 @@ export function createApplicationsRoutes() {
         )
       }
 
-      const [updated] = await prisma.$transaction([
-        prisma.application.update({
+      const updated = await prisma.$transaction(async (tx) => {
+        const app = await tx.application.update({
           where: { id },
           data: { stage: body.to },
-        }),
-        prisma.applicationStageEvent.create({
+        })
+        await tx.applicationStageEvent.create({
           data: {
             tenantId,
             applicationId: id,
@@ -284,8 +285,17 @@ export function createApplicationsRoutes() {
             actorUserId: userId,
             comment: body.comment ?? null,
           },
-        }),
-      ])
+        })
+        if (body.to === 'hired') {
+          await createFromApplication({
+            prisma: tx as unknown as DbClient,
+            applicationId: id,
+            actorUserId: userId ?? undefined,
+            tenantId,
+          })
+        }
+        return app
+      })
 
       c.set('auditEntry', {
         action: 'application.move_stage',
