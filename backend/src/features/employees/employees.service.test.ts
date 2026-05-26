@@ -20,6 +20,7 @@ function createPrismaMock(opts: { hasInterview?: boolean; hasOfferDraft?: boolea
   const state = {
     employee: null as Record<string, unknown> | null,
     auditEvents: [] as Array<Record<string, unknown>>,
+    portalEntry: null as Record<string, unknown> | null,
   }
 
   const application = {
@@ -87,6 +88,23 @@ function createPrismaMock(opts: { hasInterview?: boolean; hasOfferDraft?: boolea
     auditEvent: {
       create: async ({ data }: { data: Record<string, unknown> }) => {
         state.auditEvents.push(data)
+      },
+    },
+    preStartPortalEntry: {
+      upsert: async ({
+        where,
+        create,
+      }: {
+        where: { employeeId: string }
+        create: Record<string, unknown>
+        update: Record<string, unknown>
+      }) => {
+        if (state.portalEntry && state.portalEntry.employeeId === where.employeeId) {
+          return state.portalEntry
+        }
+        const created = { id: 'portal-1', ...create }
+        state.portalEntry = created
+        return created
       },
     },
   }
@@ -315,13 +333,38 @@ describe('createFromApplication', () => {
       tenantId: 'tenant-1',
     })
 
-    expect(state.auditEvents).toHaveLength(1)
+    expect(state.auditEvents).toHaveLength(2)
     const audit = state.auditEvents[0]!
     expect(audit.action).toBe('employee.created')
     expect(audit.entityType).toBe('Employee')
     expect(audit.actorUserId).toBe('user-1')
     expect((audit.diff as Record<string, unknown>).via).toBe('hired_application')
     expect((audit.diff as Record<string, unknown>).applicationId).toBe('app-1')
+  })
+
+  test('opens a pre-start portal entry in pending_link state (Phase 4.7 §5.3)', async () => {
+    const { prisma, state } = createPrismaMock()
+
+    await createFromApplication({
+      prisma: prisma as never,
+      applicationId: 'app-1',
+      actorUserId: 'user-1',
+      tenantId: 'tenant-1',
+    })
+
+    expect(state.portalEntry).toBeTruthy()
+    expect(state.portalEntry!.tenantId).toBe('tenant-1')
+    expect(state.portalEntry!.employeeId).toBe('emp-1')
+    expect(state.portalEntry!.status).toBe('pending_link')
+
+    const portalAudit = state.auditEvents.find(
+      (event) => event.action === 'pre_start_portal.opened',
+    )
+    expect(portalAudit).toBeTruthy()
+    expect(portalAudit!.entityType).toBe('PreStartPortalEntry')
+    expect(portalAudit!.entityId).toBe('portal-1')
+    expect((portalAudit!.diff as Record<string, unknown>).employeeId).toBe('emp-1')
+    expect((portalAudit!.diff as Record<string, unknown>).status).toBe('pending_link')
   })
 
   test('is idempotent — returns existing employee without creating duplicate', async () => {
@@ -344,8 +387,10 @@ describe('createFromApplication', () => {
     })
 
     expect(first.id).toBe(second.id)
-    // Audit event written only once
-    expect(state.auditEvents).toHaveLength(1)
+    // First call writes employee.created + pre_start_portal.opened; the
+    // second call short-circuits on the existing employee, so audits are
+    // not re-written.
+    expect(state.auditEvents).toHaveLength(2)
   })
 
   test('actorUserId is nullable (supports system/queue callers)', async () => {

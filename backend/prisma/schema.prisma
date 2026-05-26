@@ -755,6 +755,14 @@ enum EmploymentDocumentStatus {
   @@map("employment_document_status")
 }
 
+enum PreStartPortalStatus {
+  pending_link
+  active
+  closed
+
+  @@map("pre_start_portal_status")
+}
+
 model Employee {
   id                String             @id @default(dbgenerated("uuidv7()")) @db.Uuid
   tenantId          String             @db.Uuid @map("tenant_id")
@@ -790,6 +798,7 @@ model Employee {
   lifecycleEvents EmployeeLifecycleEvent[]
   checklists      OnboardingChecklist[]
   documents       EmploymentDocument[]
+  preStartPortalEntry PreStartPortalEntry?
 
   @@index([tenantId], map: "employees_tenant_id_idx")
   @@index([orgUnitId], map: "employees_org_unit_id_idx")
@@ -887,4 +896,30 @@ model EmploymentDocument {
   @@index([type], map: "employment_documents_type_idx")
   @@index([status], map: "employment_documents_status_idx")
   @@map("employment_documents")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 4.7 — Pre-start inbox / first-day plan
+// Spec: docs/employee-lifecycle-design.md §5.3 (roadmap §7.4).
+// Opened on `Application.offer → hired` alongside the Employee row. Gated by
+// `Employee.user_id IS NOT NULL`: while no portal user is linked the entry
+// sits in `pending_link` and surfaces nothing to the candidate.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model PreStartPortalEntry {
+  id         String               @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId   String               @db.Uuid @map("tenant_id")
+  employeeId String               @unique @db.Uuid @map("employee_id")
+  status     PreStartPortalStatus @default(pending_link)
+  openedAt   DateTime             @default(now()) @map("opened_at")
+  linkedAt   DateTime?            @map("linked_at")
+  closedAt   DateTime?            @map("closed_at")
+  createdAt  DateTime             @default(now()) @map("created_at")
+  updatedAt  DateTime             @default(now()) @updatedAt @map("updated_at")
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade, map: "pre_start_portal_entries_employee_id_fkey")
+
+  @@index([tenantId], map: "pre_start_portal_entries_tenant_id_idx")
+  @@index([status], map: "pre_start_portal_entries_status_idx")
+  @@map("pre_start_portal_entries")
 }
