@@ -179,6 +179,24 @@ Indexes: `(tenant_id, employee_id)`.
 
 No invariant beyond tenant scoping in Phase 4 — full sign workflow lands with Phase 3 integration.
 
+### §2.6 `PreStartPortalEntry`
+
+The pre-start portal entry opened by `createFromApplication` (§5.3) alongside the `Employee(pre_onboarding)` row.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | UUID | PK |
+| `tenant_id` | UUID | |
+| `employee_id` | UUID | UNIQUE, FK → `Employee`. One entry per employee. |
+| `status` | `PreStartPortalStatus` | `pending_link` / `active` / `closed`. Default `pending_link`. |
+| `opened_at` | timestamp | Set at creation. |
+| `linked_at` | timestamp? | Set when `Employee.user_id` is linked and the entry transitions to `active`. |
+| `closed_at` | timestamp? | Set on `pre_onboarding → onboarding` or `pre_onboarding → terminated`. |
+
+Invariants:
+- `PreStartPortalEntry.employee_id` UNIQUE — creation is idempotent on retried `offer → hired`.
+- `pending_link` is invisible to candidate-facing reads because the §5.3 gating join requires `Employee.user_id IS NOT NULL`.
+
 ---
 
 ## §3 Finite state machine
@@ -326,6 +344,9 @@ Reuses the Phase 1E pre-onboarding inbox surface (recruiter ↔ candidate post-o
 - A read-only summary of agreed terms (position, start date, employment type).
 
 The portal entry is gated by `Employee.user_id IS NOT NULL`; when the link is not yet present, the entry exists in `pending_link` state and surfaces nothing to the candidate. Reduces no-show risk per roadmap §7.4.
+
+Implementation:
+- `createFromApplication` (§1.2) opens the entry in the same path as the `Employee(pre_onboarding)` insert. The entry is persisted as `PreStartPortalEntry` (§2.6) with `status = pending_link` and an `AuditEvent(action = 'pre_start_portal.opened')` is written. The `employee_id` UNIQUE index makes the open idempotent.
 
 ---
 

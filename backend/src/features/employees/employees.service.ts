@@ -1,11 +1,12 @@
 /**
- * Employee lifecycle service — Phase 4.3 / 4.6.
+ * Employee lifecycle service — Phase 4.3 / 4.6 / 4.7.
  *
  * Implements `createFromApplication`: the side-effect triggered by the
- * `Application.offer → hired` transition that creates an `Employee` row
- * and writes an `employee.created` audit event.
+ * `Application.offer → hired` transition that creates an `Employee` row,
+ * writes an `employee.created` audit event, and opens the pre-start portal
+ * entry (§5.3) in `pending_link` state.
  *
- * Spec: docs/employee-lifecycle-design.md §1.2.
+ * Spec: docs/employee-lifecycle-design.md §1.2, §5.3.
  */
 
 import type { DbClient } from '../../db'
@@ -66,6 +67,9 @@ export type SendProbationRemindersInput = {
  *   `HiringRequisition`.
  * - Writes an `AuditEvent` with `action = 'employee.created'` and
  *   `diff.via = 'hired_application'`.
+ * - Opens a `PreStartPortalEntry(pending_link)` for the new employee (§5.3)
+ *   and writes a `pre_start_portal.opened` audit event. Idempotent via the
+ *   `employee_id` UNIQUE index.
  *
  * Call this inside the same `prisma.$transaction` callback as the stage
  * update so the employee is created atomically with the `hired` stage.
@@ -146,6 +150,35 @@ export async function createFromApplication(input: CreateFromApplicationInput) {
         via: 'hired_application',
         applicationId,
         candidateId: candidate.id,
+      },
+    },
+  })
+
+  // ── Pre-start portal entry (Phase 4.7, §5.3) ─────────────────────────────
+  // Open a `pending_link` portal entry alongside the employee row so that
+  // welcome materials / first-day plan / agreed-terms summary are ready to
+  // surface as soon as `hr_admin` links a `User(role = employee)`. The unique
+  // index on `employee_id` makes this idempotent if the call is retried.
+  const portalEntry = await prisma.preStartPortalEntry.upsert({
+    where: { employeeId: employee.id },
+    create: {
+      tenantId,
+      employeeId: employee.id,
+      status: 'pending_link',
+    },
+    update: {},
+  })
+
+  await prisma.auditEvent.create({
+    data: {
+      tenantId,
+      actorUserId: actorUserId ?? null,
+      action: 'pre_start_portal.opened',
+      entityType: 'PreStartPortalEntry',
+      entityId: portalEntry.id,
+      diff: {
+        employeeId: employee.id,
+        status: 'pending_link',
       },
     },
   })
