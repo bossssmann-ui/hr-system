@@ -6,7 +6,9 @@ import {
   EMPLOYEE_TRANSITIONS,
   allowedNextStatuses,
   canTransition,
+  canTransitionWithInvariants,
   isTerminalStatus,
+  satisfiesOnboardingExitInvariant,
   type EmployeeStatus,
 } from './employees.fsm'
 
@@ -59,5 +61,88 @@ describe('employees FSM', () => {
     for (const t of EMPLOYEE_TRANSITIONS) {
       expect(canTransition(t.from, t.to, [] as Role[])).toBe(false)
     }
+  })
+
+  test('onboarding exit invariant: onboarding -> probation requires checklist complete and probation date', () => {
+    expect(
+      satisfiesOnboardingExitInvariant('probation', {
+        checklistCompletedAt: new Date('2026-05-26T00:00:00.000Z'),
+        probationEndsAt: new Date('2026-06-26T00:00:00.000Z'),
+      }),
+    ).toBe(true)
+
+    expect(
+      satisfiesOnboardingExitInvariant('probation', {
+        checklistCompletedAt: null,
+        probationEndsAt: new Date('2026-06-26T00:00:00.000Z'),
+      }),
+    ).toBe(false)
+
+    expect(
+      satisfiesOnboardingExitInvariant('probation', {
+        checklistCompletedAt: new Date('2026-05-26T00:00:00.000Z'),
+        probationEndsAt: null,
+      }),
+    ).toBe(false)
+  })
+
+  test('onboarding exit invariant: onboarding -> active is allowed only when checklist is complete and probation is absent', () => {
+    expect(
+      satisfiesOnboardingExitInvariant('active', {
+        checklistCompletedAt: new Date('2026-05-26T00:00:00.000Z'),
+        probationEndsAt: null,
+      }),
+    ).toBe(true)
+
+    expect(
+      satisfiesOnboardingExitInvariant('active', {
+        checklistCompletedAt: null,
+        probationEndsAt: null,
+      }),
+    ).toBe(false)
+
+    expect(
+      satisfiesOnboardingExitInvariant('active', {
+        checklistCompletedAt: new Date('2026-05-26T00:00:00.000Z'),
+        probationEndsAt: new Date('2026-06-26T00:00:00.000Z'),
+      }),
+    ).toBe(false)
+  })
+
+  test('canTransitionWithInvariants composes FSM role checks with onboarding exit gates', () => {
+    expect(
+      canTransitionWithInvariants('onboarding', 'probation', ['hr_admin'], {
+        checklistCompletedAt: new Date('2026-05-26T00:00:00.000Z'),
+        probationEndsAt: new Date('2026-06-26T00:00:00.000Z'),
+      }),
+    ).toBe(true)
+
+    expect(
+      canTransitionWithInvariants('onboarding', 'probation', ['hr_admin'], {
+        checklistCompletedAt: null,
+        probationEndsAt: new Date('2026-06-26T00:00:00.000Z'),
+      }),
+    ).toBe(false)
+
+    expect(
+      canTransitionWithInvariants('onboarding', 'active', ['hr_admin'], {
+        checklistCompletedAt: new Date('2026-05-26T00:00:00.000Z'),
+        probationEndsAt: null,
+      }),
+    ).toBe(true)
+
+    expect(
+      canTransitionWithInvariants('onboarding', 'active', ['hr_admin'], {
+        checklistCompletedAt: new Date('2026-05-26T00:00:00.000Z'),
+        probationEndsAt: new Date('2026-06-26T00:00:00.000Z'),
+      }),
+    ).toBe(false)
+
+    expect(
+      canTransitionWithInvariants('onboarding', 'active', ['employee'], {
+        checklistCompletedAt: new Date('2026-05-26T00:00:00.000Z'),
+        probationEndsAt: null,
+      }),
+    ).toBe(false)
   })
 })
