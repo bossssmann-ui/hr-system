@@ -29,6 +29,11 @@ type Transition = {
   allowedRoles: ReadonlyArray<Role>
 }
 
+type OnboardingExitInvariantInput = {
+  checklistCompletedAt: Date | null
+  probationEndsAt: Date | null
+}
+
 /**
  * Single source of truth for legal employee lifecycle transitions.
  */
@@ -58,6 +63,31 @@ export function canTransition(
   const transition = EMPLOYEE_TRANSITIONS.find((t) => t.from === from && t.to === to)
   if (!transition) return false
   return actorRoles.some((role) => transition.allowedRoles.includes(role))
+}
+
+export function satisfiesOnboardingExitInvariant(
+  to: EmployeeStatus,
+  { checklistCompletedAt, probationEndsAt }: OnboardingExitInvariantInput,
+): boolean {
+  if (to === 'probation') {
+    return checklistCompletedAt !== null && probationEndsAt !== null
+  }
+  if (to === 'active') {
+    return checklistCompletedAt !== null && probationEndsAt === null
+  }
+  return true
+}
+
+export function canTransitionWithInvariants(
+  from: EmployeeStatus,
+  to: EmployeeStatus,
+  actorRoles: ReadonlyArray<Role>,
+  onboarding?: OnboardingExitInvariantInput,
+): boolean {
+  if (!canTransition(from, to, actorRoles)) return false
+  if (from !== 'onboarding') return true
+  if (!onboarding) return false
+  return satisfiesOnboardingExitInvariant(to, onboarding)
 }
 
 export function allowedNextStatuses(
