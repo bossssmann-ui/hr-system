@@ -11,6 +11,8 @@ export type ProvisioningDispatchResult = 'done' | 'failed' | 'pending'
 export type ProvisioningDispatchInput = {
   tenantId: string
   employeeId: string
+  // Stable onboarding task row id. During draft-only flow (before DB write),
+  // callers may pass task_key as a temporary fallback.
   taskId: string
   taskKey: string
   employeeSnapshot: Record<string, unknown>
@@ -32,6 +34,9 @@ type ProvisioningConfigResolver = (tenantId: string) => Promise<CompanyProvision
 type WebhookProvisioningDispatcherOptions = {
   resolveCompanyConfig: ProvisioningConfigResolver
   transport?: ProvisioningTransport
+  logger?: {
+    error: (data: Record<string, unknown>, message: string) => void
+  }
 }
 
 function defaultTransport(input: { url: string; body: string; signature: string }) {
@@ -53,6 +58,11 @@ export function createWebhookProvisioningDispatcher(
   options: WebhookProvisioningDispatcherOptions,
 ): ItProvisioningDispatcher {
   const transport = options.transport ?? defaultTransport
+  const logger = options.logger ?? {
+    error: (data: Record<string, unknown>, message: string) => {
+      console.error(JSON.stringify({ level: 'error', message, ...data }))
+    },
+  }
 
   return {
     async dispatch(input) {
@@ -76,7 +86,15 @@ export function createWebhookProvisioningDispatcher(
           signature,
         })
         return response.status >= 200 && response.status < 300 ? 'done' : 'failed'
-      } catch {
+      } catch (err) {
+        logger.error(
+          {
+            tenantId: input.tenantId,
+            taskKey: input.taskKey,
+            error: err instanceof Error ? err.message : String(err),
+          },
+          'it_provisioning.dispatch_failed',
+        )
         return 'failed'
       }
     },

@@ -142,11 +142,29 @@ describe('onboarding checklist engine', () => {
 
     expect(status).toBe('done')
     expect(calls).toHaveLength(1)
-    expect(calls[0]?.url).toBe('https://provisioning.example.test/hook')
+    const firstCall = calls[0]
+    expect(firstCall?.url).toBe('https://provisioning.example.test/hook')
 
     const expectedSignature = createHmac('sha256', 'phase45-secret')
-      .update(calls[0]!.body)
+      .update(firstCall?.body ?? '')
       .digest('hex')
-    expect(calls[0]?.signature).toBe(expectedSignature)
+    expect(firstCall?.signature).toBe(expectedSignature)
+  })
+
+  test('automated tasks stay pending when provisioning config is absent', async () => {
+    const dispatcher = createWebhookProvisioningDispatcher({
+      resolveCompanyConfig: async () => null,
+    })
+
+    const result = await createChecklistWithAutomation({
+      tenantId: 'tenant-1',
+      employeeId: 'emp-1',
+      templateKey: 'logist',
+      employeeSnapshot: { id: 'emp-1', full_name: 'Иван Иванов' },
+      provisioningDispatcher: dispatcher,
+    })
+
+    const automatedTasks = result.tasks.filter((task) => task.isAutomated)
+    expect(automatedTasks.every((task) => task.status === 'pending')).toBe(true)
   })
 })

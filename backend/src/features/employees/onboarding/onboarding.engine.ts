@@ -7,6 +7,7 @@ export type OnboardingTaskStatus =
   | 'done'
   | 'failed'
   | 'skipped'
+  // Backward-compatible aliases kept while DB enum still uses legacy names.
   | 'completed'
   | 'blocked'
 
@@ -110,22 +111,24 @@ export async function dispatchAutomatedTasks(input: {
   provisioningDispatcher: ItProvisioningDispatcher
 }): Promise<OnboardingTaskDraft[]> {
   const nextTasks = input.tasks.map((task) => ({ ...task }))
+  await Promise.all(
+    nextTasks.map(async (task) => {
+      if (!task.isAutomated) return
 
-  for (const task of nextTasks) {
-    if (!task.isAutomated) continue
+      const result = await input.provisioningDispatcher.dispatch({
+        tenantId: input.tenantId,
+        employeeId: input.employeeId,
+        // On checklist draft creation, DB ids do not exist yet.
+        // Use stable task key as temporary task_id fallback.
+        taskId: task.id ?? task.key,
+        taskKey: task.key,
+        employeeSnapshot: input.employeeSnapshot,
+        metadata: task.metadata,
+      })
 
-    const result = await input.provisioningDispatcher.dispatch({
-      tenantId: input.tenantId,
-      employeeId: input.employeeId,
-      taskId: task.id ?? task.key,
-      taskKey: task.key,
-      employeeSnapshot: input.employeeSnapshot,
-      metadata: task.metadata,
-    })
-
-    if (result === 'done') task.status = 'done'
-    if (result === 'failed') task.status = 'failed'
-  }
+      task.status = result
+    }),
+  )
 
   return nextTasks
 }
