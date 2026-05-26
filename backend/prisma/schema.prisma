@@ -666,8 +666,10 @@ model Interview {
 
 enum EmployeeStatus {
   pre_onboarding
+  onboarding
   probation
   active
+  notice
   on_leave
   terminated
   alumni

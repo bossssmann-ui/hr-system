@@ -5,7 +5,12 @@
 
 import { describe, expect, test } from 'bun:test'
 
-import { createFromApplication } from './employees.service'
+import type { Role } from '../requisitions/requisitions.fsm'
+import {
+  createFromApplication,
+  recordProbationReview,
+  sendProbationReminders,
+} from './employees.service'
 
 // ─── Prisma mock factory ──────────────────────────────────────────────────────
 
@@ -82,6 +87,158 @@ function createPrismaMock(opts: { hasInterview?: boolean; hasOfferDraft?: boolea
     auditEvent: {
       create: async ({ data }: { data: Record<string, unknown> }) => {
         state.auditEvents.push(data)
+      },
+    },
+  }
+
+  return { prisma, state }
+}
+
+function createProbationReviewPrismaMock(
+  overrides: {
+    employee?: Record<string, unknown>
+    memberships?: Array<{ tenantId: string; userId: string; role: Role }>
+  } = {},
+) {
+  const state = {
+    employee: {
+      id: 'emp-1',
+      tenantId: 'tenant-1',
+      userId: 'employee-user',
+      fullName: 'Иван Иванов',
+      status: 'probation',
+      probationEndsAt: new Date('2026-06-30T00:00:00.000Z'),
+      probationOutcome: null,
+      ...overrides.employee,
+    } as Record<string, unknown>,
+    lifecycleEvents: [] as Array<Record<string, unknown>>,
+    auditEvents: [] as Array<Record<string, unknown>>,
+    notifications: [] as Array<Record<string, unknown>>,
+    memberships:
+      overrides.memberships ?? [
+        { tenantId: 'tenant-1', userId: 'manager-user', role: 'hiring_manager' },
+        { tenantId: 'tenant-1', userId: 'hr-user', role: 'hr_admin' },
+      ],
+  }
+
+  const prisma = {
+    employee: {
+      findFirst: async ({ where }: { where: { id: string; tenantId: string } }) =>
+        where.id === state.employee.id && where.tenantId === state.employee.tenantId
+          ? state.employee
+          : null,
+      update: async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
+        if (where.id !== state.employee.id) throw new Error('employee not found')
+        state.employee = { ...state.employee, ...data }
+        return state.employee
+      },
+      findMany: async () => [state.employee],
+    },
+    employeeLifecycleEvent: {
+      create: async ({ data }: { data: Record<string, unknown> }) => {
+        state.lifecycleEvents.push(data)
+        return data
+      },
+    },
+    auditEvent: {
+      create: async ({ data }: { data: Record<string, unknown> }) => {
+        state.auditEvents.push(data)
+        return data
+      },
+    },
+    userRole: {
+      findMany: async ({
+        where,
+      }: {
+        where: { tenantId: string | { in: string[] }; role: { in: Role[] } }
+      }) => {
+        const tenantIds =
+          typeof where.tenantId === 'string' ? [where.tenantId] : where.tenantId.in
+        return state.memberships
+          .filter(
+            (membership) =>
+              tenantIds.includes(membership.tenantId) && where.role.in.includes(membership.role),
+          )
+          .map(({ tenantId, userId }) => ({ tenantId, userId }))
+      },
+    },
+    notification: {
+      create: async ({ data }: { data: Record<string, unknown> }) => {
+        state.notifications.push(data)
+        return data
+      },
+    },
+    $transaction: async <T>(callback: (tx: Record<string, unknown>) => Promise<T>) =>
+      callback(prisma as unknown as Record<string, unknown>),
+  }
+
+  return { prisma, state }
+}
+
+function createProbationReminderPrismaMock() {
+  const state = {
+    employees: [
+      {
+        id: 'emp-match',
+        tenantId: 'tenant-1',
+        fullName: 'Мария Логист',
+        status: 'probation',
+        probationEndsAt: new Date('2026-06-08T18:15:00.000Z'),
+      },
+      {
+        id: 'emp-late',
+        tenantId: 'tenant-1',
+        fullName: 'Пётр Логист',
+        status: 'probation',
+        probationEndsAt: new Date('2026-06-09T00:00:00.000Z'),
+      },
+    ] as Array<Record<string, unknown>>,
+    memberships: [
+      { tenantId: 'tenant-1', userId: 'manager-user', role: 'hiring_manager' as const },
+      { tenantId: 'tenant-1', userId: 'hr-user', role: 'hr_admin' as const },
+      { tenantId: 'tenant-1', userId: 'manager-user', role: 'hr_admin' as const },
+    ],
+    notifications: [] as Array<Record<string, unknown>>,
+  }
+
+  const prisma = {
+    employee: {
+      findMany: async ({
+        where,
+      }: {
+        where: {
+          status: string
+          probationEndsAt: { gte: Date; lt: Date }
+        }
+      }) =>
+        state.employees.filter((employee) => {
+          const probationEndsAt = employee.probationEndsAt as Date | null
+          return (
+            employee.status === where.status &&
+            probationEndsAt !== null &&
+            probationEndsAt >= where.probationEndsAt.gte &&
+            probationEndsAt < where.probationEndsAt.lt
+          )
+        }),
+    },
+    userRole: {
+      findMany: async ({
+        where,
+      }: {
+        where: { tenantId: { in: string[] }; role: { in: Role[] } }
+      }) =>
+        state.memberships
+          .filter(
+            (membership) =>
+              where.tenantId.in.includes(membership.tenantId) &&
+              where.role.in.includes(membership.role),
+          )
+          .map(({ tenantId, userId }) => ({ tenantId, userId })),
+    },
+    notification: {
+      create: async ({ data }: { data: Record<string, unknown> }) => {
+        state.notifications.push(data)
+        return data
       },
     },
   }
@@ -213,5 +370,134 @@ describe('createFromApplication', () => {
         tenantId: 'tenant-1',
       }),
     ).rejects.toThrow('not found')
+  })
+})
+
+describe('recordProbationReview', () => {
+  test('records review inputs and transitions probation -> active when decision is passed', async () => {
+    const { prisma, state } = createProbationReviewPrismaMock()
+
+    const result = await recordProbationReview({
+      prisma: prisma as never,
+      tenantId: 'tenant-1',
+      employeeId: 'emp-1',
+      actorRoles: ['hiring_manager'],
+      actorUserId: 'manager-user',
+      decision: 'passed',
+      periodStart: new Date('2026-06-01T00:00:00.000Z'),
+      periodEnd: new Date('2026-06-30T00:00:00.000Z'),
+      marginalContributionRub: 245000,
+      closedDeals: 4,
+      managerNotes: 'План выполнен',
+      reviewedAt: new Date('2026-06-30T12:00:00.000Z'),
+    })
+
+    expect(result.employee.status).toBe('active')
+    expect(result.employee.probationOutcome).toBe('passed')
+    expect(state.lifecycleEvents).toHaveLength(1)
+    expect(state.lifecycleEvents[0]!.type).toBe('probation_passed')
+    expect(state.lifecycleEvents[0]!.fromStatus).toBe('probation')
+    expect(state.lifecycleEvents[0]!.toStatus).toBe('active')
+    expect(state.lifecycleEvents[0]!.payload).toEqual({
+      decision: 'passed',
+      period_start: '2026-06-01',
+      period_end: '2026-06-30',
+      marginal_contribution_rub: 245000,
+      closed_deals: 4,
+      manager_notes: 'План выполнен',
+    })
+    expect(state.auditEvents.map((event) => event.action)).toEqual([
+      'employee.record_probation_review',
+      'employee.confirm',
+    ])
+    expect(state.notifications).toHaveLength(3)
+    expect(state.notifications.every((notification) => notification.template === 'employee.confirmed')).toBe(true)
+  })
+
+  test('records review inputs and transitions probation -> notice when decision is failed', async () => {
+    const { prisma, state } = createProbationReviewPrismaMock({
+      employee: { userId: null },
+    })
+
+    const result = await recordProbationReview({
+      prisma: prisma as never,
+      tenantId: 'tenant-1',
+      employeeId: 'emp-1',
+      actorRoles: ['hr_admin'],
+      actorUserId: 'hr-user',
+      decision: 'failed',
+      marginalContributionRub: 150000,
+      closedDeals: 1,
+      managerNotes: 'Нужен выход из роли',
+    })
+
+    expect(result.employee.status).toBe('notice')
+    expect(result.employee.probationOutcome).toBe('failed')
+    expect(state.lifecycleEvents[0]!.type).toBe('probation_failed')
+    expect(state.auditEvents.map((event) => event.action)).toEqual([
+      'employee.record_probation_review',
+      'employee.begin_notice',
+    ])
+    expect(state.notifications).toHaveLength(0)
+  })
+
+  test('records extension inputs without leaving probation', async () => {
+    const { prisma, state } = createProbationReviewPrismaMock()
+
+    const result = await recordProbationReview({
+      prisma: prisma as never,
+      tenantId: 'tenant-1',
+      employeeId: 'emp-1',
+      actorRoles: ['owner'],
+      actorUserId: 'owner-user',
+      decision: 'extended',
+      extendedProbationEndsAt: new Date('2026-07-15T00:00:00.000Z'),
+      managerNotes: 'Продлить на 2 недели',
+    })
+
+    expect(result.employee.status).toBe('probation')
+    expect(result.employee.probationOutcome).toBe('extended')
+    expect(result.employee.probationEndsAt).toEqual(new Date('2026-07-15T00:00:00.000Z'))
+    expect(state.lifecycleEvents[0]!.type).toBe('probation_extended')
+    expect(state.lifecycleEvents[0]!.toStatus).toBeNull()
+    expect(state.auditEvents.map((event) => event.action)).toEqual(['employee.record_probation_review'])
+  })
+
+  test('rejects review when actor is not allowed to drive probation outcome', async () => {
+    const { prisma } = createProbationReviewPrismaMock()
+
+    await expect(
+      recordProbationReview({
+        prisma: prisma as never,
+        tenantId: 'tenant-1',
+        employeeId: 'emp-1',
+        actorRoles: ['recruiter'],
+        decision: 'passed',
+      }),
+    ).rejects.toThrow('not allowed')
+  })
+})
+
+describe('sendProbationReminders', () => {
+  test('notifies hr_admin and hiring_manager N days before probation end date once per recipient', async () => {
+    const { prisma, state } = createProbationReminderPrismaMock()
+
+    const result = await sendProbationReminders({
+      prisma: prisma as never,
+      today: new Date('2026-06-01T10:00:00.000Z'),
+      reminderDaysBefore: 7,
+    })
+
+    expect(result).toEqual({ employeesMatched: 1, notificationsSent: 2 })
+    expect(state.notifications).toHaveLength(2)
+    expect(state.notifications.every((notification) => notification.template === 'probation.reminder')).toBe(true)
+    expect(state.notifications.map((notification) => notification.recipientUserId).sort()).toEqual(
+      ['hr-user', 'manager-user'],
+    )
+    expect(state.notifications[0]!.payload).toMatchObject({
+      employeeId: 'emp-match',
+      employeeName: 'Мария Логист',
+      reminderDaysBefore: 7,
+    })
   })
 })

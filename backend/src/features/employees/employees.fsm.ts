@@ -22,6 +22,7 @@ export const EMPLOYEE_STATUSES = [
 ] as const
 
 export type EmployeeStatus = (typeof EMPLOYEE_STATUSES)[number]
+export type ProbationReviewDecision = 'passed' | 'failed' | 'extended'
 
 type Transition = {
   from: EmployeeStatus
@@ -88,6 +89,17 @@ export function canTransitionWithInvariants(
   if (from !== 'onboarding') return true
   if (!onboarding) return false
   return satisfiesOnboardingExitInvariant(to, onboarding)
+}
+
+export function satisfiesProbationTransitionInvariant(
+  from: EmployeeStatus,
+  to: EmployeeStatus,
+  probationOutcome: ProbationReviewDecision | null | undefined,
+): boolean {
+  if (from !== 'probation') return true
+  if (to === 'active') return probationOutcome === 'passed'
+  if (to === 'notice') return probationOutcome === 'failed'
+  return true
 }
 
 export function allowedNextStatuses(
