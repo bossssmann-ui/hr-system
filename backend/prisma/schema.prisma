@@ -184,7 +184,8 @@ model HiringRequisition {
   updatedAt       DateTime          @updatedAt @map("updated_at")
 
   orgUnit OrgUnit  @relation(fields: [orgUnitId], references: [id], map: "hiring_requisitions_org_unit_id_fkey")
-  vacancy Vacancy?
+  vacancy    Vacancy?
+  employees  Employee[]
 
   @@index([tenantId], map: "hiring_requisitions_tenant_id_idx")
   @@index([orgUnitId], map: "hiring_requisitions_org_unit_id_idx")
@@ -235,6 +236,7 @@ model Candidate {
   resumes       Resume[]
   applications  Application[]
   conversations Conversation[]
+  employees     Employee[]
 
   // Email and phone are unique only when non-null; expressed at the SQL layer
   // via partial UNIQUE indexes added in the migration (Prisma cannot model
@@ -756,12 +758,18 @@ model Employee {
   tenantId          String             @db.Uuid @map("tenant_id")
   userId            String?            @unique @db.Uuid @map("user_id")
   applicationId    String?            @unique @db.Uuid @map("application_id")
+  candidateId       String?            @db.Uuid @map("candidate_id")
+  requisitionId     String?            @db.Uuid @map("requisition_id")
   orgUnitId         String?            @db.Uuid @map("org_unit_id")
   fullName          String             @map("full_name")
   email             String?
   phone             String?
   jobTitle          String?            @map("job_title")
-  employmentType    EmploymentType     @map("employment_type")
+  grade             String?
+  currency          String?
+  agreedBaseSalary  Int?               @map("agreed_base_salary")
+  agreedStartDate   DateTime?          @db.Date @map("agreed_start_date")
+  employmentType    EmploymentType     @default(full_time) @map("employment_type")
   status            EmployeeStatus     @default(pre_onboarding)
   hireDate          DateTime?          @db.Date @map("hire_date")
   probationEndsAt   DateTime?          @map("probation_ends_at")
@@ -774,6 +782,8 @@ model Employee {
 
   user            User?                    @relation(fields: [userId], references: [id], onDelete: SetNull, map: "employees_user_id_fkey")
   application     Application?             @relation(fields: [applicationId], references: [id], onDelete: SetNull, map: "employees_application_id_fkey")
+  candidate       Candidate?               @relation(fields: [candidateId], references: [id], onDelete: SetNull, map: "employees_candidate_id_fkey")
+  requisition     HiringRequisition?       @relation(fields: [requisitionId], references: [id], onDelete: SetNull, map: "employees_requisition_id_fkey")
   orgUnit         OrgUnit?                 @relation(fields: [orgUnitId], references: [id], onDelete: SetNull, map: "employees_org_unit_id_fkey")
   lifecycleEvents EmployeeLifecycleEvent[]
   checklists      OnboardingChecklist[]
@@ -781,6 +791,8 @@ model Employee {
 
   @@index([tenantId], map: "employees_tenant_id_idx")
   @@index([orgUnitId], map: "employees_org_unit_id_idx")
+  @@index([candidateId], map: "employees_candidate_id_idx")
+  @@index([requisitionId], map: "employees_requisition_id_idx")
   @@index([status], map: "employees_status_idx")
   @@index([userId], map: "employees_user_id_idx")
   @@map("employees")
