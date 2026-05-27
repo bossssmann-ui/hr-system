@@ -210,6 +210,62 @@ The `CAREERS_PAGE_ENABLED` env variable (default `false`) gates the `/api/public
 | --- | --- | --- |
 | `application.created` | `Application` | Public apply form submission; `diff.via = "careers_page"` |
 
+## Phase 4 — Employee lifecycle audit actions
+
+Registered per `docs/employee-lifecycle-design.md` §6.3. One row per action; rows whose service entry-point is not yet wired carry a `TODO(phase-4)` note and will be implemented in the matching Phase 4 sub-issue.
+
+### Employee
+
+| Action | Entity type | Trigger |
+| --- | --- | --- |
+| `employee.created` | `Employee` | `Application.offer → hired` side-effect (§1.2). `diff.via = "hired_application"`. Wired in `employees.service.ts::createFromApplication`. |
+| `employee.update` | `Employee` | `PATCH /api/employees/:id` — recruiter/HR edits to non-FSM employee fields. TODO(phase-4): wire in employees update route. |
+| `employee.link_user` | `Employee` | `hr_admin` links a `User(role = employee)` to a pre-start `Employee`, transitioning the portal entry from `pending_link` to `ready`. TODO(phase-4): wire in pre-start portal link route. |
+| `employee.start_onboarding` | `Employee` | `pre_onboarding → onboarding` transition. TODO(phase-4): wire in onboarding-start service entry-point. |
+| `employee.start_probation` | `Employee` | `onboarding → probation` transition. TODO(phase-4): wire in probation-start service entry-point. |
+| `employee.record_probation_review` | `Employee` | Probation review recorded (any decision). Wired in `employees.service.ts::recordProbationReview`. |
+| `employee.confirm` | `Employee` | `probation → active` (decision = `passed`). Wired in `employees.service.ts::recordProbationReview`. |
+| `employee.begin_notice` | `Employee` | `probation → notice` (decision = `failed`) or `active → notice`. Wired in `employees.service.ts::recordProbationReview`; TODO(phase-4): wire `active → notice` route. |
+| `employee.terminate` | `Employee` | `notice → terminated` transition. TODO(phase-4): wire in termination route. |
+
+### Onboarding
+
+| Action | Entity type | Trigger |
+| --- | --- | --- |
+| `onboarding_checklist.create` | `OnboardingChecklist` | Checklist instantiated from a template at onboarding start. TODO(phase-4): wire in onboarding engine route. |
+| `onboarding_task.update` | `OnboardingTask` | Mutating edit to a task (assignee, due date, notes). TODO(phase-4): wire in onboarding task update route. |
+| `onboarding_task.complete` | `OnboardingTask` | Task marked as completed. TODO(phase-4): wire in onboarding task transition route. |
+| `onboarding_task.fail` | `OnboardingTask` | Task marked as failed. TODO(phase-4): wire in onboarding task transition route. |
+| `onboarding_task.skip` | `OnboardingTask` | Task explicitly skipped by HR. TODO(phase-4): wire in onboarding task transition route. |
+
+### IT provisioning
+
+| Action | Entity type | Trigger |
+| --- | --- | --- |
+| `it_provisioning.dispatch` | `OnboardingTask` | Outbound webhook dispatched for an automated provisioning task (§5.2). TODO(phase-4): wire in IT provisioning dispatcher. |
+| `it_provisioning.callback_received` | `OnboardingTask` | Inbound callback from the external provisioning system. TODO(phase-4): wire in IT provisioning callback route. |
+
+### Documents (Phase 4 scope: draft only)
+
+| Action | Entity type | Trigger |
+| --- | --- | --- |
+| `employment_document.create` | `EmploymentDocument` | Draft employment document created. TODO(phase-4): wire in documents route. |
+| `employment_document.update` | `EmploymentDocument` | Draft employment document updated. TODO(phase-4): wire in documents route. |
+| `employment_document.void` | `EmploymentDocument` | Draft employment document voided. TODO(phase-4): wire in documents route. |
+
+## Phase 4 — Notifier templates
+
+Registered per `docs/employee-lifecycle-design.md` §3.3. All four lifecycle templates emit on the `in_app` channel today; `email` and `telegram` remain behind the Notifier channel flags (§Phase 0 architectural seams in `00-overview.md`). Quiet Hours apply to any automated outbound (`backend/src/features/messaging/quiet-hours.ts`).
+
+| Template key | Triggered by | Recipients | Status |
+| --- | --- | --- | --- |
+| `employee.created` | `Application.offer → hired` side-effect (§1.2). | `hr_admin` | TODO(phase-4): wire emission in `employees.service.ts::createFromApplication`. |
+| `onboarding.started` | `pre_onboarding → onboarding` transition. | `Employee.user_id` (if linked) + `hiring_manager` | TODO(phase-4): wire in onboarding-start service entry-point. |
+| `probation.started` | `onboarding → probation` transition. | `Employee.user_id`, `hiring_manager` | TODO(phase-4): wire in probation-start service entry-point. |
+| `employee.confirmed` | `probation → active` (decision = `passed`). | `Employee.user_id`, `hiring_manager`, `hr_admin` | Wired in `employees.service.ts::recordProbationReview`. |
+
+The `probation.reminder` template (§6.2 scheduled job) is wired in `employees.service.ts::sendProbationReminders` and is tracked separately in §3.3 of the lifecycle spec.
+
 
 
 ## 152-ФЗ note for candidate messaging (Phase 1E)
