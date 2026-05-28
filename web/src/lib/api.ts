@@ -89,6 +89,15 @@ import {
   type AssessmentSubmitRequest,
   type AssessmentSubmitResponse,
   type AssessmentTemplate,
+  compBandSchema,
+  compCalculatorResponseSchema,
+  listCompBandsResponseSchema,
+  listOffersResponseSchema,
+  offerSchema,
+  type CompBandCreateRequest,
+  type CompBandUpdateRequest,
+  type CreateOfferRequest,
+  type UpdateOfferRequest,
   type ChannelStatusList,
   type ConversationDetail,
   type MessageTemplate,
@@ -584,6 +593,67 @@ export class ApiClient {
 
   listAdminUsers(): Promise<ListUsersResponse> {
     return this.request('/api/admin/users', listUsersResponseSchema, { auth: true })
+  }
+
+  // ─── Offers (Phase 3) ───────────────────────────────────────────────────────
+
+  listApplicationOffers(applicationId: string) {
+    return this.request(
+      `/api/applications/${encodeURIComponent(applicationId)}/offers`,
+      listOffersResponseSchema,
+      { auth: true },
+    )
+  }
+
+  getOffer(id: string) {
+    return this.request(`/api/offers/${encodeURIComponent(id)}`, offerSchema, { auth: true })
+  }
+
+  createOffer(input: CreateOfferRequest) {
+    return this.request('/api/offers', offerSchema, { method: 'POST', body: input, auth: true })
+  }
+
+  updateOffer(id: string, input: UpdateOfferRequest) {
+    return this.request(`/api/offers/${encodeURIComponent(id)}`, offerSchema, {
+      method: 'PATCH', body: input, auth: true,
+    })
+  }
+
+  transitionOffer(id: string, action: 'submit' | 'approve' | 'reject' | 'send' | 'decline' | 'accept', body?: unknown) {
+    return this.request(`/api/offers/${encodeURIComponent(id)}/${action}`, offerSchema, {
+      method: 'POST', body: body ?? {}, auth: true,
+    })
+  }
+
+  // ─── Compensation (Phase 3) ─────────────────────────────────────────────────
+
+  listCompBands() {
+    return this.request('/api/comp/bands', listCompBandsResponseSchema, { auth: true })
+  }
+
+  createCompBand(input: CompBandCreateRequest) {
+    return this.request('/api/comp/bands', compBandSchema, { method: 'POST', body: input, auth: true })
+  }
+
+  updateCompBand(id: string, input: CompBandUpdateRequest) {
+    return this.request(`/api/comp/bands/${encodeURIComponent(id)}`, compBandSchema, {
+      method: 'PATCH', body: input, auth: true,
+    })
+  }
+
+  deleteCompBand(id: string) {
+    return this.request(`/api/comp/bands/${encodeURIComponent(id)}`, z.object({ ok: z.boolean() }), {
+      method: 'DELETE', auth: true,
+    })
+  }
+
+  compCalculator(params: { grade: string; salary: number; currency: string }) {
+    const qs = new URLSearchParams({
+      grade: params.grade,
+      salary: String(params.salary),
+      currency: params.currency,
+    }).toString()
+    return this.request(`/api/comp/calculator?${qs}`, compCalculatorResponseSchema, { auth: true })
   }
 
   listAuditEvents(params?: {

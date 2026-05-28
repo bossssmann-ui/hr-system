@@ -18,6 +18,12 @@ import { createVacanciesRoutes } from './features/vacancies/vacancies.routes'
 import { createHhIntegrationRoutes } from './integrations/hh/routes'
 import { createInterviewRoutes } from './features/interviews/interviews.routes'
 import {
+  createApplicationOffersListRoute,
+  createDocusealWebhookRoute,
+  createOffersRoutes,
+} from './features/offers/offers.routes'
+import { createCompRoutes } from './features/comp/comp.routes'
+import {
   createMessagingRoutes,
   createMessageTemplatesRoutes,
   createTelegramWebhookRoute,
@@ -98,6 +104,10 @@ export function createApp({ env, prisma }: CreateAppOptions) {
   app.route('/api/vacancies', createVacanciesRoutes())
   app.route('/api/candidates', createCandidatesRoutes())
   app.route('/api/applications', createApplicationsRoutes())
+  app.route('/api/applications', createApplicationOffersListRoute())
+  app.route('/api/offers', createOffersRoutes())
+  app.route('/api/comp', createCompRoutes())
+  app.route('/api/integrations/docuseal', createDocusealWebhookRoute())
   app.route('/api/interviews', createInterviewRoutes())
   app.route('/api/admin', createAdminRoutes())
   app.route('/api/integrations/hh', createHhIntegrationRoutes())

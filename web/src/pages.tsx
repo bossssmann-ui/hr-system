@@ -63,6 +63,11 @@ export function RootLayout() {
               </Link>
             </Typography>
             <Typography asChild variant="control" tone="muted">
+              <Link to="/comp" className={navLinkClass}>
+                Comp
+              </Link>
+            </Typography>
+            <Typography asChild variant="control" tone="muted">
               <Link to="/inbox" className={navLinkClass}>
                 Inbox
               </Link>

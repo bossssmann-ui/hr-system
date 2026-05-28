@@ -1,5 +1,6 @@
 import { createBackendRuntime, type BackendRuntime } from './runtime'
 import { sendProbationReminders } from './features/employees/employees.service'
+import { expireOverdueOffers } from './features/offers/offers.service'
 
 type CronTask = (runtime: BackendRuntime) => Promise<void>
 
@@ -16,6 +17,10 @@ const cronTasks = {
     console.log(
       `Cron probation.reminder task completed. employees=${result.employeesMatched} notifications=${result.notificationsSent}`,
     )
+  },
+  'offer:expire': async ({ prisma }) => {
+    const result = await expireOverdueOffers({ prisma })
+    console.log(`Cron offer:expire completed. matched=${result.matched} expired=${result.expired}`)
   },
 } satisfies Record<string, CronTask>
 

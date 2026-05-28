@@ -483,3 +483,52 @@ Dedup: partial unique index on `(channel, external_id)` WHERE `external_id IS NO
 The `Candidate.externalIds` JSONB column stores channel-specific IDs:
 - `telegram_chat_id`: Telegram chat ID
 - `hh_messages_url`: HH negotiation messages URL
+
+## Phase 3 — Offer + Compensation
+
+### Offer
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | uuidv7 |
+| `tenant_id` | `uuid` | FK → tenants |
+| `application_id` | `uuid` | FK → applications, ON DELETE CASCADE |
+| `interview_id` | `uuid?` | Optional FK → interviews, ON DELETE SET NULL |
+| `salary` | `int` | CHECK > 0 |
+| `currency` | `enum` | `RUB | USD | THB | USDT` |
+| `start_date` | `date` | Proposed first day |
+| `grade` | `text?` | Snapshot of grade if known |
+| `conditions` | `text[]` | Free-form bullets |
+| `status` | `OfferStatus` | FSM in `20-fsm.md` |
+| `docuseal_submission_id` | `text?` | Set on `approved → sent` when DocuSeal is enabled |
+| `docuseal_document_url` | `text?` | Audit-log URL once signing completes |
+| `docuseal_signing_url` | `text?` | Embed/redirect URL surfaced to the candidate |
+| `sent_at` / `expires_at` | `timestamptz?` | Set on `→ sent`; expiry default = 7 days |
+| `accepted_at` / `declined_at` | `timestamptz?` | Stamped on terminal transitions |
+| `declined_reason` | `text?` | Optional free-text |
+| `created_by_user_id` | `uuid` | Recruiter who created the draft |
+
+Indexes: `(tenant_id)`, `(application_id)`, `(status, expires_at)` for the
+expirer cron. `set_updated_at()` trigger maintains `updated_at`.
+
+RLS posture:
+- SELECT: tenant + (admin / recruiter / hiring_manager)
+- INSERT / UPDATE: tenant + (admin / recruiter)
+- DELETE: tenant + admin
+
+### CompBand
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | uuidv7 |
+| `tenant_id` | `uuid` | FK → tenants |
+| `grade` | `text` | Free-form grade label |
+| `currency` | `enum` | `RUB | USD | THB | USDT` |
+| `min_salary` / `mid_salary` / `max_salary` | `int` | CHECK `0 < min <= mid <= max` |
+| `deleted_at` | `timestamptz?` | Soft delete |
+
+Unique: `(tenant_id, grade, currency)` for the band catalogue lookup.
+
+RLS posture:
+- SELECT: tenant + (admin / recruiter / hiring_manager)
+- INSERT / UPDATE / DELETE: tenant + admin

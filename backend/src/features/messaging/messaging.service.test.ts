@@ -57,6 +57,8 @@ const baseEnv: AppEnv = {
   TELEGRAM_ENABLED: false,
   TELEGRAM_BOT_TOKEN: undefined,
   EMAIL_ENABLED: false,
+  DOCUSEAL_ENABLED: false,
+  DOCUSEAL_API_URL: 'https://api.docuseal.com',
   CAREERS_PAGE_ENABLED: false,
   CAREERS_RATE_LIMIT_PER_HOUR: 20,
   ASSESSMENTS_ENABLED: false,

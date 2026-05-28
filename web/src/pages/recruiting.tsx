@@ -17,6 +17,7 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import { Typography } from "@/components/ui/typography"
+import { OfferPanel } from "@/components/OfferPanel"
 import { ApiRequestError } from "@/lib/api"
 import { useAuth } from "@/lib/use-auth"
 import { cn } from "@/lib/utils"
@@ -1036,6 +1037,7 @@ export function ApplicationDetailPage() {
         </CardContent>
       </Card>
       <InterviewPanel applicationId={applicationId} />
+      <OfferPanel applicationId={applicationId} />
       <Button variant="outline" asChild className="w-fit"><Link to="/applications">← Back to kanban</Link></Button>
     </section>
   )
