@@ -18,6 +18,7 @@ import {
   hhIntegrationStatusSchema,
   hhSyncResponseSchema,
   hhVacancyLinkResponseSchema,
+  integrationsStatusSchema,
   linkVacancyToHhRequestSchema,
   loginRequestSchema,
   logoutRequestSchema,
@@ -79,6 +80,7 @@ import {
   type HhIntegrationStatus,
   type HhSyncResponse,
   type HhVacancyLinkResponse,
+  type IntegrationsStatus,
   type LinkVacancyToHhRequest,
   type ListConversationsResponse,
   type ListMessageTemplatesResponse,
@@ -726,6 +728,10 @@ export class ApiClient {
 
   getHhIntegrationStatus(): Promise<HhIntegrationStatus> {
     return this.request('/api/integrations/hh/status', hhIntegrationStatusSchema, { auth: true })
+  }
+
+  getIntegrationsStatus(): Promise<IntegrationsStatus> {
+    return this.request('/api/integrations/status', integrationsStatusSchema, { auth: true })
   }
 
   syncHhNow(): Promise<HhSyncResponse> {

@@ -25,6 +25,7 @@ import { AnalyticsPage } from './pages/analytics'
 import { LearningPage } from './pages/learning'
 import { PortalPage } from './pages/portal'
 import { ReviewsPage } from './pages/reviews'
+import { SettingsIntegrationsPage } from './pages/settings'
 
 const rootRoute = createRootRoute({
   component: RootLayout,
@@ -109,6 +110,12 @@ const adminHhIntegrationRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin/integrations/hh',
   component: AdminHhIntegrationPage,
+})
+
+const settingsIntegrationsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/integrations',
+  component: SettingsIntegrationsPage,
 })
 
 const inboxRoute = createRoute({
@@ -207,6 +214,7 @@ const routeTree = rootRoute.addChildren([
   adminUsersRoute,
   adminAuditLogRoute,
   adminHhIntegrationRoute,
+  settingsIntegrationsRoute,
   inboxRoute,
   conversationRoute,
   careersRoute,
