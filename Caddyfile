@@ -1,0 +1,22 @@
+career.pacificstar.ru {
+    # Caddy automatically provisions and renews a Let's Encrypt TLS certificate.
+    # Requirements: ports 80 and 443 open on the VPS firewall, A-record pointing to 186.246.6.171.
+
+    # API requests → backend service (same-origin: no CORS issues)
+    handle /api/* {
+        reverse_proxy backend:3000
+    }
+
+    # Everything else → React SPA served by nginx
+    handle {
+        reverse_proxy web:80
+    }
+
+    # Security headers
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+}

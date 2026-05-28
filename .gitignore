@@ -34,3 +34,4 @@ backend/.prisma-generate.lock
 .vscode/
 *.swp
 *.swo
+!.env.prod.example

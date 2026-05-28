@@ -1,0 +1,25 @@
+# ── Stage 1: install deps & generate Prisma client ──────────────────────────
+FROM oven/bun:1.2-alpine AS builder
+WORKDIR /app
+
+# Copy workspace manifests first for layer caching
+COPY package.json bunfig.toml bun.lock ./
+COPY packages/ ./packages/
+COPY backend/ ./backend/
+
+RUN bun install --frozen-lockfile
+
+# Generate Prisma client (must happen after install, uses backend/prisma/schema.prisma)
+RUN cd backend && bunx prisma generate
+
+# ── Stage 2: lean runtime image ──────────────────────────────────────────────
+FROM oven/bun:1.2-alpine AS runner
+WORKDIR /app
+
+# Copy everything built in stage 1
+COPY --from=builder /app ./
+
+EXPOSE 3000
+
+# start:raw skips prisma:generate (already done at build time)
+CMD ["bun", "backend/src/index.ts"]

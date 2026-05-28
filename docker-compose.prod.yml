@@ -1,0 +1,65 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    env_file: .env.prod
+    environment:
+      POSTGRES_DB: hr_system
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d hr_system"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - internal
+    # Postgres intentionally NOT exposed to host — internal network only (152-ФЗ / security).
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    restart: unless-stopped
+    env_file: .env.prod
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal
+    # Migrations are run by scripts/deploy.sh, NOT by this service on startup.
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    restart: unless-stopped
+    networks:
+      - internal
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - internal
+    depends_on:
+      - backend
+      - web
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
+
+networks:
+  internal:
+    driver: bridge
