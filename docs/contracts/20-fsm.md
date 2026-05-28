@@ -94,3 +94,55 @@ Stage enum: `new`, `screen`, `tech`, `final`, `offer`, `hired`, `rejected`.
 
 - Each FSM module has a unit test that **enumerates every (from, to, role) triple** and asserts the legal/illegal verdict matches the tables above.
 - The legal-transition matrix in tests is generated from a single source-of-truth constant, so adding a transition is one diff: schema + FSM constant + this doc.
+
+## Offer (Phase 3)
+
+```mermaid
+stateDiagram-v2
+    [*] --> draft
+    draft --> manager_review: recruiter submits
+    manager_review --> approved: hiring_manager approves
+    manager_review --> draft: hiring_manager bounces back
+    approved --> sent: recruiter sends (DocuSeal flow)
+    approved --> draft: hr_admin recalls
+    sent --> accepted: candidate signs (webhook) or recruiter records
+    sent --> declined: candidate declines (webhook) or recruiter records
+    sent --> expired: cron after 7 days
+    accepted --> [*]
+    declined --> [*]
+    expired --> [*]
+```
+
+Status enum: `draft`, `manager_review`, `approved`, `sent`, `accepted`,
+`declined`, `expired`.
+
+### Allowed transitions by role
+
+| From → To | Allowed roles |
+| --- | --- |
+| `draft → manager_review` | `recruiter`, `hr_admin`, `owner` |
+| `manager_review → approved` | `hiring_manager`, `hr_admin`, `owner` |
+| `manager_review → draft` | `hiring_manager`, `hr_admin`, `owner` |
+| `approved → sent` | `recruiter`, `hr_admin`, `owner` |
+| `approved → draft` | `hr_admin`, `owner` (admin recall) |
+| `sent → accepted` | `recruiter`, `hr_admin`, `owner`, `candidate` (webhook) |
+| `sent → declined` | `recruiter`, `hr_admin`, `owner`, `candidate` (webhook) |
+| `sent → expired` | `hr_admin`, `owner` (cron) |
+
+`accepted`, `declined`, and `expired` are terminal.
+
+### Side-effects
+
+- `approved → sent`: stamps `sent_at = now()` and `expires_at = now() + 7d`.
+  When `DOCUSEAL_ENABLED=true` we create a DocuSeal submission and store
+  `docuseal_submission_id` + `docuseal_signing_url`. The candidate is
+  notified on `in_app` (plus `email` when `EMAIL_ENABLED=true`).
+- `sent → accepted`: stamps `accepted_at`. Moves the linked Application to
+  `hired` and runs `createFromApplication` (creates the `Employee` row and
+  opens the pre-start portal).
+- `sent → declined`: stamps `declined_at` and `declined_reason`. Moves the
+  linked Application to `rejected`.
+- `sent → expired`: stamps nothing else; the `offer:expire` cron task is the
+  only allowed actor.
+- Every transition writes an `AuditEvent`. Webhook- and cron-triggered
+  transitions write `actor_user_id = NULL`.

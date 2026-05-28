@@ -275,3 +275,17 @@ Messages contain PII (candidate identity, contact content). They are stored in t
 **AI-draft prompt restriction:** The `POST /api/conversations/:id/ai-draft` endpoint sends only conversation history and non-contact role context to the LLM. Direct PII fields (`email`, `phone`, `full_name`) are **not** included in the LLM prompt.
 
 When using a non-RF LLM (e.g. Anthropic), conversation content sent to the LLM provider is a data-residency consideration for the owner. Inform tenants accordingly before enabling AI drafts.
+
+## Phase 3 — Offer + Compensation audit actions
+
+| Domain | Actions |
+| --- | --- |
+| Offer (Phase 3) | `offer.create`, `offer.update`, `offer.submit`, `offer.approve`, `offer.reject`, `offer.send`, `offer.accept`, `offer.decline`, `offer.expire` |
+| Compensation (Phase 3) | `comp_band.create`, `comp_band.update`, `comp_band.delete` |
+
+`offer.send` records whether DocuSeal was invoked (`diff.docuseal`) and the new
+`expiresAt` timestamp. `offer.accept` and `offer.decline` triggered by the
+DocuSeal webhook have `actor_user_id = NULL` and are followed by an
+`application.move_stage` audit row whose `diff.via` is `offer.accept` or
+`offer.decline`. `offer.expire` is emitted by the `offer:expire` cron task and
+also has `actor_user_id = NULL`.

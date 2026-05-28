@@ -167,4 +167,41 @@ describe('loadEnv', () => {
     expect(env.AI_SCORING_ENABLED).toBe(true)
     expect(env.LLM_SCORING_API_KEY).toBe('test-key')
   })
+
+  test('DocuSeal defaults are disabled and optional', () => {
+    const env = loadEnv({
+      DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/web_app_demo',
+      JWT_SECRET: '12345678901234567890123456789012',
+    })
+
+    expect(env.DOCUSEAL_ENABLED).toBe(false)
+    expect(env.DOCUSEAL_API_URL).toBe('https://api.docuseal.com')
+    expect(env.DOCUSEAL_API_KEY).toBeUndefined()
+    expect(env.DOCUSEAL_TEMPLATE_ID).toBeUndefined()
+    expect(env.DOCUSEAL_WEBHOOK_SECRET).toBeUndefined()
+  })
+
+  test('requires DocuSeal credentials when DOCUSEAL_ENABLED=true', () => {
+    expect(() =>
+      loadEnv({
+        DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/web_app_demo',
+        JWT_SECRET: '12345678901234567890123456789012',
+        DOCUSEAL_ENABLED: 'true',
+      }),
+    ).toThrow('DOCUSEAL_API_KEY')
+
+    const env = loadEnv({
+      DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/web_app_demo',
+      JWT_SECRET: '12345678901234567890123456789012',
+      DOCUSEAL_ENABLED: 'true',
+      DOCUSEAL_API_KEY: 'ds-key',
+      DOCUSEAL_TEMPLATE_ID: 'template-1',
+      DOCUSEAL_WEBHOOK_SECRET: 'shhh',
+    })
+
+    expect(env.DOCUSEAL_ENABLED).toBe(true)
+    expect(env.DOCUSEAL_API_KEY).toBe('ds-key')
+    expect(env.DOCUSEAL_TEMPLATE_ID).toBe('template-1')
+    expect(env.DOCUSEAL_WEBHOOK_SECRET).toBe('shhh')
+  })
 })

@@ -58,6 +58,16 @@ enum ApplicationStage {
   rejected
 }
 
+enum OfferStatus {
+  draft
+  manager_review
+  approved
+  sent
+  accepted
+  declined
+  expired
+}
+
 enum AssessmentQuestionType {
   open
   single_choice
@@ -284,6 +294,7 @@ model Application {
   conversations Conversation[]
   assessmentSessions AssessmentSession[]
   employee     Employee?
+  offers       Offer[]
 
   @@unique([candidateId, vacancyId], map: "applications_candidate_vacancy_unique")
   @@index([tenantId], map: "applications_tenant_id_idx")
@@ -651,6 +662,7 @@ model Interview {
   updatedAt         DateTime        @updatedAt @map("updated_at")
 
   application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade, map: "interviews_application_id_fkey")
+  offers      Offer[]
 
   @@index([tenantId], map: "interviews_tenant_id_idx")
   @@index([applicationId], map: "interviews_application_id_idx")
@@ -922,4 +934,58 @@ model PreStartPortalEntry {
   @@index([tenantId], map: "pre_start_portal_entries_tenant_id_idx")
   @@index([status], map: "pre_start_portal_entries_status_idx")
   @@map("pre_start_portal_entries")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 3 — Offer lifecycle + Compensation calculator
+// Spec: docs/contracts/20-fsm.md (Offer), docs/contracts/10-data-model.md.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Offer {
+  id                    String       @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId              String       @db.Uuid @map("tenant_id")
+  applicationId         String       @db.Uuid @map("application_id")
+  interviewId           String?      @db.Uuid @map("interview_id")
+  salary                Int
+  currency              Currency
+  startDate             DateTime     @map("start_date") @db.Date
+  grade                 String?
+  conditions            String[]     @default([])
+  status                OfferStatus  @default(draft)
+  docusealSubmissionId  String?      @map("docuseal_submission_id")
+  docusealDocumentUrl   String?      @map("docuseal_document_url")
+  docusealSigningUrl    String?      @map("docuseal_signing_url")
+  sentAt                DateTime?    @map("sent_at")
+  expiresAt             DateTime?    @map("expires_at")
+  acceptedAt            DateTime?    @map("accepted_at")
+  declinedAt            DateTime?    @map("declined_at")
+  declinedReason        String?      @map("declined_reason")
+  createdByUserId       String       @db.Uuid @map("created_by_user_id")
+  createdAt             DateTime     @default(now()) @map("created_at")
+  updatedAt             DateTime     @updatedAt @map("updated_at")
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade, map: "offers_application_id_fkey")
+  interview   Interview?  @relation(fields: [interviewId], references: [id], onDelete: SetNull, map: "offers_interview_id_fkey")
+
+  @@index([tenantId], map: "offers_tenant_id_idx")
+  @@index([applicationId], map: "offers_application_id_idx")
+  @@index([status, expiresAt], map: "offers_status_expires_at_idx")
+  @@map("offers")
+}
+
+model CompBand {
+  id          String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId    String    @db.Uuid @map("tenant_id")
+  grade       String
+  currency    Currency
+  minSalary   Int       @map("min_salary")
+  midSalary   Int       @map("mid_salary")
+  maxSalary   Int       @map("max_salary")
+  deletedAt   DateTime? @map("deleted_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@unique([tenantId, grade, currency], map: "comp_bands_tenant_grade_currency_unique")
+  @@index([tenantId], map: "comp_bands_tenant_id_idx")
+  @@map("comp_bands")
 }

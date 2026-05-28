@@ -57,6 +57,8 @@ function makeEnv(overrides: Partial<AppEnv> = {}): AppEnv {
     SPACES_PUBLIC_CACHE_CONTROL: 'public, max-age=31536000, immutable',
     TELEGRAM_ENABLED: false,
     EMAIL_ENABLED: false,
+  DOCUSEAL_ENABLED: false,
+  DOCUSEAL_API_URL: 'https://api.docuseal.com',
     CAREERS_PAGE_ENABLED: true,
     CAREERS_RATE_LIMIT_PER_HOUR: 20,
 ASSESSMENTS_ENABLED: false,

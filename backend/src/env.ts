@@ -94,6 +94,12 @@ const envSchema = z.object({
   TRUST_WEIGHT_FOCUS: z.coerce.number().nonnegative().default(0.4),
   TRUST_WEIGHT_KEYSTROKE: z.coerce.number().nonnegative().default(0.25),
   TRUST_LOW_THRESHOLD: z.coerce.number().int().min(0).max(100).default(50),
+  // Phase 3 — DocuSeal e-signing integration for offers
+  DOCUSEAL_ENABLED: booleanStringSchema,
+  DOCUSEAL_API_URL: stringWithDefault('https://api.docuseal.com'),
+  DOCUSEAL_API_KEY: optionalStringSchema,
+  DOCUSEAL_TEMPLATE_ID: optionalStringSchema,
+  DOCUSEAL_WEBHOOK_SECRET: optionalStringSchema,
 }).superRefine((env, ctx) => {
   validateJwtSecret(env, ctx)
   validateCorsOrigins(env, ctx)
@@ -101,6 +107,7 @@ const envSchema = z.object({
   validateHhIntegrationEnv(env, ctx)
   validateAiScoringEnv(env, ctx)
   validateMessagingEnv(env, ctx)
+  validateDocusealEnv(env, ctx)
 })
 
 export type AppEnv = z.infer<typeof envSchema>
@@ -275,6 +282,21 @@ function validateMessagingEnv(env: z.infer<typeof envSchema>, ctx: z.RefinementC
           message: `${key} is required when EMAIL_ENABLED=true`,
         })
       }
+    }
+  }
+}
+
+function validateDocusealEnv(env: z.infer<typeof envSchema>, ctx: z.RefinementCtx) {
+  if (!env.DOCUSEAL_ENABLED) return
+
+  const requiredKeys = ['DOCUSEAL_API_KEY', 'DOCUSEAL_TEMPLATE_ID', 'DOCUSEAL_WEBHOOK_SECRET'] as const
+  for (const key of requiredKeys) {
+    if (!env[key]) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [key],
+        message: `${key} is required when DOCUSEAL_ENABLED=true`,
+      })
     }
   }
 }
