@@ -63,6 +63,18 @@ export function requireRole(...allowed: RoleName[]): MiddlewareHandler<RoleGuard
     })
 
     const prisma = getPrisma(c)
+    const user = await prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: { disabledAt: true },
+    })
+
+    if (!user) {
+      throw new AppError(401, 'UNAUTHORIZED', 'Access token is invalid or expired')
+    }
+    if (user.disabledAt) {
+      throw new AppError(403, 'FORBIDDEN', 'Account disabled')
+    }
+
     const memberships = await prisma.userRole.findMany({
       where: { userId: payload.sub },
       select: { role: true, tenantId: true },

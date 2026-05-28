@@ -35,6 +35,10 @@ type OnboardingExitInvariantInput = {
   probationEndsAt: Date | null
 }
 
+type OffboardingExitInvariantInput = {
+  offboardingChecklistCompletedAt: Date | null
+}
+
 /**
  * Single source of truth for legal employee lifecycle transitions.
  */
@@ -89,6 +93,24 @@ export function canTransitionWithInvariants(
   if (from !== 'onboarding') return true
   if (!onboarding) return false
   return satisfiesOnboardingExitInvariant(to, onboarding)
+}
+
+export function satisfiesNoticeToTerminatedInvariant({
+  offboardingChecklistCompletedAt,
+}: OffboardingExitInvariantInput): boolean {
+  return offboardingChecklistCompletedAt !== null
+}
+
+export function canTransitionWithOffboardingGate(
+  from: EmployeeStatus,
+  to: EmployeeStatus,
+  actorRoles: ReadonlyArray<Role>,
+  offboarding?: OffboardingExitInvariantInput,
+): boolean {
+  if (!canTransition(from, to, actorRoles)) return false
+  if (from !== 'notice' || to !== 'terminated') return true
+  if (!offboarding) return false
+  return satisfiesNoticeToTerminatedInvariant(offboarding)
 }
 
 export function satisfiesProbationTransitionInvariant(

@@ -7,10 +7,13 @@ import type { AppEnv } from './env'
 import { createAuthRoutes } from './auth/routes'
 import { AuthService } from './auth/service'
 import { createAdminRoutes } from './features/admin/admin.routes'
+import { createAlumniRoutes } from './features/alumni/alumni.routes'
 import { createApplicationsRoutes } from './features/applications/applications.routes'
 import { createCandidatesRoutes } from './features/candidates/candidates.routes'
+import { createEmployeesRoutes } from './features/employees/employees.routes'
 import { createOrgUnitsRoutes } from './features/org-units/org-units.routes'
 import { createPublicCareersRoutes } from './features/public/public.routes'
+import { createPortalRoutes } from './features/portal/portal.routes'
 import { createAssessmentRoutes, createPublicAssessmentRoutes } from './features/assessments/assessments.routes'
 import { createSelectionRoutes } from './features/selection/selection.routes'
 import { createRequisitionsRoutes } from './features/requisitions/requisitions.routes'
@@ -103,6 +106,9 @@ export function createApp({ env, prisma }: CreateAppOptions) {
   app.route('/api/requisitions', createRequisitionsRoutes())
   app.route('/api/vacancies', createVacanciesRoutes())
   app.route('/api/candidates', createCandidatesRoutes())
+  app.route('/api/employees', createEmployeesRoutes())
+  app.route('/api/alumni', createAlumniRoutes())
+  app.route('/api/portal', createPortalRoutes())
   app.route('/api/applications', createApplicationsRoutes())
   app.route('/api/applications', createApplicationOffersListRoute())
   app.route('/api/offers', createOffersRoutes())

@@ -7,7 +7,9 @@ import {
   allowedNextStatuses,
   canTransition,
   canTransitionWithInvariants,
+  canTransitionWithOffboardingGate,
   isTerminalStatus,
+  satisfiesNoticeToTerminatedInvariant,
   satisfiesProbationTransitionInvariant,
   satisfiesOnboardingExitInvariant,
   type EmployeeStatus,
@@ -158,5 +160,29 @@ describe('employees FSM', () => {
 
     expect(satisfiesProbationTransitionInvariant('probation', 'probation', 'extended')).toBe(true)
     expect(satisfiesProbationTransitionInvariant('active', 'notice', 'failed')).toBe(true)
+  })
+
+  test('notice termination invariant requires completed offboarding checklist', () => {
+    expect(
+      satisfiesNoticeToTerminatedInvariant({
+        offboardingChecklistCompletedAt: new Date('2026-05-30T00:00:00.000Z'),
+      }),
+    ).toBe(true)
+    expect(satisfiesNoticeToTerminatedInvariant({ offboardingChecklistCompletedAt: null })).toBe(false)
+  })
+
+  test('canTransitionWithOffboardingGate composes role checks with checklist completion', () => {
+    expect(
+      canTransitionWithOffboardingGate('notice', 'terminated', ['hr_admin'], {
+        offboardingChecklistCompletedAt: new Date('2026-05-30T00:00:00.000Z'),
+      }),
+    ).toBe(true)
+    expect(
+      canTransitionWithOffboardingGate('notice', 'terminated', ['hr_admin'], {
+        offboardingChecklistCompletedAt: null,
+      }),
+    ).toBe(false)
+    expect(canTransitionWithOffboardingGate('notice', 'terminated', ['employee'])).toBe(false)
+    expect(canTransitionWithOffboardingGate('active', 'notice', ['hr_admin'])).toBe(true)
   })
 })

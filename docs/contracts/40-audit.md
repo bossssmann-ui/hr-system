@@ -289,3 +289,11 @@ DocuSeal webhook have `actor_user_id = NULL` and are followed by an
 `application.move_stage` audit row whose `diff.via` is `offer.accept` or
 `offer.decline`. `offer.expire` is emitted by the `offer:expire` cron task and
 also has `actor_user_id = NULL`.
+
+## Phase 5 — Offboarding and alumni audit actions
+
+| Action | Entity type | Trigger |
+| --- | --- | --- |
+| `employee.terminated` | `Employee` | Completed offboarding moves `notice → terminated`; disables linked user sessions. |
+| `offboarding.task.completed` | `OffboardingTask` | Offboarding task marked `completed` or `skipped`; may close the checklist. |
+| `alumni.created` | `AlumniProfile` | Alumni profile created idempotently during termination. |

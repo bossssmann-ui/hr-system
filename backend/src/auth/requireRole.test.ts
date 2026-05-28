@@ -49,16 +49,25 @@ QUIET_HOURS_QUIET_END_UTC: 23,
 }
 
 type PrismaStub = {
+  user: {
+    findUnique: (args: unknown) => Promise<{ disabledAt: Date | null } | null>
+  }
   userRole: {
     findMany: (args: unknown) => Promise<Array<{ role: string; tenantId: string }>>
   }
 }
 
-function buildApp(memberships: Array<{ role: string; tenantId: string }>) {
+function buildApp(
+  memberships: Array<{ role: string; tenantId: string }>,
+  user: { disabledAt: Date | null } | null = { disabledAt: null },
+) {
   type Bindings = RoleGuardBindings & {
     Variables: { env: AppEnv; prisma: PrismaStub }
   }
   const prisma: PrismaStub = {
+    user: {
+      findUnique: async () => user,
+    },
     userRole: {
       findMany: async () => memberships,
     },
@@ -100,6 +109,17 @@ describe('requireRole', () => {
       headers: { Authorization: 'Bearer not-a-jwt' },
     })
     expect(res.status).toBe(401)
+  })
+
+  test('denies disabled users before role checks', async () => {
+    const app = buildApp([{ role: 'owner', tenantId: 'tenant-1' }], {
+      disabledAt: new Date('2026-05-30T00:00:00.000Z'),
+    })
+    const token = await tokenFor('user-1')
+    const res = await app.request('/protected', {
+      headers: { Authorization: 'Bearer ' + token },
+    })
+    expect(res.status).toBe(403)
   })
 
   test('denies users with no tenant memberships', async () => {

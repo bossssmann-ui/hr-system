@@ -532,3 +532,23 @@ Unique: `(tenant_id, grade, currency)` for the band catalogue lookup.
 RLS posture:
 - SELECT: tenant + (admin / recruiter / hiring_manager)
 - INSERT / UPDATE / DELETE: tenant + admin
+
+---
+
+## Phase 5 — Offboarding, alumni, employee portal
+
+### `OffboardingChecklist` / `OffboardingTask`
+
+Offboarding mirrors onboarding for notice-period exits. A checklist belongs to one `Employee`; tasks are ordered by `task_order`, assigned by role (`hr_admin`, `hiring_manager`, `it`, `employee`), and reuse `OnboardingTaskStatus` (`pending`, `in_progress`, `completed`, `skipped`, `blocked`). The `notice → terminated` FSM gate requires the latest offboarding checklist to have `completed_at` set.
+
+### `ExitInterview`
+
+One optional exit interview per employee (`employee_id` unique). It records `reason_category` (`voluntary`, `mutual`, `probation_failed`, `for_cause`, `other`), interviewer, conducted timestamp, notes, `would_rehire`, and optional JSON metadata.
+
+### `AlumniProfile`
+
+Created idempotently on termination. Links the terminated `Employee` and optional source `Candidate`; tracks alumni `status` (`active`, `do_not_rehire`, `archived`), rehire eligibility, tags, notes, and departure/rehire metadata. Admin-only RLS in Phase 5.
+
+### `User.disabled_at`
+
+Termination deactivates the linked account by setting `users.disabled_at` and deleting auth sessions. Auth rejects login, refresh, and current-session reads for disabled users.
