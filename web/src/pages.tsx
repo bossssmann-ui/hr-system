@@ -14,6 +14,7 @@ import { Separator } from '@/components/ui/separator'
 import { Spinner } from '@/components/ui/spinner'
 import { Typography } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
+import { isAdmin } from '@/lib/roles'
 import { useAuth } from '@/lib/use-auth'
 
 const navLinkClass = cn(
@@ -23,6 +24,7 @@ const navLinkClass = cn(
 
 export function RootLayout() {
   const auth = useAuth()
+  const showComp = isAdmin(auth.user)
 
   return (
     <main className="min-h-svh bg-background text-foreground">
@@ -62,11 +64,13 @@ export function RootLayout() {
                 Applications
               </Link>
             </Typography>
-            <Typography asChild variant="control" tone="muted">
-              <Link to="/comp" className={navLinkClass}>
-                Comp
-              </Link>
-            </Typography>
+            {showComp && (
+              <Typography asChild variant="control" tone="muted">
+                <Link to="/comp" className={navLinkClass}>
+                  Comp
+                </Link>
+              </Typography>
+            )}
             <Typography asChild variant="control" tone="muted">
               <Link to="/inbox" className={navLinkClass}>
                 Inbox

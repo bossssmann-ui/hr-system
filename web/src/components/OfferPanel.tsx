@@ -7,7 +7,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { CreateOfferRequest, Offer } from '@web-app-demo/contracts'
+import type { CreateOfferRequest, Offer, RoleName } from '@web-app-demo/contracts'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
 import { Typography } from '@/components/ui/typography'
 import { ApiRequestError } from '@/lib/api'
+import { hasAnyRole } from '@/lib/roles'
 import { useAuth } from '@/lib/use-auth'
 import { cn } from '@/lib/utils'
 
@@ -34,6 +35,34 @@ const ACTIONS_BY_STATUS: Record<Offer['status'], Action[]> = {
   accepted: [],
   declined: [],
   expired: [],
+}
+
+const ACTION_ROLES: Record<Action, RoleName[]> = {
+  submit: ['recruiter', 'hr_admin', 'owner'],
+  approve: ['hr_admin', 'owner'],
+  reject: ['hr_admin', 'owner'],
+  send: ['recruiter', 'hr_admin', 'owner'],
+  decline: ['recruiter', 'hr_admin', 'owner'],
+  accept: ['recruiter', 'hr_admin', 'owner'],
+}
+
+const ACTION_LABELS: Record<Action, string> = {
+  submit: 'Отправить на согласование',
+  approve: 'Одобрить',
+  reject: 'Вернуть',
+  send: 'Отправить кандидату',
+  decline: 'Зафиксировать отказ',
+  accept: 'Принят',
+}
+
+const STATUS_LABELS: Record<Offer['status'], string> = {
+  draft: 'Черновик',
+  manager_review: 'На согласовании',
+  approved: 'Одобрен',
+  sent: 'Отправлен',
+  accepted: '✓ Подписан',
+  declined: 'Отклонён',
+  expired: 'Истёк',
 }
 
 function statusBadgeClass(status: Offer['status']): string {
@@ -55,8 +84,10 @@ function statusBadgeClass(status: Offer['status']): string {
 }
 
 export function OfferPanel({ applicationId }: { applicationId: string }) {
-  const { api } = useAuth()
+  const { api, user } = useAuth()
   const queryClient = useQueryClient()
+
+  const canCreate = hasAnyRole(user, 'recruiter', 'hr_admin', 'owner')
 
   const offersQuery = useQuery({
     queryKey: ['offers', 'by-application', applicationId],
@@ -111,7 +142,7 @@ export function OfferPanel({ applicationId }: { applicationId: string }) {
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>Offers</CardTitle>
-          {!showForm && (
+          {!showForm && canCreate && (
             <Button size="sm" onClick={() => setShowForm(true)}>
               Создать оффер
             </Button>
@@ -148,7 +179,9 @@ export function OfferPanel({ applicationId }: { applicationId: string }) {
         {offers.map((offer) => (
           <div key={offer.id} className="grid gap-2 rounded border p-3">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge className={cn(statusBadgeClass(offer.status))}>{offer.status}</Badge>
+              <Badge className={cn(statusBadgeClass(offer.status))}>
+                {STATUS_LABELS[offer.status]}
+              </Badge>
               <Typography>
                 {offer.salary.toLocaleString()} {offer.currency}
                 {offer.grade && ` · ${offer.grade}`}
@@ -178,7 +211,9 @@ export function OfferPanel({ applicationId }: { applicationId: string }) {
               <Typography tone="muted">Reason: {offer.declinedReason}</Typography>
             )}
             <div className="flex flex-wrap gap-2">
-              {ACTIONS_BY_STATUS[offer.status].map((action) => (
+              {ACTIONS_BY_STATUS[offer.status]
+                .filter((action) => hasAnyRole(user, ...ACTION_ROLES[action]))
+                .map((action) => (
                 <Button
                   key={action}
                   size="sm"
@@ -198,7 +233,7 @@ export function OfferPanel({ applicationId }: { applicationId: string }) {
                     transitionMutation.mutate({ id: offer.id, action })
                   }}
                 >
-                  {action}
+                  {ACTION_LABELS[action]}
                 </Button>
               ))}
             </div>

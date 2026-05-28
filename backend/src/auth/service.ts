@@ -1,6 +1,7 @@
 import type {
   LoginRequest,
   RegisterPayload,
+  RoleName,
   UserDto,
 } from '@web-app-demo/contracts'
 
@@ -176,7 +177,7 @@ export class AuthService {
     }
 
     return {
-      user: toUserDto(session.user),
+      user: toUserDto(session.user, await this.loadRoles(session.user.id)),
     }
   }
 
@@ -216,10 +217,20 @@ export class AuthService {
     )
 
     return {
-      user: toUserDto(user),
+      user: toUserDto(user, await this.loadRoles(user.id)),
       accessToken,
       refreshToken,
     }
+  }
+
+  private async loadRoles(userId: string): Promise<RoleName[]> {
+    const rows = await this.db.userRole.findMany({
+      where: { userId },
+      select: { role: true },
+    })
+    // Dedupe across tenants — the frontend gates UI on union of roles.
+    const uniq = new Set<RoleName>(rows.map((r) => r.role as RoleName))
+    return Array.from(uniq)
   }
 
   private refreshExpiresAt() {
@@ -231,11 +242,12 @@ function isUniqueConstraintError(error: unknown) {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002'
 }
 
-export function toUserDto(user: UserRecord): UserDto {
+export function toUserDto(user: UserRecord, roles: RoleName[] = []): UserDto {
   return {
     id: user.id,
     email: user.email,
     displayName: user.displayName,
+    roles,
     createdAt: user.createdAt.toISOString(),
   }
 }

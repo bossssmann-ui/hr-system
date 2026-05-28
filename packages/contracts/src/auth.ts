@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { roleNameSchema } from './admin'
+
 const displayNameSchema = z
   .union([z.string().trim().min(2).max(80), z.literal('')])
   .optional()
@@ -19,6 +21,7 @@ export const userSchema = z.object({
   id: z.string(),
   email: emailSchema,
   displayName: z.string().nullable(),
+  roles: z.array(roleNameSchema).default([]),
   createdAt: z.string().datetime(),
 })
 
