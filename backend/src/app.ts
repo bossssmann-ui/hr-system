@@ -21,6 +21,11 @@ import { createSelectionRoutes } from './features/selection/selection.routes'
 import { createRequisitionsRoutes } from './features/requisitions/requisitions.routes'
 import { createVacanciesRoutes } from './features/vacancies/vacancies.routes'
 import { createHhIntegrationRoutes } from './integrations/hh/routes'
+import {
+  createHhWebhookRoute,
+  createIntegrationsStatusRoutes,
+  createTelegramLinkRoute,
+} from './integrations/status/routes'
 import { createInterviewRoutes } from './features/interviews/interviews.routes'
 import {
   createApplicationOffersListRoute,
@@ -124,6 +129,9 @@ export function createApp({ env, prisma }: CreateAppOptions) {
   app.route('/api/interviews', createInterviewRoutes())
   app.route('/api/admin', createAdminRoutes())
   app.route('/api/integrations/hh', createHhIntegrationRoutes())
+  app.route('/api/integrations/hh', createHhWebhookRoute())
+  app.route('/api/integrations', createIntegrationsStatusRoutes())
+  app.route('/api/integrations/telegram', createTelegramLinkRoute())
   app.route('/api/conversations', createMessagingRoutes())
   app.route('/api/message-templates', createMessageTemplatesRoutes())
   app.route('/api/integrations/telegram', createTelegramWebhookRoute())

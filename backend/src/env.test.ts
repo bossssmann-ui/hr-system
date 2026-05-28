@@ -204,4 +204,33 @@ describe('loadEnv', () => {
     expect(env.DOCUSEAL_TEMPLATE_ID).toBe('template-1')
     expect(env.DOCUSEAL_WEBHOOK_SECRET).toBe('shhh')
   })
+
+  test('Phase 8 job-board flags default to false', () => {
+    const env = loadEnv({
+      DATABASE_URL: ['postgresql:/', 'superuser:superpassword@localhost:54329/web_app_demo'].join('/'),
+      JWT_SECRET: '12345678901234567890123456789012',
+    })
+    expect(env.SBER_PODBOR_ENABLED).toBe(false)
+    expect(env.AVITO_JOBS_ENABLED).toBe(false)
+    expect(env.RABOTA_RU_ENABLED).toBe(false)
+  })
+
+  test('requires API token when a Phase 8 job board is enabled', () => {
+    expect(() =>
+      loadEnv({
+        DATABASE_URL: ['postgresql:/', 'superuser:superpassword@localhost:54329/web_app_demo'].join('/'),
+        JWT_SECRET: '12345678901234567890123456789012',
+        SBER_PODBOR_ENABLED: 'true',
+      }),
+    ).toThrow('SBER_PODBOR_API_TOKEN')
+
+    const env = loadEnv({
+      DATABASE_URL: ['postgresql:/', 'superuser:superpassword@localhost:54329/web_app_demo'].join('/'),
+      JWT_SECRET: '12345678901234567890123456789012',
+      SBER_PODBOR_ENABLED: 'true',
+      SBER_PODBOR_API_TOKEN: 'sber-tok',
+    })
+    expect(env.SBER_PODBOR_ENABLED).toBe(true)
+    expect(env.SBER_PODBOR_API_TOKEN).toBe('sber-tok')
+  })
 })
