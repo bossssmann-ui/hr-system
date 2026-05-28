@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
 import { Typography } from '@/components/ui/typography'
 import { ApiRequestError } from '@/lib/api'
+import { isAdmin } from '@/lib/roles'
 import { useAuth } from '@/lib/use-auth'
 import { cn } from '@/lib/utils'
 
@@ -40,11 +41,10 @@ export function CompPage() {
 }
 
 function CompContent() {
-  const { api } = useAuth()
+  const { api, user } = useAuth()
   const queryClient = useQueryClient()
-  // Role enforcement is handled server-side via RLS; we render admin UI for
-  // all authed users and surface API errors when the backend rejects.
-  const admin = true
+  // Role-gated admin controls — the backend also enforces this via RLS.
+  const admin = isAdmin(user)
 
   const bandsQuery = useQuery({
     queryKey: ['comp', 'bands'],
