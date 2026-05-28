@@ -91,6 +91,17 @@ import {
   type AssessmentSubmitRequest,
   type AssessmentSubmitResponse,
   type AssessmentTemplate,
+  analyticsSignalSchema,
+  generateQuestionsResponseSchema,
+  knowledgeArticleSchema,
+  knowledgeSearchResponseSchema,
+  listAnalyticsSignalsResponseSchema,
+  listKnowledgeArticlesResponseSchema,
+  suggestSalaryResponseSchema,
+  type AnalyticsSignal,
+  type CreateKnowledgeArticleRequest,
+  type KnowledgeSearchResponse,
+  type KnowledgeArticle,
   compBandSchema,
   compCalculatorResponseSchema,
   hrDashboardSchema,
@@ -692,6 +703,97 @@ export class ApiClient {
   payrollExportCsvUrl(params: { month: string }) {
     const qs = new URLSearchParams({ month: params.month, format: 'csv' }).toString()
     return `${apiBaseUrl}/api/payroll/export?${qs}`
+  }
+
+  // ─── Phase 9 — Analytics signals ─────────────────────────────────────────
+
+  listAnalyticsSignals(params?: { status?: 'open' | 'reviewed' | 'dismissed'; type?: 'flight_risk' | 'burnout'; limit?: number }) {
+    const qs = new URLSearchParams()
+    if (params?.status) qs.set('status', params.status)
+    if (params?.type) qs.set('type', params.type)
+    if (params?.limit) qs.set('limit', String(params.limit))
+    const qStr = qs.toString() ? `?${qs.toString()}` : ''
+    return this.request(`/api/analytics/signals${qStr}`, listAnalyticsSignalsResponseSchema, { auth: true })
+  }
+
+  updateAnalyticsSignal(id: string, status: 'open' | 'reviewed' | 'dismissed'): Promise<AnalyticsSignal> {
+    return this.request(`/api/analytics/signals/${id}`, analyticsSignalSchema, {
+      method: 'PATCH',
+      body: { status },
+      auth: true,
+    })
+  }
+
+  computeAnalyticsSignals() {
+    return this.request(
+      '/api/analytics/signals/compute',
+      z.object({ employees: z.number(), upserted: z.number(), opened: z.number() }),
+      { method: 'POST', body: {}, auth: true },
+    )
+  }
+
+  getEmployeeSignals(employeeId: string) {
+    return this.request(`/api/employees/${employeeId}/signals`, listAnalyticsSignalsResponseSchema, { auth: true })
+  }
+
+  // ─── Phase 9 — Knowledge Hub ─────────────────────────────────────────────
+
+  listKnowledgeArticles(params?: { limit?: number; tag?: string; visibility?: 'internal' | 'portal' }) {
+    const qs = new URLSearchParams()
+    if (params?.limit) qs.set('limit', String(params.limit))
+    if (params?.tag) qs.set('tag', params.tag)
+    if (params?.visibility) qs.set('visibility', params.visibility)
+    const qStr = qs.toString() ? `?${qs.toString()}` : ''
+    return this.request(`/api/knowledge${qStr}`, listKnowledgeArticlesResponseSchema, { auth: true })
+  }
+
+  createKnowledgeArticle(input: CreateKnowledgeArticleRequest): Promise<KnowledgeArticle> {
+    return this.request('/api/knowledge', knowledgeArticleSchema, {
+      method: 'POST',
+      body: input,
+      auth: true,
+    })
+  }
+
+  updateKnowledgeArticle(id: string, patch: Partial<CreateKnowledgeArticleRequest>): Promise<KnowledgeArticle> {
+    return this.request(`/api/knowledge/${id}`, knowledgeArticleSchema, {
+      method: 'PATCH',
+      body: patch,
+      auth: true,
+    })
+  }
+
+  deleteKnowledgeArticle(id: string) {
+    return this.request(`/api/knowledge/${id}`, z.object({ ok: z.boolean() }), {
+      method: 'DELETE',
+      auth: true,
+    })
+  }
+
+  searchKnowledge(input: { query: string; limit?: number; visibility?: 'internal' | 'portal' }): Promise<KnowledgeSearchResponse> {
+    return this.request('/api/knowledge/search', knowledgeSearchResponseSchema, {
+      method: 'POST',
+      body: input,
+      auth: true,
+    })
+  }
+
+  // ─── Phase 9 — AI v2 helpers ─────────────────────────────────────────────
+
+  generateInterviewQuestionsAi(input: { candidateId: string; vacancyId: string }) {
+    return this.request('/api/ai/generate-questions', generateQuestionsResponseSchema, {
+      method: 'POST',
+      body: input,
+      auth: true,
+    })
+  }
+
+  suggestSalary(input: { candidateId: string; grade: string; currency: 'RUB' | 'USD' | 'THB' | 'USDT' }) {
+    return this.request('/api/ai/suggest-salary', suggestSalaryResponseSchema, {
+      method: 'POST',
+      body: input,
+      auth: true,
+    })
   }
 
   listAuditEvents(params?: {

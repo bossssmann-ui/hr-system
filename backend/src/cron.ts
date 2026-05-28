@@ -7,6 +7,7 @@ import {
   sendReviewReminders,
 } from './features/learning/learning.service'
 import { computeHrSnapshot } from './features/analytics/analytics.service'
+import { computeSignalsForTenant } from './features/signals/signals.service'
 
 type CronTask = (runtime: BackendRuntime) => Promise<void>
 
@@ -50,6 +51,24 @@ const cronTasks = {
     }
     console.log(
       `Cron analytics.snapshot completed. tenants=${tenants.length} headcount_sum=${totalHeadcount}`,
+    )
+  },
+  // Phase 9 — daily flight-risk / burnout signal computation per tenant.
+  'signals.compute': async ({ prisma, env }) => {
+    const tenants = await prisma.tenant.findMany({ select: { id: true } })
+    let opened = 0
+    let upserted = 0
+    for (const t of tenants) {
+      const result = await computeSignalsForTenant({
+        prisma,
+        tenantId: t.id,
+        openThreshold: env.SIGNALS_OPEN_THRESHOLD,
+      })
+      opened += result.opened
+      upserted += result.upserted
+    }
+    console.log(
+      `Cron signals.compute completed. tenants=${tenants.length} upserted=${upserted} opened=${opened}`,
     )
   },
 } satisfies Record<string, CronTask>

@@ -49,7 +49,7 @@ describe('AnthropicScoringProvider', () => {
 
     expect(result.relevance_score).toBe(82)
     expect(result.model).toBe('claude-haiku-4-5-20251001')
-    expect(result.schema_version).toBe(1)
+    expect(result.schema_version).toBe(2)
   })
 
   test('retries once when first response is malformed JSON', async () => {
