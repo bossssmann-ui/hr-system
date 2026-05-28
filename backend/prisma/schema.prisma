@@ -113,6 +113,7 @@ model User {
   displayName  String?       @map("display_name")
   createdAt    DateTime      @default(now()) @map("created_at")
   updatedAt    DateTime      @updatedAt @map("updated_at")
+  disabledAt   DateTime?     @map("disabled_at")
   sessions     AuthSession[]
   roles        UserRole[]
   employee     Employee?
@@ -247,6 +248,7 @@ model Candidate {
   applications  Application[]
   conversations Conversation[]
   employees     Employee[]
+  alumniProfiles AlumniProfile[]
 
   // Email and phone are unique only when non-null; expressed at the SQL layer
   // via partial UNIQUE indexes added in the migration (Prisma cannot model
@@ -740,8 +742,28 @@ enum LifecycleEventType {
   leave_ended
   terminated
   rehired
+  notice_started
 
   @@map("lifecycle_event_type")
+}
+
+
+enum AlumniStatus {
+  active
+  do_not_rehire
+  archived
+
+  @@map("alumni_status")
+}
+
+enum ExitReasonCategory {
+  voluntary
+  mutual
+  probation_failed
+  for_cause
+  other
+
+  @@map("exit_reason_category")
 }
 
 enum EmploymentDocumentType {
@@ -811,6 +833,9 @@ model Employee {
   checklists      OnboardingChecklist[]
   documents       EmploymentDocument[]
   preStartPortalEntry PreStartPortalEntry?
+  offboardingChecklists OffboardingChecklist[]
+  exitInterview         ExitInterview?
+  alumniProfile         AlumniProfile?
 
   @@index([tenantId], map: "employees_tenant_id_idx")
   @@index([orgUnitId], map: "employees_org_unit_id_idx")
@@ -934,6 +959,92 @@ model PreStartPortalEntry {
   @@index([tenantId], map: "pre_start_portal_entries_tenant_id_idx")
   @@index([status], map: "pre_start_portal_entries_status_idx")
   @@map("pre_start_portal_entries")
+}
+
+
+model OffboardingChecklist {
+  id          String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId    String    @db.Uuid @map("tenant_id")
+  employeeId  String    @db.Uuid @map("employee_id")
+  title       String
+  description String?
+  dueDate     DateTime? @db.Date @map("due_date")
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  employee Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade, map: "offboarding_checklists_employee_id_fkey")
+  tasks    OffboardingTask[]
+
+  @@index([tenantId], map: "offboarding_checklists_tenant_id_idx")
+  @@index([employeeId], map: "offboarding_checklists_employee_id_idx")
+  @@map("offboarding_checklists")
+}
+
+model OffboardingTask {
+  id                String               @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId          String               @db.Uuid @map("tenant_id")
+  checklistId       String               @db.Uuid @map("checklist_id")
+  order             Int                  @map("task_order")
+  title             String
+  description       String?
+  assigneeRole      String               @map("assignee_role")
+  status            OnboardingTaskStatus @default(pending)
+  assigneeUserId    String?              @db.Uuid @map("assignee_user_id")
+  dueDate           DateTime?            @db.Date @map("due_date")
+  completedAt       DateTime?            @map("completed_at")
+  completedByUserId String?              @db.Uuid @map("completed_by_user_id")
+  createdAt         DateTime             @default(now()) @map("created_at")
+  updatedAt         DateTime             @default(now()) @updatedAt @map("updated_at")
+
+  checklist OffboardingChecklist @relation(fields: [checklistId], references: [id], onDelete: Cascade, map: "offboarding_tasks_checklist_id_fkey")
+
+  @@index([tenantId], map: "offboarding_tasks_tenant_id_idx")
+  @@index([checklistId], map: "offboarding_tasks_checklist_id_idx")
+  @@index([status], map: "offboarding_tasks_status_idx")
+  @@unique([checklistId, order], map: "offboarding_tasks_checklist_order_key")
+  @@map("offboarding_tasks")
+}
+
+model ExitInterview {
+  id                 String             @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId           String             @db.Uuid @map("tenant_id")
+  employeeId         String             @unique @db.Uuid @map("employee_id")
+  conductedByUserId  String?            @db.Uuid @map("conducted_by_user_id")
+  conductedAt        DateTime?          @map("conducted_at")
+  reasonCategory     ExitReasonCategory @map("reason_category")
+  notes              String?
+  wouldRehire        Boolean?           @map("would_rehire")
+  metadata           Json?
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @default(now()) @updatedAt @map("updated_at")
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade, map: "exit_interviews_employee_id_fkey")
+
+  @@index([tenantId], map: "exit_interviews_tenant_id_idx")
+  @@map("exit_interviews")
+}
+
+model AlumniProfile {
+  id                  String       @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId            String       @db.Uuid @map("tenant_id")
+  employeeId          String       @unique @db.Uuid @map("employee_id")
+  candidateId         String?      @db.Uuid @map("candidate_id")
+  status              AlumniStatus @default(active)
+  wouldRehire         Boolean?     @map("would_rehire")
+  departureReason     String?      @map("departure_reason")
+  rehireEligibleFrom  DateTime?    @db.Date @map("rehire_eligible_from")
+  tags                String[]     @default([])
+  notes               String?
+  createdAt           DateTime     @default(now()) @map("created_at")
+  updatedAt           DateTime     @default(now()) @updatedAt @map("updated_at")
+
+  employee  Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade, map: "alumni_profiles_employee_id_fkey")
+  candidate Candidate? @relation(fields: [candidateId], references: [id], onDelete: SetNull, map: "alumni_profiles_candidate_id_fkey")
+
+  @@index([tenantId], map: "alumni_profiles_tenant_id_idx")
+  @@index([status], map: "alumni_profiles_status_idx")
+  @@map("alumni_profiles")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

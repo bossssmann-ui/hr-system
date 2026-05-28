@@ -146,3 +146,9 @@ Status enum: `draft`, `manager_review`, `approved`, `sent`, `accepted`,
   only allowed actor.
 - Every transition writes an `AuditEvent`. Webhook- and cron-triggered
   transitions write `actor_user_id = NULL`.
+
+---
+
+## Employee offboarding gate (Phase 5)
+
+`Employee.status` keeps the existing transition `notice → terminated` for `hr_admin` / `owner`, but Phase 5 adds a service invariant: the latest `OffboardingChecklist.completed_at` must be non-null before termination. The executable gate is `canTransitionWithOffboardingGate`; `active|probation → notice` starts offboarding and writes a `notice_started` lifecycle event.

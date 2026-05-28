@@ -63,10 +63,22 @@ export function requireRole(...allowed: RoleName[]): MiddlewareHandler<RoleGuard
     })
 
     const prisma = getPrisma(c)
-    const memberships = await prisma.userRole.findMany({
-      where: { userId: payload.sub },
-      select: { role: true, tenantId: true },
+    const user = await prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: {
+        disabledAt: true,
+        roles: { select: { role: true, tenantId: true } },
+      },
     })
+
+    if (!user) {
+      throw new AppError(401, 'UNAUTHORIZED', 'Access token is invalid or expired')
+    }
+    if (user.disabledAt) {
+      throw new AppError(403, 'FORBIDDEN', 'Account disabled')
+    }
+
+    const memberships = user.roles
 
     if (memberships.length === 0) {
       throw new AppError(403, 'FORBIDDEN', 'User has no tenant memberships')

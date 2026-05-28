@@ -23,6 +23,7 @@ type UserRecord = {
   email: string
   displayName: string | null
   createdAt: Date
+  disabledAt: Date | null
 }
 
 export class AuthService {
@@ -71,6 +72,10 @@ export class AuthService {
       throw new AppError(401, 'UNAUTHORIZED', 'Invalid email or password')
     }
 
+    if (user.disabledAt) {
+      throw new AppError(403, 'FORBIDDEN', 'Account disabled')
+    }
+
     const passwordMatches = await verifyPassword(input.password, user.passwordHash)
     if (!passwordMatches) {
       throw new AppError(401, 'UNAUTHORIZED', 'Invalid email or password')
@@ -101,6 +106,10 @@ export class AuthService {
 
     if (!currentSession) {
       throw new AppError(401, 'UNAUTHORIZED', 'Refresh session is invalid or expired')
+    }
+
+    if (currentSession.user.disabledAt) {
+      throw new AppError(403, 'FORBIDDEN', 'Account disabled')
     }
 
     const nextRefreshToken = createRefreshToken()
@@ -176,6 +185,10 @@ export class AuthService {
       throw new AppError(401, 'UNAUTHORIZED', 'Session is invalid or expired')
     }
 
+    if (session.user.disabledAt) {
+      throw new AppError(403, 'FORBIDDEN', 'Account disabled')
+    }
+
     return {
       user: toUserDto(session.user, await this.loadRoles(session.user.id)),
     }
@@ -196,6 +209,10 @@ export class AuthService {
   }
 
   private async issueSession(user: UserRecord, metadata: SessionMetadata) {
+    if (user.disabledAt) {
+      throw new AppError(403, 'FORBIDDEN', 'Account disabled')
+    }
+
     const refreshToken = createRefreshToken()
     const session = await this.db.authSession.create({
       data: {
