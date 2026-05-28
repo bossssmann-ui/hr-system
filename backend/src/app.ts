@@ -8,6 +8,7 @@ import { createAuthRoutes } from './auth/routes'
 import { AuthService } from './auth/service'
 import { createAdminRoutes } from './features/admin/admin.routes'
 import { createAlumniRoutes } from './features/alumni/alumni.routes'
+import { createAnalyticsRoutes, createPayrollRoutes } from './features/analytics/analytics.routes'
 import { createApplicationsRoutes } from './features/applications/applications.routes'
 import { createCandidatesRoutes } from './features/candidates/candidates.routes'
 import { createEmployeesRoutes } from './features/employees/employees.routes'
@@ -117,6 +118,8 @@ export function createApp({ env, prisma }: CreateAppOptions) {
   app.route('/api/applications', createApplicationOffersListRoute())
   app.route('/api/offers', createOffersRoutes())
   app.route('/api/comp', createCompRoutes())
+  app.route('/api/analytics', createAnalyticsRoutes())
+  app.route('/api/payroll', createPayrollRoutes())
   app.route('/api/integrations/docuseal', createDocusealWebhookRoute())
   app.route('/api/interviews', createInterviewRoutes())
   app.route('/api/admin', createAdminRoutes())

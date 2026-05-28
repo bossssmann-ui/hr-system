@@ -91,9 +91,12 @@ import {
   type AssessmentTemplate,
   compBandSchema,
   compCalculatorResponseSchema,
+  hrDashboardSchema,
   listCompBandsResponseSchema,
+  listHrSnapshotsResponseSchema,
   listOffersResponseSchema,
   offerSchema,
+  payrollExportResponseSchema,
   type CompBandCreateRequest,
   type CompBandUpdateRequest,
   type CreateOfferRequest,
@@ -654,6 +657,39 @@ export class ApiClient {
       currency: params.currency,
     }).toString()
     return this.request(`/api/comp/calculator?${qs}`, compCalculatorResponseSchema, { auth: true })
+  }
+
+  // ─── HR Analytics (Phase 7) ─────────────────────────────────────────────────
+
+  getHrDashboard() {
+    return this.request('/api/analytics/dashboard', hrDashboardSchema, { auth: true })
+  }
+
+  listHrSnapshots(params?: { limit?: number; from?: string; to?: string }) {
+    const qs = new URLSearchParams()
+    if (params?.limit) qs.set('limit', String(params.limit))
+    if (params?.from) qs.set('from', params.from)
+    if (params?.to) qs.set('to', params.to)
+    const qStr = qs.toString() ? `?${qs.toString()}` : ''
+    return this.request(`/api/analytics/snapshots${qStr}`, listHrSnapshotsResponseSchema, { auth: true })
+  }
+
+  computeHrSnapshot() {
+    return this.request('/api/analytics/snapshots/compute', hrDashboardSchema, {
+      method: 'POST',
+      body: {},
+      auth: true,
+    })
+  }
+
+  getPayrollExport(params: { month: string }) {
+    const qs = new URLSearchParams({ month: params.month, format: 'json' }).toString()
+    return this.request(`/api/payroll/export?${qs}`, payrollExportResponseSchema, { auth: true })
+  }
+
+  payrollExportCsvUrl(params: { month: string }) {
+    const qs = new URLSearchParams({ month: params.month, format: 'csv' }).toString()
+    return `${apiBaseUrl}/api/payroll/export?${qs}`
   }
 
   listAuditEvents(params?: {

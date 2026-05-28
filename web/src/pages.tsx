@@ -71,6 +71,13 @@ export function RootLayout() {
                 </Link>
               </Typography>
             )}
+            {showComp && (
+              <Typography asChild variant="control" tone="muted">
+                <Link to="/analytics" className={navLinkClass}>
+                  Analytics
+                </Link>
+              </Typography>
+            )}
             <Typography asChild variant="control" tone="muted">
               <Link to="/inbox" className={navLinkClass}>
                 Inbox

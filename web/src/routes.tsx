@@ -21,6 +21,7 @@ import { PublicSelectionPage } from './pages/selection'
 import { SelectionDashboardPage } from './pages/selection-dashboard'
 import { CompPage } from './pages/comp'
 import { AlumniPage } from './pages/alumni'
+import { AnalyticsPage } from './pages/analytics'
 import { LearningPage } from './pages/learning'
 import { PortalPage } from './pages/portal'
 import { ReviewsPage } from './pages/reviews'
@@ -186,6 +187,12 @@ const reviewsRoute = createRoute({
   component: ReviewsPage,
 })
 
+const analyticsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/analytics',
+  component: AnalyticsPage,
+})
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   appRoute,
@@ -212,6 +219,7 @@ const routeTree = rootRoute.addChildren([
   portalRoute,
   learningRoute,
   reviewsRoute,
+  analyticsRoute,
 ])
 
 export const router = createRouter({ routeTree })

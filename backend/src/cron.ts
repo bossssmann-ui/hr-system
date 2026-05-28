@@ -6,6 +6,7 @@ import {
   sendOkrQuarterStartReminders,
   sendReviewReminders,
 } from './features/learning/learning.service'
+import { computeHrSnapshot } from './features/analytics/analytics.service'
 
 type CronTask = (runtime: BackendRuntime) => Promise<void>
 
@@ -38,6 +39,18 @@ const cronTasks = {
   'review.reminder': async ({ prisma }) => {
     const result = await sendReviewReminders({ prisma })
     console.log(`Cron review.reminder completed. matched=${result.matched} sent=${result.sent}`)
+  },
+  // Phase 7 — daily HR analytics snapshot per tenant.
+  'analytics.snapshot': async ({ prisma }) => {
+    const tenants = await prisma.tenant.findMany({ select: { id: true } })
+    let totalHeadcount = 0
+    for (const t of tenants) {
+      const result = await computeHrSnapshot({ prisma, tenantId: t.id })
+      totalHeadcount += result.headcount
+    }
+    console.log(
+      `Cron analytics.snapshot completed. tenants=${tenants.length} headcount_sum=${totalHeadcount}`,
+    )
   },
 } satisfies Record<string, CronTask>
 
