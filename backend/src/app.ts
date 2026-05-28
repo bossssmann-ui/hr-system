@@ -11,6 +11,7 @@ import { createAlumniRoutes } from './features/alumni/alumni.routes'
 import { createApplicationsRoutes } from './features/applications/applications.routes'
 import { createCandidatesRoutes } from './features/candidates/candidates.routes'
 import { createEmployeesRoutes } from './features/employees/employees.routes'
+import { createLearningRoutes, createOkrsRoutes, createReviewsRoutes } from './features/learning/learning.routes'
 import { createOrgUnitsRoutes } from './features/org-units/org-units.routes'
 import { createPublicCareersRoutes } from './features/public/public.routes'
 import { createPortalRoutes } from './features/portal/portal.routes'
@@ -107,6 +108,9 @@ export function createApp({ env, prisma }: CreateAppOptions) {
   app.route('/api/vacancies', createVacanciesRoutes())
   app.route('/api/candidates', createCandidatesRoutes())
   app.route('/api/employees', createEmployeesRoutes())
+  app.route('/api/learning', createLearningRoutes())
+  app.route('/api/reviews', createReviewsRoutes())
+  app.route('/api/okrs', createOkrsRoutes())
   app.route('/api/alumni', createAlumniRoutes())
   app.route('/api/portal', createPortalRoutes())
   app.route('/api/applications', createApplicationsRoutes())

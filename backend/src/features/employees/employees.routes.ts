@@ -12,6 +12,11 @@ import {
   recordExitInterview,
   startOffboarding,
 } from './offboarding/offboarding.service'
+import {
+  createEmployee1on1Routes,
+  createEmployeeIdpRoutes,
+  createEmployeeLearningRoutes,
+} from '../learning/learning.routes'
 
 const exitReasonCategorySchema = z.enum(['voluntary', 'mutual', 'probation_failed', 'for_cause', 'other'])
 
@@ -150,6 +155,10 @@ export function createEmployeesRoutes() {
     if (!interview) throw new AppError(404, 'NOT_FOUND', 'Exit interview not found')
     return c.json(interview)
   })
+
+  app.route('/:id/learning', createEmployeeLearningRoutes())
+  app.route('/:id/1on1s', createEmployee1on1Routes())
+  app.route('/:id/idp', createEmployeeIdpRoutes())
 
   return app
 }

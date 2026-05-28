@@ -14,6 +14,7 @@ import type { Prisma } from '../../generated/prisma/client'
 import { createNotifier, type Notifier } from '../../services/notifier'
 import { offerDraftSchema } from '../interviews/interviews.schemas'
 import type { Role } from '../requisitions/requisitions.fsm'
+import { autoAssignLearningPaths } from '../learning/learning.service'
 import {
   canTransition,
   satisfiesProbationTransitionInvariant,
@@ -182,6 +183,21 @@ export async function createFromApplication(input: CreateFromApplicationInput) {
       },
     },
   })
+
+  // ── Auto-assign learning paths (Phase 6 §4) ─────────────────────────────
+  // Idempotent: backed by `(employee_id, path_id)` unique index.
+  try {
+    await autoAssignLearningPaths({
+      prisma,
+      tenantId,
+      employeeId: employee.id,
+      roleFamily: employee.roleFamily,
+      actorUserId: actorUserId ?? employee.id,
+    })
+  } catch (err) {
+    // Auto-assign failure must not roll back the hire transaction.
+    console.warn(JSON.stringify({ level: 'warn', msg: 'learning.auto_assign_failed', employeeId: employee.id, err: String(err) }))
+  }
 
   return employee
 }
