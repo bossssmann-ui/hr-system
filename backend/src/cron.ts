@@ -1,6 +1,11 @@
 import { createBackendRuntime, type BackendRuntime } from './runtime'
 import { sendProbationReminders } from './features/employees/employees.service'
 import { expireOverdueOffers } from './features/offers/offers.service'
+import {
+  send1on1Reminders,
+  sendOkrQuarterStartReminders,
+  sendReviewReminders,
+} from './features/learning/learning.service'
 
 type CronTask = (runtime: BackendRuntime) => Promise<void>
 
@@ -21,6 +26,18 @@ const cronTasks = {
   'offer:expire': async ({ prisma }) => {
     const result = await expireOverdueOffers({ prisma })
     console.log(`Cron offer:expire completed. matched=${result.matched} expired=${result.expired}`)
+  },
+  '1on1.reminder': async ({ prisma }) => {
+    const result = await send1on1Reminders({ prisma })
+    console.log(`Cron 1on1.reminder completed. matched=${result.matched} sent=${result.sent}`)
+  },
+  'okr.quarter_start': async ({ prisma }) => {
+    const result = await sendOkrQuarterStartReminders({ prisma })
+    console.log(`Cron okr.quarter_start completed. matched=${result.matched} sent=${result.sent}`)
+  },
+  'review.reminder': async ({ prisma }) => {
+    const result = await sendReviewReminders({ prisma })
+    console.log(`Cron review.reminder completed. matched=${result.matched} sent=${result.sent}`)
   },
 } satisfies Record<string, CronTask>
 

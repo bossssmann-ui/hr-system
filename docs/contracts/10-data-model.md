@@ -552,3 +552,90 @@ Created idempotently on termination. Links the terminated `Employee` and optiona
 ### `User.disabled_at`
 
 Termination deactivates the linked account by setting `users.disabled_at` and deleting auth sessions. Auth rejects login, refresh, and current-session reads for disabled users.
+
+---
+
+## Phase 6 — Learning & Performance (LMS, 1:1s, 360° Reviews, OKRs, IDPs)
+
+### `Employee.role_family` (new column)
+
+Free-form role family label (e.g. `engineering`, `sales`) used to drive
+`LearningPath` auto-assignment when a new `Employee` is created.
+
+### `LearningCourse`
+
+A reusable course. `content_type` is one of `video`, `article`, `quiz`,
+`external_link`, `scorm`. `org_unit_id` scopes a course to a department
+(`null` = available org-wide). `is_mandatory` flags compliance courses.
+Soft-deleted via `deleted_at`.
+
+RLS posture:
+- SELECT: tenant
+- INSERT / UPDATE / DELETE: tenant + admin (`hr_admin` / `owner`)
+
+### `LearningPath` / `LearningPathItem`
+
+A `LearningPath` groups `LearningCourse` rows in an ordered sequence
+(`learning_path_items.item_order` unique per path). Paths can carry a
+`role_family` and an `auto_assign` flag: when both are set, the path is
+assigned to every newly created `Employee` whose `role_family` matches (or
+when the path has `role_family IS NULL`). Same admin-write RLS as courses.
+
+### `LearningAssignment`
+
+Joins an `Employee` to either a `LearningCourse` xor a `LearningPath` (CHECK
+constraint enforces exactly one target). Tracks `status`
+(`assigned | started | completed | expired`), `progress_percent` (0–100),
+optional `score` and `due_date`. The `(employee_id, course_id)` and
+`(employee_id, path_id)` partial unique indexes make assignment idempotent.
+
+RLS posture:
+- SELECT: tenant + (admin / hiring_manager / employee owning the row)
+- UPDATE (self): employee owning the row may patch `status / progress / score`
+- INSERT / DELETE: tenant + admin
+
+### `OneOnOne`
+
+A scheduled 1:1 between a manager (`manager_user_id`) and an `Employee`.
+Holds `status` (`scheduled | completed | cancelled`), `agenda`, `notes`, a
+JSON `action_items` array, and a `reminder_sent_at` watermark used by the
+`1on1.reminder` cron job to avoid double-sending.
+
+RLS posture:
+- SELECT: tenant + (admin / the manager / employee owning the row)
+- WRITE: tenant + (admin / the manager)
+
+### `ReviewCycle` / `ReviewRequest`
+
+A 360° review cycle is opened by `hr_admin` (`draft → open`) and later
+closed (`open → closed`). `questions` is a JSON array of `{id, prompt,
+type}` items. Each `ReviewRequest` ties one reviewer (`reviewer_user_id`)
+to one subject `Employee` for the cycle and carries a relationship label
+(`peer`, `manager`, `report`, `self`, …). Unique
+`(cycle_id, subject_employee_id, reviewer_user_id)` prevents duplicate
+requests.
+
+RLS posture:
+- ReviewCycle SELECT: tenant; WRITE: admin.
+- ReviewRequest SELECT: tenant + (admin / the reviewer / the subject).
+  Reviewer may UPDATE their own request to `submitted` / `declined`.
+
+### `Okr` / `KeyResult`
+
+Per-employee OKR scoped to a `quarter` string (e.g. `2026-Q2`). `parent_okr_id`
+supports cascading (org → team → individual). `progress_percent` is recomputed
+server-side from child `KeyResult` rows whenever a key result is updated.
+`KeyResult` carries `start_value`, `target_value`, `current_value`, `unit`, and
+`status` (`open | on_track | at_risk | achieved`).
+
+RLS posture:
+- SELECT: tenant + (admin / hiring_manager / employee owning the OKR)
+- WRITE: tenant + (admin / employee owning the OKR)
+  Managers do not WRITE in Phase 6; admin overrides remain available.
+
+### `Idp` / `IdpItem`
+
+Individual Development Plan keyed `(employee_id, quarter)` unique. Items are
+free-form learning/coaching actions with `status`
+(`planned | in_progress | completed | dropped`) and an optional `due_date`.
+Same RLS as `Okr` (admin/manager read, owner write).

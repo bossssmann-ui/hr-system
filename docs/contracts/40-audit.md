@@ -297,3 +297,26 @@ also has `actor_user_id = NULL`.
 | `employee.terminated` | `Employee` | Completed offboarding moves `notice → terminated`; disables linked user sessions. |
 | `offboarding.task.completed` | `OffboardingTask` | Offboarding task marked `completed` or `skipped`; may close the checklist. |
 | `alumni.created` | `AlumniProfile` | Alumni profile created idempotently during termination. |
+
+## Phase 6 — Learning & Performance audit actions
+
+| Action | Entity type | Trigger |
+| --- | --- | --- |
+| `learning.course.create` / `learning.course.update` / `learning.course.delete` | `LearningCourse` | Admin CRUD on the course catalogue. |
+| `learning.path.create` / `learning.path.update` / `learning.path.delete` | `LearningPath` | Admin CRUD on learning paths (and their `LearningPathItem` rows). |
+| `learning.assignment.create` | `LearningAssignment` | Admin assigns a course/path to an employee, **or** auto-assigned by `createFromApplication` (then `diff.via = 'auto_role_family'`). |
+| `learning.assignment.update` | `LearningAssignment` | Status / progress / score change. Employee self-updates carry `diff.via = 'portal'`. |
+| `1on1.created` / `1on1.updated` | `OneOnOne` | Meeting scheduled, rescheduled, or closed with notes / action items. |
+| `review.cycle.create` / `review.cycle.update` | `ReviewCycle` | Admin lifecycle transitions (`draft → open → closed`). `diff.transition` records the move. |
+| `review.request.create` | `ReviewRequest` | Admin adds reviewers to a cycle. |
+| `review.request.submit` / `review.request.decline` | `ReviewRequest` | Reviewer responds; `actor_user_id` is the reviewer. |
+| `okr.create` / `okr.update` | `Okr` | Employee or admin authoring/progressing an OKR. |
+| `key_result.create` / `key_result.update` | `KeyResult` | KR added or `current_value` updated; parent OKR `progress_percent` is recomputed in the same transaction. |
+| `idp.create` / `idp.update` | `Idp` | Employee or admin manages the quarterly IDP. |
+| `idp.item.create` / `idp.item.update` | `IdpItem` | IDP item lifecycle (`planned → in_progress → completed | dropped`). |
+
+The `1on1.reminder`, `okr.quarter_start`, and `review.reminder` cron jobs do
+not write audit rows themselves — they write `Notification` rows via the
+shared `Notifier`. The `OneOnOne.reminder_sent_at` and
+`ReviewRequest.reminder_sent_at` watermarks ensure each reminder is sent at
+most once per scheduled meeting / cycle deadline.

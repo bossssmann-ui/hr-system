@@ -168,6 +168,7 @@ model OrgUnit {
   requisitions HiringRequisition[]
   vacancies    Vacancy[]
   employees    Employee[]
+  learningCourses LearningCourse[]
 
   @@index([tenantId], map: "org_units_tenant_id_idx")
   @@index([parentId], map: "org_units_parent_id_idx")
@@ -815,6 +816,7 @@ model Employee {
   agreedStartDate   DateTime?          @db.Date @map("agreed_start_date")
   employmentType    EmploymentType     @default(full_time) @map("employment_type")
   status            EmployeeStatus     @default(pre_onboarding)
+  roleFamily        String?            @map("role_family")
   hireDate          DateTime?          @db.Date @map("hire_date")
   probationEndsAt   DateTime?          @map("probation_ends_at")
   probationOutcome  ProbationOutcome?  @map("probation_outcome")
@@ -836,6 +838,11 @@ model Employee {
   offboardingChecklists OffboardingChecklist[]
   exitInterview         ExitInterview?
   alumniProfile         AlumniProfile?
+  learningAssignments LearningAssignment[]
+  oneOnOnes           OneOnOne[]
+  reviewRequests      ReviewRequest[]
+  okrs                Okr[]
+  idps                Idp[]
 
   @@index([tenantId], map: "employees_tenant_id_idx")
   @@index([orgUnitId], map: "employees_org_unit_id_idx")
@@ -843,6 +850,7 @@ model Employee {
   @@index([requisitionId], map: "employees_requisition_id_idx")
   @@index([status], map: "employees_status_idx")
   @@index([userId], map: "employees_user_id_idx")
+  @@index([roleFamily], map: "employees_role_family_idx")
   @@map("employees")
 }
 
@@ -1099,4 +1107,338 @@ model CompBand {
   @@unique([tenantId, grade, currency], map: "comp_bands_tenant_grade_currency_unique")
   @@index([tenantId], map: "comp_bands_tenant_id_idx")
   @@map("comp_bands")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 6 — Learning & Performance (LMS, 1:1s, 360° Reviews, OKRs, IDPs)
+// Spec: docs/contracts/10-data-model.md (Phase 6 section).
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum LearningContentType {
+  video
+  article
+  quiz
+  external_link
+  scorm
+
+  @@map("learning_content_type")
+}
+
+enum LearningAssignmentStatus {
+  assigned
+  started
+  completed
+  expired
+
+  @@map("learning_assignment_status")
+}
+
+enum OneOnOneStatus {
+  scheduled
+  completed
+  cancelled
+
+  @@map("one_on_one_status")
+}
+
+enum ReviewCycleStatus {
+  draft
+  open
+  closed
+
+  @@map("review_cycle_status")
+}
+
+enum ReviewRequestStatus {
+  pending
+  submitted
+  declined
+
+  @@map("review_request_status")
+}
+
+enum OkrStatus {
+  draft
+  active
+  achieved
+  missed
+
+  @@map("okr_status")
+}
+
+enum KeyResultStatus {
+  open
+  on_track
+  at_risk
+  achieved
+
+  @@map("key_result_status")
+}
+
+enum IdpStatus {
+  draft
+  active
+  completed
+
+  @@map("idp_status")
+}
+
+enum IdpItemStatus {
+  planned
+  in_progress
+  completed
+  dropped
+
+  @@map("idp_item_status")
+}
+
+model LearningCourse {
+  id              String              @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId        String              @db.Uuid @map("tenant_id")
+  title           String
+  description     String?
+  contentType     LearningContentType @map("content_type")
+  contentUrl      String?             @map("content_url")
+  durationMinutes Int?                @map("duration_minutes")
+  isMandatory     Boolean             @default(false) @map("is_mandatory")
+  orgUnitId       String?             @db.Uuid @map("org_unit_id")
+  createdByUserId String              @db.Uuid @map("created_by_user_id")
+  deletedAt       DateTime?           @map("deleted_at")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @default(now()) @updatedAt @map("updated_at")
+
+  orgUnit     OrgUnit?             @relation(fields: [orgUnitId], references: [id], onDelete: SetNull, map: "learning_courses_org_unit_id_fkey")
+  assignments LearningAssignment[]
+  pathItems   LearningPathItem[]
+
+  @@index([tenantId], map: "learning_courses_tenant_id_idx")
+  @@index([orgUnitId], map: "learning_courses_org_unit_id_idx")
+  @@index([deletedAt], map: "learning_courses_deleted_at_idx")
+  @@map("learning_courses")
+}
+
+model LearningPath {
+  id              String     @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId        String     @db.Uuid @map("tenant_id")
+  title           String
+  description     String?
+  roleFamily      String?    @map("role_family")
+  autoAssign      Boolean    @default(false) @map("auto_assign")
+  createdByUserId String     @db.Uuid @map("created_by_user_id")
+  deletedAt       DateTime?  @map("deleted_at")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @default(now()) @updatedAt @map("updated_at")
+
+  items       LearningPathItem[]
+  assignments LearningAssignment[]
+
+  @@index([tenantId], map: "learning_paths_tenant_id_idx")
+  @@index([roleFamily], map: "learning_paths_role_family_idx")
+  @@index([deletedAt], map: "learning_paths_deleted_at_idx")
+  @@map("learning_paths")
+}
+
+model LearningPathItem {
+  id        String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId  String   @db.Uuid @map("tenant_id")
+  pathId    String   @db.Uuid @map("path_id")
+  courseId  String   @db.Uuid @map("course_id")
+  order     Int      @map("item_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  path   LearningPath   @relation(fields: [pathId], references: [id], onDelete: Cascade, map: "learning_path_items_path_id_fkey")
+  course LearningCourse @relation(fields: [courseId], references: [id], onDelete: Cascade, map: "learning_path_items_course_id_fkey")
+
+  @@index([tenantId], map: "learning_path_items_tenant_id_idx")
+  @@index([pathId], map: "learning_path_items_path_id_idx")
+  @@unique([pathId, order], map: "learning_path_items_path_order_key")
+  @@map("learning_path_items")
+}
+
+model LearningAssignment {
+  id                String                   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId          String                   @db.Uuid @map("tenant_id")
+  employeeId        String                   @db.Uuid @map("employee_id")
+  courseId          String?                  @db.Uuid @map("course_id")
+  pathId            String?                  @db.Uuid @map("path_id")
+  status            LearningAssignmentStatus @default(assigned)
+  progressPercent   Int                      @default(0) @map("progress_percent")
+  score             Int?
+  dueDate           DateTime?                @db.Date @map("due_date")
+  startedAt         DateTime?                @map("started_at")
+  completedAt       DateTime?                @map("completed_at")
+  assignedByUserId  String                   @db.Uuid @map("assigned_by_user_id")
+  createdAt         DateTime                 @default(now()) @map("created_at")
+  updatedAt         DateTime                 @default(now()) @updatedAt @map("updated_at")
+
+  employee Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade, map: "learning_assignments_employee_id_fkey")
+  course   LearningCourse? @relation(fields: [courseId], references: [id], onDelete: Cascade, map: "learning_assignments_course_id_fkey")
+  path     LearningPath?   @relation(fields: [pathId], references: [id], onDelete: Cascade, map: "learning_assignments_path_id_fkey")
+
+  @@index([tenantId], map: "learning_assignments_tenant_id_idx")
+  @@index([employeeId], map: "learning_assignments_employee_id_idx")
+  @@index([status], map: "learning_assignments_status_idx")
+  @@map("learning_assignments")
+}
+
+model OneOnOne {
+  id              String         @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId        String         @db.Uuid @map("tenant_id")
+  employeeId      String         @db.Uuid @map("employee_id")
+  managerUserId   String         @db.Uuid @map("manager_user_id")
+  scheduledAt     DateTime       @map("scheduled_at")
+  durationMinutes Int?           @map("duration_minutes")
+  status          OneOnOneStatus @default(scheduled)
+  agenda          String?
+  notes           String?
+  actionItems     Json           @default("[]") @map("action_items")
+  reminderSentAt  DateTime?      @map("reminder_sent_at")
+  completedAt     DateTime?      @map("completed_at")
+  createdByUserId String         @db.Uuid @map("created_by_user_id")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @default(now()) @updatedAt @map("updated_at")
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade, map: "one_on_ones_employee_id_fkey")
+
+  @@index([tenantId], map: "one_on_ones_tenant_id_idx")
+  @@index([employeeId], map: "one_on_ones_employee_id_idx")
+  @@index([managerUserId], map: "one_on_ones_manager_user_id_idx")
+  @@index([scheduledAt], map: "one_on_ones_scheduled_at_idx")
+  @@index([status], map: "one_on_ones_status_idx")
+  @@map("one_on_ones")
+}
+
+model ReviewCycle {
+  id              String            @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId        String            @db.Uuid @map("tenant_id")
+  title           String
+  quarter         String
+  status          ReviewCycleStatus @default(draft)
+  questions       Json              @default("[]")
+  openedAt        DateTime?         @map("opened_at")
+  closesAt        DateTime?         @map("closes_at")
+  closedAt        DateTime?         @map("closed_at")
+  createdByUserId String            @db.Uuid @map("created_by_user_id")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @default(now()) @updatedAt @map("updated_at")
+
+  requests ReviewRequest[]
+
+  @@index([tenantId], map: "review_cycles_tenant_id_idx")
+  @@index([status], map: "review_cycles_status_idx")
+  @@map("review_cycles")
+}
+
+model ReviewRequest {
+  id                String              @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId          String              @db.Uuid @map("tenant_id")
+  cycleId           String              @db.Uuid @map("cycle_id")
+  subjectEmployeeId String              @db.Uuid @map("subject_employee_id")
+  reviewerUserId    String              @db.Uuid @map("reviewer_user_id")
+  relationship      String              @default("peer")
+  status            ReviewRequestStatus @default(pending)
+  response          Json?
+  declineReason     String?             @map("decline_reason")
+  submittedAt       DateTime?           @map("submitted_at")
+  declinedAt        DateTime?           @map("declined_at")
+  reminderSentAt    DateTime?           @map("reminder_sent_at")
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @default(now()) @updatedAt @map("updated_at")
+
+  cycle           ReviewCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade, map: "review_requests_cycle_id_fkey")
+  subjectEmployee Employee    @relation(fields: [subjectEmployeeId], references: [id], onDelete: Cascade, map: "review_requests_subject_employee_id_fkey")
+
+  @@index([tenantId], map: "review_requests_tenant_id_idx")
+  @@index([cycleId], map: "review_requests_cycle_id_idx")
+  @@index([subjectEmployeeId], map: "review_requests_subject_employee_id_idx")
+  @@index([reviewerUserId], map: "review_requests_reviewer_user_id_idx")
+  @@index([status], map: "review_requests_status_idx")
+  @@unique([cycleId, subjectEmployeeId, reviewerUserId], map: "review_requests_cycle_subject_reviewer_key")
+  @@map("review_requests")
+}
+
+model Okr {
+  id              String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId        String    @db.Uuid @map("tenant_id")
+  employeeId      String    @db.Uuid @map("employee_id")
+  parentOkrId     String?   @db.Uuid @map("parent_okr_id")
+  quarter         String
+  objective       String
+  description     String?
+  status          OkrStatus @default(draft)
+  progressPercent Int       @default(0) @map("progress_percent")
+  createdByUserId String    @db.Uuid @map("created_by_user_id")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  employee   Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade, map: "okrs_employee_id_fkey")
+  parent     Okr?        @relation("OkrCascade", fields: [parentOkrId], references: [id], onDelete: SetNull, map: "okrs_parent_okr_id_fkey")
+  children   Okr[]       @relation("OkrCascade")
+  keyResults KeyResult[]
+
+  @@index([tenantId], map: "okrs_tenant_id_idx")
+  @@index([employeeId], map: "okrs_employee_id_idx")
+  @@index([quarter], map: "okrs_quarter_idx")
+  @@index([parentOkrId], map: "okrs_parent_okr_id_idx")
+  @@map("okrs")
+}
+
+model KeyResult {
+  id           String          @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId     String          @db.Uuid @map("tenant_id")
+  okrId        String          @db.Uuid @map("okr_id")
+  title        String
+  unit         String?
+  startValue   Float           @default(0) @map("start_value")
+  targetValue  Float           @map("target_value")
+  currentValue Float           @default(0) @map("current_value")
+  status       KeyResultStatus @default(open)
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @default(now()) @updatedAt @map("updated_at")
+
+  okr Okr @relation(fields: [okrId], references: [id], onDelete: Cascade, map: "key_results_okr_id_fkey")
+
+  @@index([tenantId], map: "key_results_tenant_id_idx")
+  @@index([okrId], map: "key_results_okr_id_idx")
+  @@map("key_results")
+}
+
+model Idp {
+  id              String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId        String    @db.Uuid @map("tenant_id")
+  employeeId      String    @db.Uuid @map("employee_id")
+  quarter         String
+  summary         String?
+  status          IdpStatus @default(draft)
+  createdByUserId String    @db.Uuid @map("created_by_user_id")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  employee Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade, map: "idps_employee_id_fkey")
+  items    IdpItem[]
+
+  @@index([tenantId], map: "idps_tenant_id_idx")
+  @@index([employeeId], map: "idps_employee_id_idx")
+  @@unique([employeeId, quarter], map: "idps_employee_quarter_key")
+  @@map("idps")
+}
+
+model IdpItem {
+  id          String        @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId    String        @db.Uuid @map("tenant_id")
+  idpId       String        @db.Uuid @map("idp_id")
+  title       String
+  description String?
+  status      IdpItemStatus @default(planned)
+  dueDate     DateTime?     @db.Date @map("due_date")
+  completedAt DateTime?     @map("completed_at")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @default(now()) @updatedAt @map("updated_at")
+
+  idp Idp @relation(fields: [idpId], references: [id], onDelete: Cascade, map: "idp_items_idp_id_fkey")
+
+  @@index([tenantId], map: "idp_items_tenant_id_idx")
+  @@index([idpId], map: "idp_items_idp_id_idx")
+  @@map("idp_items")
 }
