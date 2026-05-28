@@ -12,7 +12,6 @@ import type { AppEnv } from '../../env'
 import { Prisma } from '../../generated/prisma/client'
 import { createDocusealClient, type DocusealClient } from '../../integrations/docuseal/client'
 import { createNotifier, type Notifier } from '../../services/notifier'
-import { canTransition as canTransitionApplication } from '../applications/applications.fsm'
 import { createFromApplication } from '../employees/employees.service'
 import type { Role } from '../requisitions/requisitions.fsm'
 import { canTransition, type OfferStatus } from './offers.fsm'
@@ -302,7 +301,6 @@ export async function acceptOffer(ctx: OfferTransitionContext) {
         tenantId,
       })
     }
-    void canTransitionApplication // satisfy unused import in some builds
     return next
   })
 

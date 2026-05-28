@@ -22,7 +22,6 @@ import { requireRole, type RoleGuardBindings } from '../../auth/requireRole'
 import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
 import { AppError } from '../../http/errors'
-import { createDocusealClient } from '../../integrations/docuseal/client'
 import { parseWebhookEvent, verifyWebhookSignature } from '../../integrations/docuseal/webhook'
 import {
   acceptOffer,
@@ -510,10 +509,6 @@ export function createDocusealWebhookRoute() {
     } catch (err) {
       console.error(JSON.stringify({ level: 'error', msg: 'docuseal.webhook.transition_failed', err: String(err) }))
     }
-
-    // Reference createDocusealClient so unused-import lint is satisfied even
-    // though the webhook path doesn't call out to DocuSeal directly.
-    void createDocusealClient
 
     return c.json({ ok: true })
   })
