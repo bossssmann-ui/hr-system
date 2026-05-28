@@ -1518,3 +1518,64 @@ model IdpItem {
   @@index([idpId], map: "idp_items_idp_id_idx")
   @@map("idp_items")
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 8 — External integrations
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum JobBoard {
+  hh
+  sber_podbor
+  avito_jobs
+  rabota_ru
+
+  @@map("job_board")
+}
+
+enum ExternalVacancyPostStatus {
+  pending
+  published
+  unpublished
+  failed
+
+  @@map("external_vacancy_post_status")
+}
+
+/// Outbound publication of a Vacancy to an external job board.
+/// One row per (vacancy, board) — the unique index enforces idempotency.
+model ExternalVacancyPost {
+  id            String                    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId      String                    @map("tenant_id") @db.Uuid
+  vacancyId     String                    @map("vacancy_id") @db.Uuid
+  board         JobBoard
+  externalId    String?                   @map("external_id")
+  status        ExternalVacancyPostStatus @default(pending)
+  lastError     String?                   @map("last_error")
+  lastSyncedAt  DateTime?                 @map("last_synced_at")
+  createdAt     DateTime                  @default(now()) @map("created_at")
+  updatedAt     DateTime                  @updatedAt @map("updated_at")
+
+  @@unique([vacancyId, board], map: "external_vacancy_posts_vacancy_board_uk")
+  @@index([tenantId], map: "external_vacancy_posts_tenant_id_idx")
+  @@index([board, status], map: "external_vacancy_posts_board_status_idx")
+  @@map("external_vacancy_posts")
+}
+
+/// Telegram chat binding for a candidate or employee.
+/// `chatId` is unique globally because Telegram chat ids are global.
+model TelegramLink {
+  id          String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  candidateId String?  @map("candidate_id") @db.Uuid
+  employeeId  String?  @map("employee_id") @db.Uuid
+  chatId      String   @unique @map("chat_id")
+  isActive    Boolean  @default(true) @map("is_active")
+  linkedAt    DateTime @default(now()) @map("linked_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId], map: "telegram_links_tenant_id_idx")
+  @@index([candidateId], map: "telegram_links_candidate_id_idx")
+  @@index([employeeId], map: "telegram_links_employee_id_idx")
+  @@map("telegram_links")
+}

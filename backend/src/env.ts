@@ -94,6 +94,13 @@ const envSchema = z.object({
   TRUST_WEIGHT_FOCUS: z.coerce.number().nonnegative().default(0.4),
   TRUST_WEIGHT_KEYSTROKE: z.coerce.number().nonnegative().default(0.25),
   TRUST_LOW_THRESHOLD: z.coerce.number().int().min(0).max(100).default(50),
+  // Phase 8 — additional job boards (each gated by its own feature flag)
+  SBER_PODBOR_ENABLED: booleanStringSchema,
+  SBER_PODBOR_API_TOKEN: optionalStringSchema,
+  AVITO_JOBS_ENABLED: booleanStringSchema,
+  AVITO_JOBS_API_TOKEN: optionalStringSchema,
+  RABOTA_RU_ENABLED: booleanStringSchema,
+  RABOTA_RU_API_TOKEN: optionalStringSchema,
   // Phase 3 — DocuSeal e-signing integration for offers
   DOCUSEAL_ENABLED: booleanStringSchema,
   DOCUSEAL_API_URL: stringWithDefault('https://api.docuseal.com'),
@@ -108,6 +115,7 @@ const envSchema = z.object({
   validateAiScoringEnv(env, ctx)
   validateMessagingEnv(env, ctx)
   validateDocusealEnv(env, ctx)
+  validateJobBoardsEnv(env, ctx)
 })
 
 export type AppEnv = z.infer<typeof envSchema>
@@ -296,6 +304,23 @@ function validateDocusealEnv(env: z.infer<typeof envSchema>, ctx: z.RefinementCt
         code: 'custom',
         path: [key],
         message: `${key} is required when DOCUSEAL_ENABLED=true`,
+      })
+    }
+  }
+}
+
+function validateJobBoardsEnv(env: z.infer<typeof envSchema>, ctx: z.RefinementCtx) {
+  const pairs: Array<[keyof z.infer<typeof envSchema>, keyof z.infer<typeof envSchema>]> = [
+    ['SBER_PODBOR_ENABLED', 'SBER_PODBOR_API_TOKEN'],
+    ['AVITO_JOBS_ENABLED', 'AVITO_JOBS_API_TOKEN'],
+    ['RABOTA_RU_ENABLED', 'RABOTA_RU_API_TOKEN'],
+  ]
+  for (const [flag, tokenKey] of pairs) {
+    if (env[flag] && !env[tokenKey]) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [tokenKey],
+        message: `${String(tokenKey)} is required when ${String(flag)}=true`,
       })
     }
   }

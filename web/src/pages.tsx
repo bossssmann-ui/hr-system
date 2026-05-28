@@ -94,6 +94,11 @@ export function RootLayout() {
               </Link>
             </Typography>
             <Typography asChild variant="control" tone="muted">
+              <Link to="/settings/integrations" className={navLinkClass}>
+                Integrations
+              </Link>
+            </Typography>
+            <Typography asChild variant="control" tone="muted">
               <Link to="/selection/dashboard" className={navLinkClass}>
                 Отбор
               </Link>
