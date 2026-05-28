@@ -163,7 +163,7 @@ export async function completeOffboarding(input: CompleteOffboardingInput) {
         candidateId: employee.candidateId ?? null,
         status: 'active',
         wouldRehire: employee.exitInterview?.wouldRehire ?? null,
-        departureReason: employee.exitInterview?.notes ?? null,
+        departureReason: employee.exitInterview?.reasonCategory ?? null,
       },
       update: {},
     })

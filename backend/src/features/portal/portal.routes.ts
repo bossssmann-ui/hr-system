@@ -73,9 +73,20 @@ export function createPortalRoutes() {
 
       const onboardingTask = await prisma.onboardingTask.findFirst({ where: { id: taskId, tenantId, assigneeUserId: userId } })
       if (onboardingTask) {
+        const persistedStatus = body.status === 'done' ? 'completed' : 'skipped'
         const updated = await prisma.onboardingTask.update({
           where: { id: taskId },
-          data: { status: body.status === 'done' ? 'completed' : 'skipped', completedAt: new Date(), completedByUserId: userId },
+          data: { status: persistedStatus, completedAt: new Date(), completedByUserId: userId },
+        })
+        await prisma.auditEvent.create({
+          data: {
+            tenantId,
+            actorUserId: userId,
+            action: 'onboarding.task.completed',
+            entityType: 'OnboardingTask',
+            entityId: taskId,
+            diff: { status: persistedStatus, via: 'portal' },
+          },
         })
         return c.json(updated)
       }

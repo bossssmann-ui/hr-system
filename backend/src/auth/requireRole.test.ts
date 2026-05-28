@@ -50,26 +50,27 @@ QUIET_HOURS_QUIET_END_UTC: 23,
 
 type PrismaStub = {
   user: {
-    findUnique: (args: unknown) => Promise<{ disabledAt: Date | null } | null>
-  }
-  userRole: {
-    findMany: (args: unknown) => Promise<Array<{ role: string; tenantId: string }>>
+    findUnique: (args: unknown) => Promise<
+      | { disabledAt: Date | null; roles: Array<{ role: string; tenantId: string }> }
+      | null
+    >
   }
 }
 
 function buildApp(
   memberships: Array<{ role: string; tenantId: string }>,
-  user: { disabledAt: Date | null } | null = { disabledAt: null },
+  user:
+    | { disabledAt: Date | null; roles?: Array<{ role: string; tenantId: string }> }
+    | null = { disabledAt: null },
 ) {
   type Bindings = RoleGuardBindings & {
     Variables: { env: AppEnv; prisma: PrismaStub }
   }
+  const userWithRoles =
+    user === null ? null : { disabledAt: user.disabledAt, roles: user.roles ?? memberships }
   const prisma: PrismaStub = {
     user: {
-      findUnique: async () => user,
-    },
-    userRole: {
-      findMany: async () => memberships,
+      findUnique: async () => userWithRoles,
     },
   }
   const app = new Hono<Bindings>()

@@ -65,7 +65,10 @@ export function requireRole(...allowed: RoleName[]): MiddlewareHandler<RoleGuard
     const prisma = getPrisma(c)
     const user = await prisma.user.findUnique({
       where: { id: payload.sub },
-      select: { disabledAt: true },
+      select: {
+        disabledAt: true,
+        roles: { select: { role: true, tenantId: true } },
+      },
     })
 
     if (!user) {
@@ -75,10 +78,7 @@ export function requireRole(...allowed: RoleName[]): MiddlewareHandler<RoleGuard
       throw new AppError(403, 'FORBIDDEN', 'Account disabled')
     }
 
-    const memberships = await prisma.userRole.findMany({
-      where: { userId: payload.sub },
-      select: { role: true, tenantId: true },
-    })
+    const memberships = user.roles
 
     if (memberships.length === 0) {
       throw new AppError(403, 'FORBIDDEN', 'User has no tenant memberships')
