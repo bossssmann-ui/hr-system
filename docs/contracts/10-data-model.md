@@ -623,7 +623,7 @@ RLS posture:
 ### `Okr` / `KeyResult`
 
 Per-employee OKR scoped to a `quarter` string (e.g. `2026-Q2`). `parent_okr_id`
-supports caascading (org → team → individual). `progress_percent` is recomputed
+supports cascading (org → team → individual). `progress_percent` is recomputed
 server-side from child `KeyResult` rows whenever a key result is updated.
 `KeyResult` carries `start_value`, `target_value`, `current_value`, `unit`, and
 `status` (`open | on_track | at_risk | achieved`).
