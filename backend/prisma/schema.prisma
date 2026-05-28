@@ -123,7 +123,7 @@ model User {
 
 model AuthSession {
   id               String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  userId           String    @db.Uuid @map("user_id")
+  userId           String    @map("user_id") @db.Uuid
   refreshTokenHash String    @unique(map: "auth_sessions_refresh_token_hash_key") @map("refresh_token_hash")
   expiresAt        DateTime  @map("expires_at")
   revokedAt        DateTime? @map("revoked_at")
@@ -139,9 +139,9 @@ model AuthSession {
 }
 
 model UserRole {
-  userId    String   @db.Uuid @map("user_id")
+  userId    String   @map("user_id") @db.Uuid
   role      RoleName
-  tenantId  String   @db.Uuid @map("tenant_id")
+  tenantId  String   @map("tenant_id") @db.Uuid
   createdAt DateTime @default(now()) @map("created_at")
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, map: "user_roles_user_id_fkey")
 
@@ -156,18 +156,18 @@ model UserRole {
 
 model OrgUnit {
   id        String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId  String   @db.Uuid @map("tenant_id")
+  tenantId  String   @map("tenant_id") @db.Uuid
   name      String
-  parentId  String?  @db.Uuid @map("parent_id")
+  parentId  String?  @map("parent_id") @db.Uuid
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   parent   OrgUnit?  @relation("OrgUnitTree", fields: [parentId], references: [id], onDelete: SetNull, map: "org_units_parent_id_fkey")
   children OrgUnit[] @relation("OrgUnitTree")
 
-  requisitions HiringRequisition[]
-  vacancies    Vacancy[]
-  employees    Employee[]
+  requisitions    HiringRequisition[]
+  vacancies       Vacancy[]
+  employees       Employee[]
   learningCourses LearningCourse[]
 
   @@index([tenantId], map: "org_units_tenant_id_idx")
@@ -181,9 +181,9 @@ model OrgUnit {
 
 model HiringRequisition {
   id              String            @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId        String            @db.Uuid @map("tenant_id")
-  orgUnitId       String            @db.Uuid @map("org_unit_id")
-  createdByUserId String            @db.Uuid @map("created_by_user_id")
+  tenantId        String            @map("tenant_id") @db.Uuid
+  orgUnitId       String            @map("org_unit_id") @db.Uuid
+  createdByUserId String            @map("created_by_user_id") @db.Uuid
   title           String
   grade           String
   salaryMin       Int               @map("salary_min")
@@ -195,9 +195,9 @@ model HiringRequisition {
   createdAt       DateTime          @default(now()) @map("created_at")
   updatedAt       DateTime          @updatedAt @map("updated_at")
 
-  orgUnit OrgUnit  @relation(fields: [orgUnitId], references: [id], map: "hiring_requisitions_org_unit_id_fkey")
-  vacancy    Vacancy?
-  employees  Employee[]
+  orgUnit   OrgUnit    @relation(fields: [orgUnitId], references: [id], map: "hiring_requisitions_org_unit_id_fkey")
+  vacancy   Vacancy?
+  employees Employee[]
 
   @@index([tenantId], map: "hiring_requisitions_tenant_id_idx")
   @@index([orgUnitId], map: "hiring_requisitions_org_unit_id_idx")
@@ -208,9 +208,9 @@ model HiringRequisition {
 
 model Vacancy {
   id            String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId      String   @db.Uuid @map("tenant_id")
-  requisitionId String   @unique @db.Uuid @map("requisition_id")
-  orgUnitId     String   @db.Uuid @map("org_unit_id")
+  tenantId      String   @map("tenant_id") @db.Uuid
+  requisitionId String   @unique @map("requisition_id") @db.Uuid
+  orgUnitId     String   @map("org_unit_id") @db.Uuid
   hhVacancyId   String?  @unique @map("hh_vacancy_id")
   slug          String?  @map("slug")
   title         String
@@ -219,10 +219,10 @@ model Vacancy {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
-  requisition  HiringRequisition @relation(fields: [requisitionId], references: [id], map: "vacancies_requisition_id_fkey")
-  orgUnit      OrgUnit           @relation(fields: [orgUnitId], references: [id], map: "vacancies_org_unit_id_fkey")
-  applications Application[]
-  hhSyncCursor HhSyncCursor?
+  requisition         HiringRequisition    @relation(fields: [requisitionId], references: [id], map: "vacancies_requisition_id_fkey")
+  orgUnit             OrgUnit              @relation(fields: [orgUnitId], references: [id], map: "vacancies_org_unit_id_fkey")
+  applications        Application[]
+  hhSyncCursor        HhSyncCursor?
   assessmentTemplates AssessmentTemplate[]
   selectionTemplates  SelectionTemplate[]  @relation("SelectionTemplates")
 
@@ -233,22 +233,22 @@ model Vacancy {
 }
 
 model Candidate {
-  id          String          @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId    String          @db.Uuid @map("tenant_id")
-  fullName    String          @map("full_name")
-  email       String?
-  phone       String?
-  location    String?
-  source      CandidateSource @default(manual)
-  externalIds Json            @default("{}") @map("external_ids")
-  consentContext Json?        @map("consent_context")
-  createdAt   DateTime        @default(now()) @map("created_at")
-  updatedAt   DateTime        @updatedAt @map("updated_at")
+  id             String          @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId       String          @map("tenant_id") @db.Uuid
+  fullName       String          @map("full_name")
+  email          String?
+  phone          String?
+  location       String?
+  source         CandidateSource @default(manual)
+  externalIds    Json            @default("{}") @map("external_ids")
+  consentContext Json?           @map("consent_context")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
 
-  resumes       Resume[]
-  applications  Application[]
-  conversations Conversation[]
-  employees     Employee[]
+  resumes        Resume[]
+  applications   Application[]
+  conversations  Conversation[]
+  employees      Employee[]
   alumniProfiles AlumniProfile[]
 
   // Email and phone are unique only when non-null; expressed at the SQL layer
@@ -259,13 +259,13 @@ model Candidate {
 }
 
 model Resume {
-  id             String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId       String    @db.Uuid @map("tenant_id")
-  candidateId    String    @db.Uuid @map("candidate_id")
-  fileUrl        String    @map("file_url")
-  parsedPayload  Json?     @map("parsed_payload")
-  uploadedAt     DateTime  @default(now()) @map("uploaded_at")
-  deletedAt      DateTime? @map("deleted_at")
+  id            String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  candidateId   String    @map("candidate_id") @db.Uuid
+  fileUrl       String    @map("file_url")
+  parsedPayload Json?     @map("parsed_payload")
+  uploadedAt    DateTime  @default(now()) @map("uploaded_at")
+  deletedAt     DateTime? @map("deleted_at")
 
   candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade, map: "resumes_candidate_id_fkey")
 
@@ -275,29 +275,29 @@ model Resume {
 }
 
 model Application {
-  id                String           @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId          String           @db.Uuid @map("tenant_id")
-  candidateId       String           @db.Uuid @map("candidate_id")
-  vacancyId         String           @db.Uuid @map("vacancy_id")
-  stage             ApplicationStage @default(new)
-  assignedToUserId  String?          @db.Uuid @map("assigned_to_user_id")
-  notes             String?
-  aiScoring         Json?            @map("ai_scoring")
-  aiScoreFeedback   Json?            @map("ai_score_feedback")
-  aiInterviewQuestions Json?         @map("ai_interview_questions")
-  trustFlagged      Boolean          @default(false) @map("trust_flagged")
-  externalIds       Json             @default("{}") @map("external_ids")
-  createdAt         DateTime         @default(now()) @map("created_at")
-  updatedAt         DateTime         @updatedAt @map("updated_at")
+  id                   String           @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId             String           @map("tenant_id") @db.Uuid
+  candidateId          String           @map("candidate_id") @db.Uuid
+  vacancyId            String           @map("vacancy_id") @db.Uuid
+  stage                ApplicationStage @default(new)
+  assignedToUserId     String?          @map("assigned_to_user_id") @db.Uuid
+  notes                String?
+  aiScoring            Json?            @map("ai_scoring")
+  aiScoreFeedback      Json?            @map("ai_score_feedback")
+  aiInterviewQuestions Json?            @map("ai_interview_questions")
+  trustFlagged         Boolean          @default(false) @map("trust_flagged")
+  externalIds          Json             @default("{}") @map("external_ids")
+  createdAt            DateTime         @default(now()) @map("created_at")
+  updatedAt            DateTime         @updatedAt @map("updated_at")
 
-  candidate    Candidate                @relation(fields: [candidateId], references: [id], map: "applications_candidate_id_fkey")
-  vacancy      Vacancy                  @relation(fields: [vacancyId], references: [id], map: "applications_vacancy_id_fkey")
-  stageEvents  ApplicationStageEvent[]
-  interviews   Interview[]
-  conversations Conversation[]
+  candidate          Candidate               @relation(fields: [candidateId], references: [id], map: "applications_candidate_id_fkey")
+  vacancy            Vacancy                 @relation(fields: [vacancyId], references: [id], map: "applications_vacancy_id_fkey")
+  stageEvents        ApplicationStageEvent[]
+  interviews         Interview[]
+  conversations      Conversation[]
   assessmentSessions AssessmentSession[]
-  employee     Employee?
-  offers       Offer[]
+  employee           Employee?
+  offers             Offer[]
 
   @@unique([candidateId, vacancyId], map: "applications_candidate_vacancy_unique")
   @@index([tenantId], map: "applications_tenant_id_idx")
@@ -309,16 +309,16 @@ model Application {
 
 model AssessmentTemplate {
   id           String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId     String   @db.Uuid @map("tenant_id")
-  vacancyId    String?  @db.Uuid @map("vacancy_id")
+  tenantId     String   @map("tenant_id") @db.Uuid
+  vacancyId    String?  @map("vacancy_id") @db.Uuid
   title        String
   description  String?
   timeLimitMin Int?     @map("time_limit_min")
-  createdBy    String   @db.Uuid @map("created_by")
+  createdBy    String   @map("created_by") @db.Uuid
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  vacancy  Vacancy?               @relation(fields: [vacancyId], references: [id], onDelete: SetNull, map: "assessment_templates_vacancy_id_fkey")
+  vacancy   Vacancy?             @relation(fields: [vacancyId], references: [id], onDelete: SetNull, map: "assessment_templates_vacancy_id_fkey")
   questions AssessmentQuestion[]
   sessions  AssessmentSession[]
 
@@ -329,7 +329,7 @@ model AssessmentTemplate {
 
 model AssessmentQuestion {
   id         String                 @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  templateId String                 @db.Uuid @map("template_id")
+  templateId String                 @map("template_id") @db.Uuid
   order      Int                    @map("question_order")
   type       AssessmentQuestionType
   prompt     String
@@ -343,16 +343,16 @@ model AssessmentQuestion {
   template AssessmentTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade, map: "assessment_questions_template_id_fkey")
   answers  AssessmentAnswer[]
 
-  @@index([templateId], map: "assessment_questions_template_id_idx")
   @@unique([templateId, order], map: "assessment_questions_template_order_key")
+  @@index([templateId], map: "assessment_questions_template_id_idx")
   @@map("assessment_questions")
 }
 
 model AssessmentSession {
   id              String                  @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId        String                  @db.Uuid @map("tenant_id")
-  templateId      String                  @db.Uuid @map("template_id")
-  applicationId   String                  @db.Uuid @map("application_id")
+  tenantId        String                  @map("tenant_id") @db.Uuid
+  templateId      String                  @map("template_id") @db.Uuid
+  applicationId   String                  @map("application_id") @db.Uuid
   inviteToken     String                  @unique @map("invite_token")
   status          AssessmentSessionStatus @default(invited)
   consentRecorded Boolean                 @default(false) @map("consent_recorded")
@@ -373,8 +373,8 @@ model AssessmentSession {
 
 model AssessmentAnswer {
   id         String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  sessionId  String   @db.Uuid @map("session_id")
-  questionId String   @db.Uuid @map("question_id")
+  sessionId  String   @map("session_id") @db.Uuid
+  questionId String   @map("question_id") @db.Uuid
   answer     Json
   aiGrade    Json?    @map("ai_grade")
   createdAt  DateTime @default(now()) @map("created_at")
@@ -382,19 +382,19 @@ model AssessmentAnswer {
   session  AssessmentSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade, map: "assessment_answers_session_id_fkey")
   question AssessmentQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade, map: "assessment_answers_question_id_fkey")
 
+  @@unique([sessionId, questionId], map: "assessment_answers_session_question_key")
   @@index([sessionId], map: "assessment_answers_session_id_idx")
   @@index([questionId], map: "assessment_answers_question_id_idx")
-  @@unique([sessionId, questionId], map: "assessment_answers_session_question_key")
   @@map("assessment_answers")
 }
 
 model ApplicationStageEvent {
   id            String           @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId      String           @db.Uuid @map("tenant_id")
-  applicationId String           @db.Uuid @map("application_id")
+  tenantId      String           @map("tenant_id") @db.Uuid
+  applicationId String           @map("application_id") @db.Uuid
   fromStage     ApplicationStage @map("from_stage")
   toStage       ApplicationStage @map("to_stage")
-  actorUserId   String           @db.Uuid @map("actor_user_id")
+  actorUserId   String           @map("actor_user_id") @db.Uuid
   comment       String?
   createdAt     DateTime         @default(now()) @map("created_at")
 
@@ -412,11 +412,11 @@ model ApplicationStageEvent {
 
 model AuditEvent {
   id          String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId    String   @db.Uuid @map("tenant_id")
-  actorUserId String?  @db.Uuid @map("actor_user_id")
+  tenantId    String   @map("tenant_id") @db.Uuid
+  actorUserId String?  @map("actor_user_id") @db.Uuid
   action      String
   entityType  String   @map("entity_type")
-  entityId    String   @db.Uuid @map("entity_id")
+  entityId    String   @map("entity_id") @db.Uuid
   diff        Json
   ip          String?
   userAgent   String?  @map("user_agent")
@@ -430,8 +430,8 @@ model AuditEvent {
 
 model Notification {
   id              String              @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId        String              @db.Uuid @map("tenant_id")
-  recipientUserId String              @db.Uuid @map("recipient_user_id")
+  tenantId        String              @map("tenant_id") @db.Uuid
+  recipientUserId String              @map("recipient_user_id") @db.Uuid
   channel         NotificationChannel
   template        String
   payload         Json                @default("{}")
@@ -445,7 +445,7 @@ model Notification {
 
 model HhConnection {
   id                  String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId            String   @unique @db.Uuid @map("tenant_id")
+  tenantId            String   @unique @map("tenant_id") @db.Uuid
   accessToken         String   @map("access_token")
   refreshToken        String   @map("refresh_token")
   tokenExpiresAt      DateTime @map("token_expires_at")
@@ -458,13 +458,13 @@ model HhConnection {
 }
 
 model HhSyncCursor {
-  id                String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId          String   @db.Uuid @map("tenant_id")
-  vacancyId         String   @unique @db.Uuid @map("vacancy_id")
+  id                String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId          String    @map("tenant_id") @db.Uuid
+  vacancyId         String    @unique @map("vacancy_id") @db.Uuid
   lastSyncedAt      DateTime? @map("last_synced_at")
   lastNegotiationId String?   @map("last_negotiation_id")
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
 
   vacancy Vacancy @relation(fields: [vacancyId], references: [id], onDelete: Cascade, map: "hh_sync_cursors_vacancy_id_fkey")
 
@@ -506,9 +506,9 @@ enum MessageStatus {
 
 model Conversation {
   id            String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId      String    @db.Uuid @map("tenant_id")
-  candidateId   String    @db.Uuid @map("candidate_id")
-  applicationId String?   @db.Uuid @map("application_id")
+  tenantId      String    @map("tenant_id") @db.Uuid
+  candidateId   String    @map("candidate_id") @db.Uuid
+  applicationId String?   @map("application_id") @db.Uuid
   subject       String?
   lastMessageAt DateTime? @map("last_message_at")
   createdAt     DateTime  @default(now()) @map("created_at")
@@ -526,12 +526,12 @@ model Conversation {
 
 model Message {
   id             String             @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId       String             @db.Uuid @map("tenant_id")
-  conversationId String             @db.Uuid @map("conversation_id")
+  tenantId       String             @map("tenant_id") @db.Uuid
+  conversationId String             @map("conversation_id") @db.Uuid
   channel        MessageChannelType
   direction      MessageDirection
   body           String
-  senderUserId   String?            @db.Uuid @map("sender_user_id")
+  senderUserId   String?            @map("sender_user_id") @db.Uuid
   externalId     String?            @map("external_id")
   status         MessageStatus      @default(draft)
   sentAt         DateTime?          @map("sent_at")
@@ -548,15 +548,15 @@ model Message {
 }
 
 model MessageTemplate {
-  id            String             @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId      String             @db.Uuid @map("tenant_id")
-  name          String
-  channel       MessageChannelType?
-  subject       String?
-  body          String
-  createdByUserId String           @db.Uuid @map("created_by_user_id")
-  createdAt     DateTime           @default(now()) @map("created_at")
-  updatedAt     DateTime           @updatedAt @map("updated_at")
+  id              String              @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId        String              @map("tenant_id") @db.Uuid
+  name            String
+  channel         MessageChannelType?
+  subject         String?
+  body            String
+  createdByUserId String              @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
 
   @@index([tenantId], map: "message_templates_tenant_id_idx")
   @@map("message_templates")
@@ -568,13 +568,13 @@ model MessageTemplate {
 
 model SelectionTemplate {
   id        String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId  String   @db.Uuid @map("tenant_id")
-  vacancyId String   @db.Uuid @map("vacancy_id")
-  role      String   // 'logist' | 'sales_manager'
+  tenantId  String   @map("tenant_id") @db.Uuid
+  vacancyId String   @map("vacancy_id") @db.Uuid
+  role      String // 'logist' | 'sales_manager'
   stages    Json
   createdAt DateTime @default(now()) @map("created_at")
 
-  vacancy  Vacancy             @relation("SelectionTemplates", fields: [vacancyId], references: [id])
+  vacancy  Vacancy            @relation("SelectionTemplates", fields: [vacancyId], references: [id])
   sessions SelectionSession[]
 
   @@index([tenantId], map: "selection_templates_tenant_id_idx")
@@ -584,9 +584,9 @@ model SelectionTemplate {
 
 model SelectionSession {
   id            String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId      String    @db.Uuid @map("tenant_id")
-  applicationId String?   @db.Uuid @map("application_id")
-  templateId    String    @db.Uuid @map("template_id")
+  tenantId      String    @map("tenant_id") @db.Uuid
+  applicationId String?   @map("application_id") @db.Uuid
+  templateId    String    @map("template_id") @db.Uuid
   token         String    @unique @default(dbgenerated("uuidv7()"))
   status        String    @default("pending")
   // pending|stage_1|stage_2|stage_3|stage_4|completed|rejected|expired
@@ -605,14 +605,14 @@ model SelectionSession {
 }
 
 model SelectionStageResult {
-  id            String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  sessionId     String   @db.Uuid @map("session_id")
-  stageNumber   Int      @map("stage_number")
-  answers       Json
-  scores        Json?
-  flags         Json?
-  aiEvaluation  Json?    @map("ai_evaluation")
-  submittedAt   DateTime @default(now()) @map("submitted_at")
+  id           String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  sessionId    String   @map("session_id") @db.Uuid
+  stageNumber  Int      @map("stage_number")
+  answers      Json
+  scores       Json?
+  flags        Json?
+  aiEvaluation Json?    @map("ai_evaluation")
+  submittedAt  DateTime @default(now()) @map("submitted_at")
 
   session SelectionSession @relation(fields: [sessionId], references: [id])
 
@@ -622,8 +622,8 @@ model SelectionStageResult {
 
 model SelectionVerdict {
   id                 String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  sessionId          String   @unique @db.Uuid @map("session_id")
-  verdict            String   // ДОПУСТИТЬ|ОТКЛОНИТЬ|НА РУЧНУЮ ПРОВЕРКУ HR
+  sessionId          String   @unique @map("session_id") @db.Uuid
+  verdict            String // ДОПУСТИТЬ|ОТКЛОНИТЬ|НА РУЧНУЮ ПРОВЕРКУ HR
   totalWeightedScore Decimal? @map("total_weighted_score")
   stageScores        Json?    @map("stage_scores")
   crossCheckFlags    Json?    @map("cross_check_flags")
@@ -650,19 +650,19 @@ enum InterviewStatus {
 }
 
 model Interview {
-  id                String          @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId          String          @db.Uuid @map("tenant_id")
-  applicationId     String          @db.Uuid @map("application_id")
-  scheduledAt       DateTime?       @map("scheduled_at")
-  recordingUrl      String?         @map("recording_url")
-  consentRecorded   Boolean         @default(false) @map("consent_recorded")
-  status            InterviewStatus @default(created)
-  transcript        Json?
-  protocol          Json?
-  offerDraft        Json?           @map("offer_draft")
-  createdByUserId   String          @db.Uuid @map("created_by_user_id")
-  createdAt         DateTime        @default(now()) @map("created_at")
-  updatedAt         DateTime        @updatedAt @map("updated_at")
+  id              String          @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId        String          @map("tenant_id") @db.Uuid
+  applicationId   String          @map("application_id") @db.Uuid
+  scheduledAt     DateTime?       @map("scheduled_at")
+  recordingUrl    String?         @map("recording_url")
+  consentRecorded Boolean         @default(false) @map("consent_recorded")
+  status          InterviewStatus @default(created)
+  transcript      Json?
+  protocol        Json?
+  offerDraft      Json?           @map("offer_draft")
+  createdByUserId String          @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
 
   application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade, map: "interviews_application_id_fkey")
   offers      Offer[]
@@ -748,7 +748,6 @@ enum LifecycleEventType {
   @@map("lifecycle_event_type")
 }
 
-
 enum AlumniStatus {
   active
   do_not_rehire
@@ -800,12 +799,12 @@ enum PreStartPortalStatus {
 
 model Employee {
   id                String             @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId          String             @db.Uuid @map("tenant_id")
-  userId            String?            @unique @db.Uuid @map("user_id")
-  applicationId    String?            @unique @db.Uuid @map("application_id")
-  candidateId       String?            @db.Uuid @map("candidate_id")
-  requisitionId     String?            @db.Uuid @map("requisition_id")
-  orgUnitId         String?            @db.Uuid @map("org_unit_id")
+  tenantId          String             @map("tenant_id") @db.Uuid
+  userId            String?            @unique @map("user_id") @db.Uuid
+  applicationId     String?            @unique @map("application_id") @db.Uuid
+  candidateId       String?            @map("candidate_id") @db.Uuid
+  requisitionId     String?            @map("requisition_id") @db.Uuid
+  orgUnitId         String?            @map("org_unit_id") @db.Uuid
   fullName          String             @map("full_name")
   email             String?
   phone             String?
@@ -813,11 +812,11 @@ model Employee {
   grade             String?
   currency          String?
   agreedBaseSalary  Int?               @map("agreed_base_salary")
-  agreedStartDate   DateTime?          @db.Date @map("agreed_start_date")
+  agreedStartDate   DateTime?          @map("agreed_start_date") @db.Date
   employmentType    EmploymentType     @default(full_time) @map("employment_type")
   status            EmployeeStatus     @default(pre_onboarding)
   roleFamily        String?            @map("role_family")
-  hireDate          DateTime?          @db.Date @map("hire_date")
+  hireDate          DateTime?          @map("hire_date") @db.Date
   probationEndsAt   DateTime?          @map("probation_ends_at")
   probationOutcome  ProbationOutcome?  @map("probation_outcome")
   terminatedAt      DateTime?          @map("terminated_at")
@@ -826,23 +825,23 @@ model Employee {
   createdAt         DateTime           @default(now()) @map("created_at")
   updatedAt         DateTime           @default(now()) @updatedAt @map("updated_at")
 
-  user            User?                    @relation(fields: [userId], references: [id], onDelete: SetNull, map: "employees_user_id_fkey")
-  application     Application?             @relation(fields: [applicationId], references: [id], onDelete: SetNull, map: "employees_application_id_fkey")
-  candidate       Candidate?               @relation(fields: [candidateId], references: [id], onDelete: SetNull, map: "employees_candidate_id_fkey")
-  requisition     HiringRequisition?       @relation(fields: [requisitionId], references: [id], onDelete: SetNull, map: "employees_requisition_id_fkey")
-  orgUnit         OrgUnit?                 @relation(fields: [orgUnitId], references: [id], onDelete: SetNull, map: "employees_org_unit_id_fkey")
-  lifecycleEvents EmployeeLifecycleEvent[]
-  checklists      OnboardingChecklist[]
-  documents       EmploymentDocument[]
-  preStartPortalEntry PreStartPortalEntry?
+  user                  User?                    @relation(fields: [userId], references: [id], onDelete: SetNull, map: "employees_user_id_fkey")
+  application           Application?             @relation(fields: [applicationId], references: [id], onDelete: SetNull, map: "employees_application_id_fkey")
+  candidate             Candidate?               @relation(fields: [candidateId], references: [id], onDelete: SetNull, map: "employees_candidate_id_fkey")
+  requisition           HiringRequisition?       @relation(fields: [requisitionId], references: [id], onDelete: SetNull, map: "employees_requisition_id_fkey")
+  orgUnit               OrgUnit?                 @relation(fields: [orgUnitId], references: [id], onDelete: SetNull, map: "employees_org_unit_id_fkey")
+  lifecycleEvents       EmployeeLifecycleEvent[]
+  checklists            OnboardingChecklist[]
+  documents             EmploymentDocument[]
+  preStartPortalEntry   PreStartPortalEntry?
   offboardingChecklists OffboardingChecklist[]
   exitInterview         ExitInterview?
   alumniProfile         AlumniProfile?
-  learningAssignments LearningAssignment[]
-  oneOnOnes           OneOnOne[]
-  reviewRequests      ReviewRequest[]
-  okrs                Okr[]
-  idps                Idp[]
+  learningAssignments   LearningAssignment[]
+  oneOnOnes             OneOnOne[]
+  reviewRequests        ReviewRequest[]
+  okrs                  Okr[]
+  idps                  Idp[]
 
   @@index([tenantId], map: "employees_tenant_id_idx")
   @@index([orgUnitId], map: "employees_org_unit_id_idx")
@@ -856,13 +855,13 @@ model Employee {
 
 model EmployeeLifecycleEvent {
   id          String             @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId    String             @db.Uuid @map("tenant_id")
-  employeeId  String             @db.Uuid @map("employee_id")
+  tenantId    String             @map("tenant_id") @db.Uuid
+  employeeId  String             @map("employee_id") @db.Uuid
   type        LifecycleEventType
   fromStatus  EmployeeStatus?    @map("from_status")
   toStatus    EmployeeStatus?    @map("to_status")
   effectiveAt DateTime           @default(now()) @map("effective_at")
-  actorUserId String?            @db.Uuid @map("actor_user_id")
+  actorUserId String?            @map("actor_user_id") @db.Uuid
   payload     Json?
   note        String?
   createdAt   DateTime           @default(now()) @map("created_at")
@@ -876,12 +875,12 @@ model EmployeeLifecycleEvent {
 }
 
 model OnboardingChecklist {
-  id          String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId    String   @db.Uuid @map("tenant_id")
-  employeeId  String   @db.Uuid @map("employee_id")
+  id          String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  employeeId  String    @map("employee_id") @db.Uuid
   title       String
   description String?
-  dueDate     DateTime? @db.Date @map("due_date")
+  dueDate     DateTime? @map("due_date") @db.Date
   completedAt DateTime? @map("completed_at")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at")
@@ -895,44 +894,44 @@ model OnboardingChecklist {
 }
 
 model OnboardingTask {
-  id              String               @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId        String               @db.Uuid @map("tenant_id")
-  checklistId     String               @db.Uuid @map("checklist_id")
-  order           Int                  @map("task_order")
-  title           String
-  description     String?
-  status          OnboardingTaskStatus @default(pending)
-  assigneeUserId  String?              @db.Uuid @map("assignee_user_id")
-  dueDate         DateTime?            @db.Date @map("due_date")
-  completedAt     DateTime?            @map("completed_at")
-  completedByUserId String?            @db.Uuid @map("completed_by_user_id")
-  createdAt       DateTime             @default(now()) @map("created_at")
-  updatedAt       DateTime             @default(now()) @updatedAt @map("updated_at")
+  id                String               @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId          String               @map("tenant_id") @db.Uuid
+  checklistId       String               @map("checklist_id") @db.Uuid
+  order             Int                  @map("task_order")
+  title             String
+  description       String?
+  status            OnboardingTaskStatus @default(pending)
+  assigneeUserId    String?              @map("assignee_user_id") @db.Uuid
+  dueDate           DateTime?            @map("due_date") @db.Date
+  completedAt       DateTime?            @map("completed_at")
+  completedByUserId String?              @map("completed_by_user_id") @db.Uuid
+  createdAt         DateTime             @default(now()) @map("created_at")
+  updatedAt         DateTime             @default(now()) @updatedAt @map("updated_at")
 
   checklist OnboardingChecklist @relation(fields: [checklistId], references: [id], onDelete: Cascade, map: "onboarding_tasks_checklist_id_fkey")
 
+  @@unique([checklistId, order], map: "onboarding_tasks_checklist_order_key")
   @@index([tenantId], map: "onboarding_tasks_tenant_id_idx")
   @@index([checklistId], map: "onboarding_tasks_checklist_id_idx")
   @@index([status], map: "onboarding_tasks_status_idx")
-  @@unique([checklistId, order], map: "onboarding_tasks_checklist_order_key")
   @@map("onboarding_tasks")
 }
 
 model EmploymentDocument {
-  id           String                   @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId     String                   @db.Uuid @map("tenant_id")
-  employeeId   String                   @db.Uuid @map("employee_id")
-  type         EmploymentDocumentType
-  status       EmploymentDocumentStatus @default(draft)
-  title        String
-  fileUrl      String?                  @map("file_url")
-  metadata     Json?
-  issuedAt     DateTime?                @map("issued_at")
-  signedAt     DateTime?                @map("signed_at")
-  expiresAt    DateTime?                @map("expires_at")
-  createdByUserId String                @db.Uuid @map("created_by_user_id")
-  createdAt    DateTime                 @default(now()) @map("created_at")
-  updatedAt    DateTime                 @default(now()) @updatedAt @map("updated_at")
+  id              String                   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId        String                   @map("tenant_id") @db.Uuid
+  employeeId      String                   @map("employee_id") @db.Uuid
+  type            EmploymentDocumentType
+  status          EmploymentDocumentStatus @default(draft)
+  title           String
+  fileUrl         String?                  @map("file_url")
+  metadata        Json?
+  issuedAt        DateTime?                @map("issued_at")
+  signedAt        DateTime?                @map("signed_at")
+  expiresAt       DateTime?                @map("expires_at")
+  createdByUserId String                   @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime                 @default(now()) @map("created_at")
+  updatedAt       DateTime                 @default(now()) @updatedAt @map("updated_at")
 
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade, map: "employment_documents_employee_id_fkey")
 
@@ -953,8 +952,8 @@ model EmploymentDocument {
 
 model PreStartPortalEntry {
   id         String               @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId   String               @db.Uuid @map("tenant_id")
-  employeeId String               @unique @db.Uuid @map("employee_id")
+  tenantId   String               @map("tenant_id") @db.Uuid
+  employeeId String               @unique @map("employee_id") @db.Uuid
   status     PreStartPortalStatus @default(pending_link)
   openedAt   DateTime             @default(now()) @map("opened_at")
   linkedAt   DateTime?            @map("linked_at")
@@ -969,14 +968,13 @@ model PreStartPortalEntry {
   @@map("pre_start_portal_entries")
 }
 
-
 model OffboardingChecklist {
   id          String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId    String    @db.Uuid @map("tenant_id")
-  employeeId  String    @db.Uuid @map("employee_id")
+  tenantId    String    @map("tenant_id") @db.Uuid
+  employeeId  String    @map("employee_id") @db.Uuid
   title       String
   description String?
-  dueDate     DateTime? @db.Date @map("due_date")
+  dueDate     DateTime? @map("due_date") @db.Date
   completedAt DateTime? @map("completed_at")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at")
@@ -991,41 +989,41 @@ model OffboardingChecklist {
 
 model OffboardingTask {
   id                String               @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId          String               @db.Uuid @map("tenant_id")
-  checklistId       String               @db.Uuid @map("checklist_id")
+  tenantId          String               @map("tenant_id") @db.Uuid
+  checklistId       String               @map("checklist_id") @db.Uuid
   order             Int                  @map("task_order")
   title             String
   description       String?
   assigneeRole      String               @map("assignee_role")
   status            OnboardingTaskStatus @default(pending)
-  assigneeUserId    String?              @db.Uuid @map("assignee_user_id")
-  dueDate           DateTime?            @db.Date @map("due_date")
+  assigneeUserId    String?              @map("assignee_user_id") @db.Uuid
+  dueDate           DateTime?            @map("due_date") @db.Date
   completedAt       DateTime?            @map("completed_at")
-  completedByUserId String?              @db.Uuid @map("completed_by_user_id")
+  completedByUserId String?              @map("completed_by_user_id") @db.Uuid
   createdAt         DateTime             @default(now()) @map("created_at")
   updatedAt         DateTime             @default(now()) @updatedAt @map("updated_at")
 
   checklist OffboardingChecklist @relation(fields: [checklistId], references: [id], onDelete: Cascade, map: "offboarding_tasks_checklist_id_fkey")
 
+  @@unique([checklistId, order], map: "offboarding_tasks_checklist_order_key")
   @@index([tenantId], map: "offboarding_tasks_tenant_id_idx")
   @@index([checklistId], map: "offboarding_tasks_checklist_id_idx")
   @@index([status], map: "offboarding_tasks_status_idx")
-  @@unique([checklistId, order], map: "offboarding_tasks_checklist_order_key")
   @@map("offboarding_tasks")
 }
 
 model ExitInterview {
-  id                 String             @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId           String             @db.Uuid @map("tenant_id")
-  employeeId         String             @unique @db.Uuid @map("employee_id")
-  conductedByUserId  String?            @db.Uuid @map("conducted_by_user_id")
-  conductedAt        DateTime?          @map("conducted_at")
-  reasonCategory     ExitReasonCategory @map("reason_category")
-  notes              String?
-  wouldRehire        Boolean?           @map("would_rehire")
-  metadata           Json?
-  createdAt          DateTime           @default(now()) @map("created_at")
-  updatedAt          DateTime           @default(now()) @updatedAt @map("updated_at")
+  id                String             @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId          String             @map("tenant_id") @db.Uuid
+  employeeId        String             @unique @map("employee_id") @db.Uuid
+  conductedByUserId String?            @map("conducted_by_user_id") @db.Uuid
+  conductedAt       DateTime?          @map("conducted_at")
+  reasonCategory    ExitReasonCategory @map("reason_category")
+  notes             String?
+  wouldRehire       Boolean?           @map("would_rehire")
+  metadata          Json?
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @default(now()) @updatedAt @map("updated_at")
 
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade, map: "exit_interviews_employee_id_fkey")
 
@@ -1034,18 +1032,18 @@ model ExitInterview {
 }
 
 model AlumniProfile {
-  id                  String       @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId            String       @db.Uuid @map("tenant_id")
-  employeeId          String       @unique @db.Uuid @map("employee_id")
-  candidateId         String?      @db.Uuid @map("candidate_id")
-  status              AlumniStatus @default(active)
-  wouldRehire         Boolean?     @map("would_rehire")
-  departureReason     String?      @map("departure_reason")
-  rehireEligibleFrom  DateTime?    @db.Date @map("rehire_eligible_from")
-  tags                String[]     @default([])
-  notes               String?
-  createdAt           DateTime     @default(now()) @map("created_at")
-  updatedAt           DateTime     @default(now()) @updatedAt @map("updated_at")
+  id                 String       @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId           String       @map("tenant_id") @db.Uuid
+  employeeId         String       @unique @map("employee_id") @db.Uuid
+  candidateId        String?      @map("candidate_id") @db.Uuid
+  status             AlumniStatus @default(active)
+  wouldRehire        Boolean?     @map("would_rehire")
+  departureReason    String?      @map("departure_reason")
+  rehireEligibleFrom DateTime?    @map("rehire_eligible_from") @db.Date
+  tags               String[]     @default([])
+  notes              String?
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @default(now()) @updatedAt @map("updated_at")
 
   employee  Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade, map: "alumni_profiles_employee_id_fkey")
   candidate Candidate? @relation(fields: [candidateId], references: [id], onDelete: SetNull, map: "alumni_profiles_candidate_id_fkey")
@@ -1061,27 +1059,27 @@ model AlumniProfile {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model Offer {
-  id                    String       @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId              String       @db.Uuid @map("tenant_id")
-  applicationId         String       @db.Uuid @map("application_id")
-  interviewId           String?      @db.Uuid @map("interview_id")
-  salary                Int
-  currency              Currency
-  startDate             DateTime     @map("start_date") @db.Date
-  grade                 String?
-  conditions            String[]     @default([])
-  status                OfferStatus  @default(draft)
-  docusealSubmissionId  String?      @map("docuseal_submission_id")
-  docusealDocumentUrl   String?      @map("docuseal_document_url")
-  docusealSigningUrl    String?      @map("docuseal_signing_url")
-  sentAt                DateTime?    @map("sent_at")
-  expiresAt             DateTime?    @map("expires_at")
-  acceptedAt            DateTime?    @map("accepted_at")
-  declinedAt            DateTime?    @map("declined_at")
-  declinedReason        String?      @map("declined_reason")
-  createdByUserId       String       @db.Uuid @map("created_by_user_id")
-  createdAt             DateTime     @default(now()) @map("created_at")
-  updatedAt             DateTime     @updatedAt @map("updated_at")
+  id                   String      @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId             String      @map("tenant_id") @db.Uuid
+  applicationId        String      @map("application_id") @db.Uuid
+  interviewId          String?     @map("interview_id") @db.Uuid
+  salary               Int
+  currency             Currency
+  startDate            DateTime    @map("start_date") @db.Date
+  grade                String?
+  conditions           String[]    @default([])
+  status               OfferStatus @default(draft)
+  docusealSubmissionId String?     @map("docuseal_submission_id")
+  docusealDocumentUrl  String?     @map("docuseal_document_url")
+  docusealSigningUrl   String?     @map("docuseal_signing_url")
+  sentAt               DateTime?   @map("sent_at")
+  expiresAt            DateTime?   @map("expires_at")
+  acceptedAt           DateTime?   @map("accepted_at")
+  declinedAt           DateTime?   @map("declined_at")
+  declinedReason       String?     @map("declined_reason")
+  createdByUserId      String      @map("created_by_user_id") @db.Uuid
+  createdAt            DateTime    @default(now()) @map("created_at")
+  updatedAt            DateTime    @updatedAt @map("updated_at")
 
   application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade, map: "offers_application_id_fkey")
   interview   Interview?  @relation(fields: [interviewId], references: [id], onDelete: SetNull, map: "offers_interview_id_fkey")
@@ -1093,20 +1091,98 @@ model Offer {
 }
 
 model CompBand {
-  id          String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId    String    @db.Uuid @map("tenant_id")
-  grade       String
-  currency    Currency
-  minSalary   Int       @map("min_salary")
-  midSalary   Int       @map("mid_salary")
-  maxSalary   Int       @map("max_salary")
-  deletedAt   DateTime? @map("deleted_at")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  id        String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId  String    @map("tenant_id") @db.Uuid
+  grade     String
+  currency  Currency
+  minSalary Int       @map("min_salary")
+  midSalary Int       @map("mid_salary")
+  maxSalary Int       @map("max_salary")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
 
   @@unique([tenantId, grade, currency], map: "comp_bands_tenant_grade_currency_unique")
   @@index([tenantId], map: "comp_bands_tenant_id_idx")
   @@map("comp_bands")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 7 — HR Analytics & Finance (HrSnapshot, CompPlan, payroll export)
+// Spec: docs/contracts/00-overview.md, issue Phase 7.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum CompPlanStatus {
+  draft
+  approved
+  applied
+
+  @@map("comp_plan_status")
+}
+
+model HrSnapshot {
+  id                   String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId             String   @map("tenant_id") @db.Uuid
+  snapshotDate         DateTime @map("snapshot_date") @db.Date
+  headcount            Int
+  headcountByStatus    Json     @default("{}") @map("headcount_by_status")
+  headcountByOrgUnit   Json     @default("{}") @map("headcount_by_org_unit")
+  openRequisitions     Int      @default(0) @map("open_requisitions")
+  hiredMtd             Int      @default(0) @map("hired_mtd")
+  terminatedMtd        Int      @default(0) @map("terminated_mtd")
+  avgTimeToHireDays    Decimal? @map("avg_time_to_hire_days") @db.Decimal(10, 2)
+  probationPassRateQtd Decimal? @map("probation_pass_rate_qtd") @db.Decimal(5, 2)
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  @@unique([tenantId, snapshotDate], map: "hr_snapshots_tenant_date_unique")
+  @@index([tenantId], map: "hr_snapshots_tenant_id_idx")
+  @@index([snapshotDate], map: "hr_snapshots_date_idx")
+  @@map("hr_snapshots")
+}
+
+model CompPlan {
+  id               String         @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId         String         @map("tenant_id") @db.Uuid
+  name             String
+  effectiveDate    DateTime       @map("effective_date") @db.Date
+  budgetCurrency   Currency
+  budgetTotal      Int            @default(0) @map("budget_total")
+  status           CompPlanStatus @default(draft)
+  notes            String?
+  createdByUserId  String         @map("created_by_user_id") @db.Uuid
+  approvedByUserId String?        @map("approved_by_user_id") @db.Uuid
+  approvedAt       DateTime?      @map("approved_at")
+  appliedAt        DateTime?      @map("applied_at")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  items CompPlanItem[]
+
+  @@index([tenantId], map: "comp_plans_tenant_id_idx")
+  @@index([status], map: "comp_plans_status_idx")
+  @@map("comp_plans")
+}
+
+model CompPlanItem {
+  id             String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  planId         String   @map("plan_id") @db.Uuid
+  employeeId     String   @map("employee_id") @db.Uuid
+  currentSalary  Int      @map("current_salary")
+  proposedSalary Int      @map("proposed_salary")
+  currency       Currency
+  changePct      Decimal  @map("change_pct") @db.Decimal(7, 2)
+  reason         String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  plan CompPlan @relation(fields: [planId], references: [id], onDelete: Cascade, map: "comp_plan_items_plan_id_fkey")
+
+  @@unique([planId, employeeId], map: "comp_plan_items_plan_employee_unique")
+  @@index([tenantId], map: "comp_plan_items_tenant_id_idx")
+  @@index([planId], map: "comp_plan_items_plan_id_idx")
+  @@index([employeeId], map: "comp_plan_items_employee_id_idx")
+  @@map("comp_plan_items")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1194,15 +1270,15 @@ enum IdpItemStatus {
 
 model LearningCourse {
   id              String              @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId        String              @db.Uuid @map("tenant_id")
+  tenantId        String              @map("tenant_id") @db.Uuid
   title           String
   description     String?
   contentType     LearningContentType @map("content_type")
   contentUrl      String?             @map("content_url")
   durationMinutes Int?                @map("duration_minutes")
   isMandatory     Boolean             @default(false) @map("is_mandatory")
-  orgUnitId       String?             @db.Uuid @map("org_unit_id")
-  createdByUserId String              @db.Uuid @map("created_by_user_id")
+  orgUnitId       String?             @map("org_unit_id") @db.Uuid
+  createdByUserId String              @map("created_by_user_id") @db.Uuid
   deletedAt       DateTime?           @map("deleted_at")
   createdAt       DateTime            @default(now()) @map("created_at")
   updatedAt       DateTime            @default(now()) @updatedAt @map("updated_at")
@@ -1218,16 +1294,16 @@ model LearningCourse {
 }
 
 model LearningPath {
-  id              String     @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId        String     @db.Uuid @map("tenant_id")
+  id              String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId        String    @map("tenant_id") @db.Uuid
   title           String
   description     String?
-  roleFamily      String?    @map("role_family")
-  autoAssign      Boolean    @default(false) @map("auto_assign")
-  createdByUserId String     @db.Uuid @map("created_by_user_id")
-  deletedAt       DateTime?  @map("deleted_at")
-  createdAt       DateTime   @default(now()) @map("created_at")
-  updatedAt       DateTime   @default(now()) @updatedAt @map("updated_at")
+  roleFamily      String?   @map("role_family")
+  autoAssign      Boolean   @default(false) @map("auto_assign")
+  createdByUserId String    @map("created_by_user_id") @db.Uuid
+  deletedAt       DateTime? @map("deleted_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
 
   items       LearningPathItem[]
   assignments LearningAssignment[]
@@ -1240,9 +1316,9 @@ model LearningPath {
 
 model LearningPathItem {
   id        String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId  String   @db.Uuid @map("tenant_id")
-  pathId    String   @db.Uuid @map("path_id")
-  courseId  String   @db.Uuid @map("course_id")
+  tenantId  String   @map("tenant_id") @db.Uuid
+  pathId    String   @map("path_id") @db.Uuid
+  courseId  String   @map("course_id") @db.Uuid
   order     Int      @map("item_order")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
@@ -1250,27 +1326,27 @@ model LearningPathItem {
   path   LearningPath   @relation(fields: [pathId], references: [id], onDelete: Cascade, map: "learning_path_items_path_id_fkey")
   course LearningCourse @relation(fields: [courseId], references: [id], onDelete: Cascade, map: "learning_path_items_course_id_fkey")
 
+  @@unique([pathId, order], map: "learning_path_items_path_order_key")
   @@index([tenantId], map: "learning_path_items_tenant_id_idx")
   @@index([pathId], map: "learning_path_items_path_id_idx")
-  @@unique([pathId, order], map: "learning_path_items_path_order_key")
   @@map("learning_path_items")
 }
 
 model LearningAssignment {
-  id                String                   @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId          String                   @db.Uuid @map("tenant_id")
-  employeeId        String                   @db.Uuid @map("employee_id")
-  courseId          String?                  @db.Uuid @map("course_id")
-  pathId            String?                  @db.Uuid @map("path_id")
-  status            LearningAssignmentStatus @default(assigned)
-  progressPercent   Int                      @default(0) @map("progress_percent")
-  score             Int?
-  dueDate           DateTime?                @db.Date @map("due_date")
-  startedAt         DateTime?                @map("started_at")
-  completedAt       DateTime?                @map("completed_at")
-  assignedByUserId  String                   @db.Uuid @map("assigned_by_user_id")
-  createdAt         DateTime                 @default(now()) @map("created_at")
-  updatedAt         DateTime                 @default(now()) @updatedAt @map("updated_at")
+  id               String                   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId         String                   @map("tenant_id") @db.Uuid
+  employeeId       String                   @map("employee_id") @db.Uuid
+  courseId         String?                  @map("course_id") @db.Uuid
+  pathId           String?                  @map("path_id") @db.Uuid
+  status           LearningAssignmentStatus @default(assigned)
+  progressPercent  Int                      @default(0) @map("progress_percent")
+  score            Int?
+  dueDate          DateTime?                @map("due_date") @db.Date
+  startedAt        DateTime?                @map("started_at")
+  completedAt      DateTime?                @map("completed_at")
+  assignedByUserId String                   @map("assigned_by_user_id") @db.Uuid
+  createdAt        DateTime                 @default(now()) @map("created_at")
+  updatedAt        DateTime                 @default(now()) @updatedAt @map("updated_at")
 
   employee Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade, map: "learning_assignments_employee_id_fkey")
   course   LearningCourse? @relation(fields: [courseId], references: [id], onDelete: Cascade, map: "learning_assignments_course_id_fkey")
@@ -1284,9 +1360,9 @@ model LearningAssignment {
 
 model OneOnOne {
   id              String         @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId        String         @db.Uuid @map("tenant_id")
-  employeeId      String         @db.Uuid @map("employee_id")
-  managerUserId   String         @db.Uuid @map("manager_user_id")
+  tenantId        String         @map("tenant_id") @db.Uuid
+  employeeId      String         @map("employee_id") @db.Uuid
+  managerUserId   String         @map("manager_user_id") @db.Uuid
   scheduledAt     DateTime       @map("scheduled_at")
   durationMinutes Int?           @map("duration_minutes")
   status          OneOnOneStatus @default(scheduled)
@@ -1295,7 +1371,7 @@ model OneOnOne {
   actionItems     Json           @default("[]") @map("action_items")
   reminderSentAt  DateTime?      @map("reminder_sent_at")
   completedAt     DateTime?      @map("completed_at")
-  createdByUserId String         @db.Uuid @map("created_by_user_id")
+  createdByUserId String         @map("created_by_user_id") @db.Uuid
   createdAt       DateTime       @default(now()) @map("created_at")
   updatedAt       DateTime       @default(now()) @updatedAt @map("updated_at")
 
@@ -1311,7 +1387,7 @@ model OneOnOne {
 
 model ReviewCycle {
   id              String            @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId        String            @db.Uuid @map("tenant_id")
+  tenantId        String            @map("tenant_id") @db.Uuid
   title           String
   quarter         String
   status          ReviewCycleStatus @default(draft)
@@ -1319,7 +1395,7 @@ model ReviewCycle {
   openedAt        DateTime?         @map("opened_at")
   closesAt        DateTime?         @map("closes_at")
   closedAt        DateTime?         @map("closed_at")
-  createdByUserId String            @db.Uuid @map("created_by_user_id")
+  createdByUserId String            @map("created_by_user_id") @db.Uuid
   createdAt       DateTime          @default(now()) @map("created_at")
   updatedAt       DateTime          @default(now()) @updatedAt @map("updated_at")
 
@@ -1332,10 +1408,10 @@ model ReviewCycle {
 
 model ReviewRequest {
   id                String              @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId          String              @db.Uuid @map("tenant_id")
-  cycleId           String              @db.Uuid @map("cycle_id")
-  subjectEmployeeId String              @db.Uuid @map("subject_employee_id")
-  reviewerUserId    String              @db.Uuid @map("reviewer_user_id")
+  tenantId          String              @map("tenant_id") @db.Uuid
+  cycleId           String              @map("cycle_id") @db.Uuid
+  subjectEmployeeId String              @map("subject_employee_id") @db.Uuid
+  reviewerUserId    String              @map("reviewer_user_id") @db.Uuid
   relationship      String              @default("peer")
   status            ReviewRequestStatus @default(pending)
   response          Json?
@@ -1349,26 +1425,26 @@ model ReviewRequest {
   cycle           ReviewCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade, map: "review_requests_cycle_id_fkey")
   subjectEmployee Employee    @relation(fields: [subjectEmployeeId], references: [id], onDelete: Cascade, map: "review_requests_subject_employee_id_fkey")
 
+  @@unique([cycleId, subjectEmployeeId, reviewerUserId], map: "review_requests_cycle_subject_reviewer_key")
   @@index([tenantId], map: "review_requests_tenant_id_idx")
   @@index([cycleId], map: "review_requests_cycle_id_idx")
   @@index([subjectEmployeeId], map: "review_requests_subject_employee_id_idx")
   @@index([reviewerUserId], map: "review_requests_reviewer_user_id_idx")
   @@index([status], map: "review_requests_status_idx")
-  @@unique([cycleId, subjectEmployeeId, reviewerUserId], map: "review_requests_cycle_subject_reviewer_key")
   @@map("review_requests")
 }
 
 model Okr {
   id              String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId        String    @db.Uuid @map("tenant_id")
-  employeeId      String    @db.Uuid @map("employee_id")
-  parentOkrId     String?   @db.Uuid @map("parent_okr_id")
+  tenantId        String    @map("tenant_id") @db.Uuid
+  employeeId      String    @map("employee_id") @db.Uuid
+  parentOkrId     String?   @map("parent_okr_id") @db.Uuid
   quarter         String
   objective       String
   description     String?
   status          OkrStatus @default(draft)
   progressPercent Int       @default(0) @map("progress_percent")
-  createdByUserId String    @db.Uuid @map("created_by_user_id")
+  createdByUserId String    @map("created_by_user_id") @db.Uuid
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
 
@@ -1386,8 +1462,8 @@ model Okr {
 
 model KeyResult {
   id           String          @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId     String          @db.Uuid @map("tenant_id")
-  okrId        String          @db.Uuid @map("okr_id")
+  tenantId     String          @map("tenant_id") @db.Uuid
+  okrId        String          @map("okr_id") @db.Uuid
   title        String
   unit         String?
   startValue   Float           @default(0) @map("start_value")
@@ -1406,32 +1482,32 @@ model KeyResult {
 
 model Idp {
   id              String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId        String    @db.Uuid @map("tenant_id")
-  employeeId      String    @db.Uuid @map("employee_id")
+  tenantId        String    @map("tenant_id") @db.Uuid
+  employeeId      String    @map("employee_id") @db.Uuid
   quarter         String
   summary         String?
   status          IdpStatus @default(draft)
-  createdByUserId String    @db.Uuid @map("created_by_user_id")
+  createdByUserId String    @map("created_by_user_id") @db.Uuid
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
 
   employee Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade, map: "idps_employee_id_fkey")
   items    IdpItem[]
 
+  @@unique([employeeId, quarter], map: "idps_employee_quarter_key")
   @@index([tenantId], map: "idps_tenant_id_idx")
   @@index([employeeId], map: "idps_employee_id_idx")
-  @@unique([employeeId, quarter], map: "idps_employee_quarter_key")
   @@map("idps")
 }
 
 model IdpItem {
   id          String        @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId    String        @db.Uuid @map("tenant_id")
-  idpId       String        @db.Uuid @map("idp_id")
+  tenantId    String        @map("tenant_id") @db.Uuid
+  idpId       String        @map("idp_id") @db.Uuid
   title       String
   description String?
   status      IdpItemStatus @default(planned)
-  dueDate     DateTime?     @db.Date @map("due_date")
+  dueDate     DateTime?     @map("due_date") @db.Date
   completedAt DateTime?     @map("completed_at")
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @default(now()) @updatedAt @map("updated_at")
