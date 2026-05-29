@@ -12,6 +12,7 @@ import { createAiRoutes } from './features/ai/ai.routes'
 import { createAnalyticsRoutes, createPayrollRoutes } from './features/analytics/analytics.routes'
 import { createApplicationsRoutes } from './features/applications/applications.routes'
 import { createCandidatesRoutes } from './features/candidates/candidates.routes'
+import { createDevicesRoutes } from './features/devices/devices.routes'
 import { createEmployeesRoutes } from './features/employees/employees.routes'
 import { createKnowledgeRoutes } from './features/knowledge/knowledge.routes'
 import { createLearningRoutes, createOkrsRoutes, createReviewsRoutes } from './features/learning/learning.routes'
@@ -148,6 +149,7 @@ export function createApp({ env, prisma }: CreateAppOptions) {
   app.route('/api/knowledge', createKnowledgeRoutes())
   app.route('/api/ai', createAiRoutes())
   app.route('/api/notifications', createNotificationsRoutes())
+  app.route('/api/devices', createDevicesRoutes())
   app.route('/api/realtime', createRealtimeRoutes())
 
   app.doc('/openapi.json', {

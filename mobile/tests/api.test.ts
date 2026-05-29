@@ -221,3 +221,59 @@ function json(body: unknown, status: number) {
     },
   });
 }
+
+test('mobile ApiClient.registerDevice POSTs the Expo token with a bearer header', async () => {
+  const calls: Array<{ path: string; method: string; authorization: string | null; body: unknown }> = [];
+
+  globalThis.fetch = async (input, init) => {
+    const path = new URL(String(input)).pathname;
+    const headers = new Headers(init?.headers);
+    const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+    calls.push({
+      path,
+      method: init?.method ?? 'GET',
+      authorization: headers.get('Authorization'),
+      body,
+    });
+
+    if (path === '/api/devices') {
+      return json(
+        {
+          device: {
+            id: '00000000-0000-7000-8000-000000000001',
+            platform: 'ios',
+            token: 'ExponentPushToken[xyz]',
+            is_active: true,
+            created_at: '2026-06-02T00:00:00.000Z',
+          },
+        },
+        201,
+      );
+    }
+
+    return json({ error: { code: 'NOT_FOUND', message: 'Unexpected request' } }, 404);
+  };
+
+  const client = new ApiClient({
+    getAccessToken: () => 'access-token',
+    setAccessToken: () => undefined,
+    getRefreshToken: async () => refreshToken,
+    setRefreshToken: async () => undefined,
+    clearRefreshToken: async () => undefined,
+  });
+
+  const response = await client.registerDevice({
+    platform: 'ios',
+    token: 'ExponentPushToken[xyz]',
+  });
+
+  expect(response.device.platform).toBe('ios');
+  expect(response.device.is_active).toBe(true);
+  expect(calls).toHaveLength(1);
+  expect(calls[0]).toMatchObject({
+    path: '/api/devices',
+    method: 'POST',
+    authorization: 'Bearer access-token',
+    body: { platform: 'ios', token: 'ExponentPushToken[xyz]' },
+  });
+});

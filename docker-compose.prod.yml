@@ -39,6 +39,17 @@ services:
     networks:
       - internal
 
+  # Public careers landing (Astro static site, served by Caddy via reverse proxy).
+  # Gated at the backend layer by CAREERS_PAGE_ENABLED — when off, /api/public/*
+  # returns 404 and the marketing site stays up but its apply form gets a 404.
+  landing:
+    build:
+      context: .
+      dockerfile: Dockerfile.landing
+    restart: unless-stopped
+    networks:
+      - internal
+
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
@@ -54,6 +65,7 @@ services:
     depends_on:
       - backend
       - web
+      - landing
 
 volumes:
   pgdata:

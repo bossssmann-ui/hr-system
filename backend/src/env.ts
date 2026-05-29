@@ -116,6 +116,9 @@ const envSchema = z.object({
   // Phase 10 — Realtime (SSE / live notifications)
   REALTIME_ENABLED: booleanStringSchema,
   VALKEY_URL: optionalStringSchema,
+  // Phase 11 — Mobile push notifications via Expo Push API
+  MOBILE_PUSH_ENABLED: booleanStringSchema,
+  EXPO_PUSH_API_URL: stringWithDefault('https://exp.host/--/api/v2/push/send'),
 }).superRefine((env, ctx) => {
   validateJwtSecret(env, ctx)
   validateCorsOrigins(env, ctx)

@@ -17,9 +17,11 @@
 
 import { Prisma } from '../generated/prisma/client'
 import type { DbClient } from '../db'
+import type { AppEnv } from '../env'
+import { createExpoPushClient, type ExpoPushClient, type ExpoPushMessage } from '../integrations/expo/push-client'
 import { getRealtimeBus } from './realtime'
 
-export type NotificationChannel = 'email' | 'telegram' | 'in_app'
+export type NotificationChannel = 'email' | 'telegram' | 'in_app' | 'push'
 
 export type NotifyInput = {
   channel: NotificationChannel
@@ -42,7 +44,23 @@ const defaultLogger: Logger = {
   error: (data, msg) => console.error(JSON.stringify({ level: 'error', msg, ...data })),
 }
 
-export function createNotifier(prisma: DbClient, logger: Logger = defaultLogger): Notifier {
+export type CreateNotifierOptions = {
+  env?: AppEnv
+  pushClient?: ExpoPushClient
+}
+
+export function createNotifier(
+  prisma: DbClient,
+  logger: Logger = defaultLogger,
+  options: CreateNotifierOptions = {},
+): Notifier {
+  const pushClient =
+    options.pushClient ??
+    (options.env && options.env.MOBILE_PUSH_ENABLED
+      ? createExpoPushClient({ apiUrl: options.env.EXPO_PUSH_API_URL })
+      : null)
+  const pushEnabled = options.env?.MOBILE_PUSH_ENABLED ?? Boolean(options.pushClient)
+
   return {
     async notify(input) {
       const { channel, recipient, template, payload = {} as Prisma.InputJsonValue } = input
@@ -86,6 +104,61 @@ export function createNotifier(prisma: DbClient, logger: Logger = defaultLogger)
           }
           return
         }
+        case 'push': {
+          // Mobile push channel (Expo). Gated by MOBILE_PUSH_ENABLED.
+          // Always best-effort: a delivery failure never throws into the
+          // business transaction (same contract as in_app / email).
+          if (!pushEnabled || !pushClient) {
+            logger.warn(
+              { channel, template, recipient },
+              'notifier.push.disabled',
+            )
+            return
+          }
+          try {
+            const devices = await prisma.deviceToken.findMany({
+              where: {
+                tenantId: recipient.tenantId,
+                userId: recipient.userId,
+                isActive: true,
+              },
+              select: { token: true },
+            })
+            if (devices.length === 0) {
+              return
+            }
+            const { title, body, data } = derivePushContent(template, payload)
+            const messages: ExpoPushMessage[] = devices.map((d) => ({
+              to: d.token,
+              title,
+              body,
+              data,
+            }))
+            const result = await pushClient.send(messages)
+            if (result.invalidTokens.length > 0) {
+              await prisma.deviceToken.updateMany({
+                where: {
+                  tenantId: recipient.tenantId,
+                  userId: recipient.userId,
+                  token: { in: result.invalidTokens },
+                },
+                data: { isActive: false },
+              })
+            }
+            if (!result.ok) {
+              logger.warn(
+                { template, recipient, invalid: result.invalidTokens.length },
+                'notifier.push.partial_delivery',
+              )
+            }
+          } catch (err) {
+            logger.error(
+              { err, template, recipient },
+              'notifier.push.send_failed',
+            )
+          }
+          return
+        }
         case 'email':
         case 'telegram': {
           logger.warn(
@@ -103,4 +176,36 @@ export function createNotifier(prisma: DbClient, logger: Logger = defaultLogger)
       }
     },
   }
+}
+
+/**
+ * Turn a notification template + payload into an Expo push message.
+ *
+ * Falls back to a generic title/body so unmapped templates still deliver a
+ * notification rather than an empty one. Producers can override title/body
+ * via `payload.title` / `payload.body`.
+ */
+function derivePushContent(template: string, payload: Prisma.InputJsonValue) {
+  const obj =
+    payload && typeof payload === 'object' && !Array.isArray(payload)
+      ? (payload as Record<string, unknown>)
+      : {}
+  const title =
+    typeof obj.title === 'string' && obj.title.trim() !== ''
+      ? obj.title
+      : prettifyTemplate(template)
+  const body =
+    typeof obj.body === 'string' && obj.body.trim() !== ''
+      ? obj.body
+      : 'Open the app for details.'
+  const data: Record<string, unknown> = { template, ...obj }
+  return { title, body, data }
+}
+
+function prettifyTemplate(template: string) {
+  return template
+    .split(/[._-]/)
+    .filter(Boolean)
+    .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+    .join(' ') || 'Notification'
 }
