@@ -35,6 +35,9 @@ function makeEnv(overrides: Partial<AppEnv> = {}): AppEnv {
   return {
     MOBILE_PUSH_ENABLED: true,
     EXPO_PUSH_API_URL: 'https://exp.host/--/api/v2/push/send',
+  BILLING_ENABLED: false,
+  SUBDOMAIN_ROUTING_ENABLED: false,
+  TENANT_REGISTRATION_ENABLED: true,
     ...overrides,
   } as unknown as AppEnv
 }

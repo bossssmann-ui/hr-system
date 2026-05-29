@@ -43,6 +43,13 @@ import { createMessagingRoutes,
 } from './features/messaging/messaging.routes'
 import { createNotificationsRoutes } from './features/notifications/notifications.routes'
 import { createRealtimeRoutes } from './features/realtime/realtime.routes'
+import {
+  createCandidateComplianceRoutes,
+  createEmployeeComplianceRoutes,
+  createTenantAdminRoutes,
+  createTenantRegistrationRoutes,
+  createTenantSettingsRoutes,
+} from './features/tenant/tenant.routes'
 import { createAuditMiddleware } from './http/audit'
 import { errorResponse, handleError } from './http/errors'
 import { createStorageServiceFromEnv, type StorageService } from './storage/service'
@@ -151,6 +158,12 @@ export function createApp({ env, prisma }: CreateAppOptions) {
   app.route('/api/notifications', createNotificationsRoutes())
   app.route('/api/devices', createDevicesRoutes())
   app.route('/api/realtime', createRealtimeRoutes())
+  // Phase 12 — multi-tenancy, compliance, billing
+  app.route('/api/register', createTenantRegistrationRoutes())
+  app.route('/api/settings/tenant', createTenantSettingsRoutes())
+  app.route('/api/admin', createTenantAdminRoutes())
+  app.route('/api/candidates', createCandidateComplianceRoutes())
+  app.route('/api/employees', createEmployeeComplianceRoutes())
 
   app.doc('/openapi.json', {
     openapi: '3.0.0',

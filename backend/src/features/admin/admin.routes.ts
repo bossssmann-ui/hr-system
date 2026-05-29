@@ -111,5 +111,93 @@ export function createAdminRoutes() {
     },
   )
 
+  // Phase 12 — richer audit search for the enterprise admin /admin/audit page.
+  // Owner-only. Adds from/to/action filters and a CSV export channel.
+  app.get(
+    '/audit',
+    requireRole('owner'),
+    zValidator(
+      'query',
+      z.object({
+        from: z.string().datetime().optional(),
+        to: z.string().datetime().optional(),
+        actorUserId: z.string().uuid().optional(),
+        entityType: z.string().min(1).max(80).optional(),
+        action: z.string().min(1).max(80).optional(),
+        limit: z.coerce.number().int().min(1).max(500).default(100),
+        format: z.enum(['json', 'csv']).default('json'),
+      }),
+    ),
+    async (c) => {
+      const prisma = c.get('prisma')
+      const tenantId = c.get('tenantId')
+      const { from, to, actorUserId, entityType, action, limit, format } = c.req.valid('query')
+
+      const createdAt: Record<string, Date> = {}
+      if (from) createdAt.gte = new Date(from)
+      if (to) createdAt.lte = new Date(to)
+
+      const rows = await prisma.auditEvent.findMany({
+        where: {
+          tenantId,
+          ...(actorUserId ? { actorUserId } : {}),
+          ...(entityType ? { entityType } : {}),
+          ...(action ? { action } : {}),
+          ...(Object.keys(createdAt).length ? { createdAt } : {}),
+        },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+      })
+
+      if (format === 'csv') {
+        const header = 'id,createdAt,action,entityType,entityId,actorUserId,ip\n'
+        const body = rows
+          .map((r) =>
+            [
+              r.id,
+              r.createdAt.toISOString(),
+              r.action,
+              r.entityType,
+              r.entityId,
+              r.actorUserId ?? '',
+              r.ip ?? '',
+            ]
+              .map((v) => csvEscape(v))
+              .join(','),
+          )
+          .join('\n')
+        c.header('Content-Type', 'text/csv; charset=utf-8')
+        c.header('Content-Disposition', 'attachment; filename="audit.csv"')
+        return c.body(header + body + (rows.length ? '\n' : ''))
+      }
+
+      return c.json(
+        listAuditEventsResponseSchema.parse({
+          items: rows.map((r) => ({
+            id: r.id,
+            tenantId: r.tenantId,
+            actorUserId: r.actorUserId,
+            action: r.action,
+            entityType: r.entityType,
+            entityId: r.entityId,
+            diff: r.diff,
+            ip: r.ip,
+            userAgent: r.userAgent,
+            createdAt: r.createdAt.toISOString(),
+          })),
+          nextCursor: null,
+        }),
+      )
+    },
+  )
+
   return app
+}
+
+function csvEscape(value: string | null | undefined) {
+  const s = value ?? ''
+  if (/[",\n\r]/.test(s)) {
+    return `"${s.replace(/"/g, '""')}"`
+  }
+  return s
 }

@@ -8,6 +8,7 @@ import {
 } from './features/learning/learning.service'
 import { computeHrSnapshot } from './features/analytics/analytics.service'
 import { computeSignalsForTenant } from './features/signals/signals.service'
+import { runDataRetention } from './features/tenant/tenant.service'
 
 type CronTask = (runtime: BackendRuntime) => Promise<void>
 
@@ -69,6 +70,23 @@ const cronTasks = {
     }
     console.log(
       `Cron signals.compute completed. tenants=${tenants.length} upserted=${upserted} opened=${opened}`,
+    )
+  },
+  // Phase 12 — monthly data retention sweep (152-ФЗ / GDPR).
+  // Iterates every tenant; for each policy, anonymises or deletes rows whose
+  // age exceeds `retain_days`. Writes one AuditEvent(data_retention.run) per
+  // tenant. AuditEvent rows themselves are never touched.
+  'data.retention': async ({ prisma }) => {
+    const tenants = await prisma.tenant.findMany({ select: { id: true } })
+    let totalCandidates = 0
+    let totalEmployees = 0
+    for (const t of tenants) {
+      const r = await runDataRetention(prisma, { tenantId: t.id })
+      totalCandidates += r.processedCandidates
+      totalEmployees += r.processedEmployees
+    }
+    console.log(
+      `Cron data.retention completed. tenants=${tenants.length} candidates=${totalCandidates} employees=${totalEmployees}`,
     )
   },
 } satisfies Record<string, CronTask>

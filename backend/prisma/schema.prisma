@@ -103,10 +103,98 @@ enum DevicePlatform {
 model Tenant {
   id        String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
   name      String
+  slug      String?  @unique
+  subdomain String?  @unique
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  settings          TenantSettings?
+  retentionPolicies DataRetentionPolicy[]
+  subscription      Subscription?
+
   @@map("tenants")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 12 — Tenant-scoped branding, feature flags and compliance policies.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model TenantSettings {
+  tenantId      String   @id @map("tenant_id") @db.Uuid
+  logoUrl       String?  @map("logo_url")
+  primaryColor  String?  @map("primary_color")
+  timezone      String   @default("Europe/Moscow")
+  locale        String   @default("ru-RU")
+  featureFlags  Json     @default("{}") @map("feature_flags")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade, map: "tenant_settings_tenant_id_fkey")
+
+  @@map("tenant_settings")
+}
+
+enum RetentionEntityType {
+  candidate
+  employee
+  audit_event
+  application
+  resume
+}
+
+model DataRetentionPolicy {
+  id         String              @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId   String              @map("tenant_id") @db.Uuid
+  entityType RetentionEntityType @map("entity_type")
+  retainDays Int                 @map("retain_days")
+  anonymize  Boolean             @default(true)
+  createdAt  DateTime            @default(now()) @map("created_at")
+  updatedAt  DateTime            @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade, map: "data_retention_policies_tenant_id_fkey")
+
+  @@unique([tenantId, entityType], map: "data_retention_policies_tenant_entity_uk")
+  @@index([tenantId], map: "data_retention_policies_tenant_id_idx")
+  @@map("data_retention_policies")
+}
+
+enum SubscriptionStatus {
+  active
+  past_due
+  cancelled
+  trialing
+}
+
+model Plan {
+  id                 String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  name               String   @unique
+  maxEmployees       Int      @map("max_employees")
+  maxUsers           Int      @map("max_users")
+  priceRubMonthly    Int      @map("price_rub_monthly")
+  features           Json     @default("{}")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id                   String             @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId             String             @unique @map("tenant_id") @db.Uuid
+  planId               String             @map("plan_id") @db.Uuid
+  status               SubscriptionStatus @default(active)
+  currentPeriodEnd     DateTime?          @map("current_period_end")
+  stripeSubscriptionId String?            @map("stripe_subscription_id")
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade, map: "subscriptions_tenant_id_fkey")
+  plan   Plan   @relation(fields: [planId], references: [id], map: "subscriptions_plan_id_fkey")
+
+  @@index([tenantId], map: "subscriptions_tenant_id_idx")
+  @@map("subscriptions")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

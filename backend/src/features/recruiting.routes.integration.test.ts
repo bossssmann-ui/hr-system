@@ -70,6 +70,9 @@ QUIET_HOURS_QUIET_END_UTC: 23,
   REALTIME_ENABLED: false,
   MOBILE_PUSH_ENABLED: false,
   EXPO_PUSH_API_URL: 'https://exp.host/--/api/v2/push/send',
+  BILLING_ENABLED: false,
+  SUBDOMAIN_ROUTING_ENABLED: false,
+  TENANT_REGISTRATION_ENABLED: true,
 }
 
 /** Register a user with the given roles and return an access token. */
