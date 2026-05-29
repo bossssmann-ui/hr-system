@@ -17,6 +17,7 @@
 
 import { Prisma } from '../generated/prisma/client'
 import type { DbClient } from '../db'
+import { getRealtimeBus } from './realtime'
 
 export type NotificationChannel = 'email' | 'telegram' | 'in_app'
 
@@ -48,7 +49,7 @@ export function createNotifier(prisma: DbClient, logger: Logger = defaultLogger)
       switch (channel) {
         case 'in_app': {
           try {
-            await prisma.notification.create({
+            const row = await prisma.notification.create({
               data: {
                 tenantId: recipient.tenantId,
                 recipientUserId: recipient.userId,
@@ -57,6 +58,26 @@ export function createNotifier(prisma: DbClient, logger: Logger = defaultLogger)
                 payload,
               },
             })
+            // Realtime fan-out: best-effort, never blocks the business call.
+            try {
+              const createdAt =
+                row.createdAt instanceof Date
+                  ? row.createdAt.toISOString()
+                  : typeof row.createdAt === 'string'
+                    ? row.createdAt
+                    : new Date().toISOString()
+              getRealtimeBus().publishToUser(recipient.tenantId, recipient.userId, {
+                type: 'notification.new',
+                payload: {
+                  id: row.id,
+                  template: row.template,
+                  payload: row.payload,
+                  createdAt,
+                },
+              })
+            } catch (err) {
+              logger.warn({ err, template, recipient }, 'notifier.in_app.realtime_publish_failed')
+            }
           } catch (err) {
             logger.error(
               { err, template, recipient },

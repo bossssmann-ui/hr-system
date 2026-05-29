@@ -12,6 +12,7 @@ import type { AppEnv } from '../../env'
 import { Prisma } from '../../generated/prisma/client'
 import { createDocusealClient, type DocusealClient } from '../../integrations/docuseal/client'
 import { createNotifier, type Notifier } from '../../services/notifier'
+import { getRealtimeBus } from '../../services/realtime'
 import { createFromApplication } from '../employees/employees.service'
 import type { Role } from '../requisitions/requisitions.fsm'
 import { canTransition, type OfferStatus } from './offers.fsm'
@@ -161,7 +162,25 @@ async function runSimpleTransition(
     })
     return next
   })
+  publishOfferStatusChanged(tenantId, offerId, offer.status as OfferStatus, to, actorUserId)
   return updated
+}
+
+function publishOfferStatusChanged(
+  tenantId: string,
+  offerId: string,
+  from: OfferStatus,
+  to: OfferStatus,
+  actorUserId: string | null,
+) {
+  try {
+    getRealtimeBus().publishToTenant(tenantId, {
+      type: 'offer.status_changed',
+      payload: { offerId, from, to, actorUserId },
+    })
+  } catch {
+    // realtime fan-out is best-effort
+  }
 }
 
 export async function sendOffer(ctx: OfferTransitionContext) {
@@ -247,6 +266,8 @@ export async function sendOffer(ctx: OfferTransitionContext) {
     )
   }
 
+  publishOfferStatusChanged(tenantId, offerId, offer.status as OfferStatus, 'sent', actorUserId)
+
   return updated
 }
 
@@ -321,6 +342,8 @@ export async function acceptOffer(ctx: OfferTransitionContext) {
     )
   }
 
+  publishOfferStatusChanged(tenantId, offerId, offer.status as OfferStatus, 'accepted', actorUserId)
+
   return updated
 }
 
@@ -388,6 +411,8 @@ export async function declineOffer(ctx: OfferTransitionContext) {
     )
   }
 
+  publishOfferStatusChanged(tenantId, offerId, offer.status as OfferStatus, 'declined', actorUserId)
+
   return updated
 }
 
@@ -398,7 +423,7 @@ export async function expireOffer(ctx: OfferTransitionContext) {
   if (!canTransition(offer.status as OfferStatus, 'expired', actorRoles)) {
     throw new FsmDeniedError(offer.status as OfferStatus, 'expired')
   }
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const next = await tx.offer.update({ where: { id: offerId }, data: { status: 'expired' } })
     await writeAudit(tx as unknown as PrismaLike, tenantId, actorUserId, 'offer.expire', offerId, {
       from: offer.status,
@@ -406,6 +431,8 @@ export async function expireOffer(ctx: OfferTransitionContext) {
     })
     return next
   })
+  publishOfferStatusChanged(tenantId, offerId, offer.status as OfferStatus, 'expired', actorUserId)
+  return result
 }
 
 /**
