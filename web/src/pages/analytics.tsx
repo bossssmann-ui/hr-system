@@ -9,6 +9,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { useAuth } from '@/lib/use-auth'
 
@@ -19,11 +20,12 @@ function todayMonth(): string {
 
 export function AnalyticsPage() {
   const { user } = useAuth()
+  const { t } = useTranslation('analytics')
   if (!user) {
     return (
       <div style={{ padding: '2rem' }}>
-        <h1>HR Analytics</h1>
-        <p>Sign in to view analytics dashboards.</p>
+        <h1>{t('title')}</h1>
+        <p>{t('signInPrompt')}</p>
       </div>
     )
   }
@@ -32,6 +34,7 @@ export function AnalyticsPage() {
 
 function AnalyticsContent() {
   const { api } = useAuth()
+  const { t } = useTranslation('analytics')
   const queryClient = useQueryClient()
   const [month, setMonth] = useState(todayMonth())
 
@@ -55,34 +58,34 @@ function AnalyticsContent() {
   return (
     <div style={{ padding: '2rem' }}>
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <h1>HR Analytics</h1>
+        <h1>{t('title')}</h1>
         <button
           type="button"
           onClick={() => recompute.mutate()}
           disabled={recompute.isPending}
         >
-          {recompute.isPending ? 'Recomputing…' : 'Recompute snapshot'}
+          {recompute.isPending ? t('snapshots.recomputing') : t('snapshots.recompute')}
         </button>
       </header>
 
       <section style={{ marginTop: '1.5rem' }}>
-        <h2>Today’s KPIs</h2>
+        <h2>{t('todayKpis')}</h2>
         {dashboard.isLoading ? (
-          <p>Loading…</p>
+          <p>{t('loading')}</p>
         ) : dashboard.isError ? (
-          <p style={{ color: 'crimson' }}>Failed to load dashboard.</p>
+          <p style={{ color: 'crimson' }}>{t('loadFailed')}</p>
         ) : dashboard.data ? (
           <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))' }}>
-            <Kpi label="Headcount" value={dashboard.data.headcount} />
-            <Kpi label="Hired MTD" value={dashboard.data.hiredMtd} />
-            <Kpi label="Terminated MTD" value={dashboard.data.terminatedMtd} />
-            <Kpi label="Open requisitions" value={dashboard.data.openRequisitions} />
+            <Kpi label={t('kpi.headcount')} value={dashboard.data.headcount} />
+            <Kpi label={t('kpi.hiresMtd')} value={dashboard.data.hiredMtd} />
+            <Kpi label={t('kpi.terminatedMtd')} value={dashboard.data.terminatedMtd} />
+            <Kpi label={t('kpi.openRequisitions')} value={dashboard.data.openRequisitions} />
             <Kpi
-              label="Avg time-to-hire (days)"
+              label={t('kpi.avgTimeToHire')}
               value={dashboard.data.avgTimeToHireDays ?? '—'}
             />
             <Kpi
-              label="Probation pass rate (QTD)"
+              label={t('kpi.probationPassRate')}
               value={
                 dashboard.data.probationPassRateQtd != null
                   ? `${dashboard.data.probationPassRateQtd}%`
@@ -94,10 +97,10 @@ function AnalyticsContent() {
       </section>
 
       <section style={{ marginTop: '2rem' }}>
-        <h2>Payroll export</h2>
-        <p>Download the active employee roster for a given month as CSV.</p>
+        <h2>{t('rosterTitle')}</h2>
+        <p>{t('rosterDescription')}</p>
         <label>
-          Month{' '}
+          {t('month')}{' '}
           <input
             type="month"
             value={month}
@@ -109,23 +112,23 @@ function AnalyticsContent() {
           target="_blank"
           rel="noreferrer"
         >
-          Download CSV
+          {t('downloadCsv')}
         </a>
       </section>
 
       <section style={{ marginTop: '2rem' }}>
-        <h2>Last 30 snapshots</h2>
+        <h2>{t('snapshots.title')}</h2>
         {snapshots.isLoading ? (
-          <p>Loading…</p>
+          <p>{t('loading')}</p>
         ) : snapshots.data && snapshots.data.items.length > 0 ? (
           <table>
             <thead>
               <tr>
-                <th style={{ textAlign: 'left' }}>Date</th>
-                <th>Headcount</th>
-                <th>Hired MTD</th>
-                <th>Terminated MTD</th>
-                <th>Open reqs</th>
+                <th style={{ textAlign: 'left' }}>{t('table.date')}</th>
+                <th>{t('table.headcount')}</th>
+                <th>{t('table.hiresMtd')}</th>
+                <th>{t('table.terminatedMtd')}</th>
+                <th>{t('table.openReqs')}</th>
               </tr>
             </thead>
             <tbody>
@@ -141,7 +144,7 @@ function AnalyticsContent() {
             </tbody>
           </table>
         ) : (
-          <p>No snapshots yet. Click “Recompute snapshot” to create one.</p>
+          <p>{t('snapshots.empty')}</p>
         )}
       </section>
 
@@ -152,6 +155,7 @@ function AnalyticsContent() {
 
 function SignalsSection() {
   const { api } = useAuth()
+  const { t } = useTranslation('analytics')
   const queryClient = useQueryClient()
   const signals = useQuery({
     queryKey: ['analytics', 'signals'],
@@ -174,22 +178,22 @@ function SignalsSection() {
   return (
     <section style={{ marginTop: '2rem' }}>
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <h2>Signals (flight-risk &amp; burnout)</h2>
+        <h2>{t('signals.title')}</h2>
         <button type="button" onClick={() => recompute.mutate()} disabled={recompute.isPending}>
-          {recompute.isPending ? 'Computing…' : 'Recompute signals'}
+          {recompute.isPending ? t('signals.recomputing') : t('signals.recompute')}
         </button>
       </header>
       {signals.isLoading ? (
-        <p>Loading…</p>
+        <p>{t('loading')}</p>
       ) : signals.data && signals.data.items.length > 0 ? (
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr>
-              <th style={{ textAlign: 'left' }}>Employee</th>
-              <th>Type</th>
-              <th>Score</th>
-              <th style={{ textAlign: 'left' }}>Factors</th>
-              <th>Actions</th>
+              <th style={{ textAlign: 'left' }}>{t('table.employee')}</th>
+              <th>{t('table.type')}</th>
+              <th>{t('table.score')}</th>
+              <th style={{ textAlign: 'left' }}>{t('table.factors')}</th>
+              <th>{t('table.actions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -211,14 +215,14 @@ function SignalsSection() {
                     onClick={() => update.mutate({ id: s.id, status: 'reviewed' })}
                     disabled={update.isPending}
                   >
-                    Reviewed
+                    {t('signals.reviewed')}
                   </button>{' '}
                   <button
                     type="button"
                     onClick={() => update.mutate({ id: s.id, status: 'dismissed' })}
                     disabled={update.isPending}
                   >
-                    Dismiss
+                    {t('signals.dismiss')}
                   </button>
                 </td>
               </tr>
@@ -226,7 +230,7 @@ function SignalsSection() {
           </tbody>
         </table>
       ) : (
-        <p>No open signals. Recompute to populate after the next daily run.</p>
+        <p>{t('signals.empty')}</p>
       )}
     </section>
   )

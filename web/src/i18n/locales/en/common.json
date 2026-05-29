@@ -1,0 +1,55 @@
+{
+  "appName": "Onboardix",
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "submit": "Submit",
+    "send": "Send",
+    "search": "Search",
+    "searching": "Searching…",
+    "loading": "Loading…",
+    "open": "Open",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "retry": "Retry",
+    "refresh": "Refresh",
+    "logout": "Logout",
+    "login": "Login",
+    "register": "Register",
+    "working": "Working…",
+    "goToAuth": "Go to auth",
+    "openApp": "Open app"
+  },
+  "empty": {
+    "noResults": "Nothing found",
+    "noMatches": "No matches.",
+    "noData": "No data"
+  },
+  "labels": {
+    "language": "Language",
+    "name": "Name",
+    "email": "Email",
+    "password": "Password",
+    "from": "From",
+    "to": "To",
+    "status": "Status",
+    "created": "Created",
+    "updated": "Updated",
+    "userId": "User ID"
+  },
+  "states": {
+    "sessionActive": "Session is active",
+    "checkingSession": "Checking session…",
+    "loggedInAs": "Logged in as",
+    "loginRequired": "Login required",
+    "loginRequiredHint": "This route intentionally stays small and shows where protected product UI begins."
+  },
+  "errors": {
+    "unknown": "An unknown error occurred",
+    "loadFailed": "Failed to load data. Try refreshing the page."
+  }
+}

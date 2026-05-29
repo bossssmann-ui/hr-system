@@ -1,0 +1,31 @@
+{
+  "title": "Settings · Integrations",
+  "loginRequired": "Login required",
+  "signInPrompt": "Sign in to continue",
+  "loading": "Loading integrations…",
+  "loadFailed": "Failed to load integrations status. Try refreshing the page.",
+  "intro": "Manage external communication channels and job boards. Owner / hr_admin only.",
+  "status": {
+    "enabled": "Enabled",
+    "needsConfig": "Needs configuration",
+    "disabled": "Disabled",
+    "connected": "Connected",
+    "notConnected": "Not connected"
+  },
+  "telegram": {
+    "activeLinks": "Active links: {{count}}",
+    "webhook": "Inbound webhook",
+    "link": "Link"
+  },
+  "email": {
+    "title": "Email (SMTP)",
+    "from": "From: {{from}}"
+  },
+  "hh": {
+    "lastSync": "Last sync: {{when}}",
+    "openPanel": "Open HH.ru panel"
+  },
+  "jobBoards": {
+    "published": "Published vacancies: {{count}}"
+  }
+}

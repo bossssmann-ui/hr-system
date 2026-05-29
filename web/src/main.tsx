@@ -5,6 +5,7 @@ import { createRoot } from 'react-dom/client'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import App from './App'
+import './i18n'
 import { AuthProvider } from './lib/auth'
 import './index.css'
 

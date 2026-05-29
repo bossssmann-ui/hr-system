@@ -1,10 +1,13 @@
+import { useTranslation } from 'react-i18next'
+
 export function AlumniPage() {
+  const { t } = useTranslation('portal')
   return (
     <div style={{ padding: '2rem' }}>
-      <h1>Alumni Network</h1>
-      <p>Alumni directory — hr_admin / owner only.</p>
+      <h1>{t('alumni.title')}</h1>
+      <p>{t('alumni.description')}</p>
       <p>
-        <em>Full table with filters coming in the next iteration.</em>
+        <em>{t('alumni.soon')}</em>
       </p>
     </div>
   )

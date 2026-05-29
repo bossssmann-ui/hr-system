@@ -7,6 +7,7 @@ import {
 } from '@web-app-demo/contracts'
 import type { z } from 'zod'
 import { useId, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -47,18 +48,17 @@ const emptyDraft: AuthDraft = {
 export function AuthForm() {
   const [mode, setMode] = useState<AuthMode>('register')
   const [draft, setDraft] = useState<AuthDraft>(emptyDraft)
+  const { t } = useTranslation('auth')
 
   function updateDraft(nextDraft: Partial<AuthDraft>) {
     setDraft((currentDraft) => ({ ...currentDraft, ...nextDraft }))
   }
 
   return (
-    <Card className="w-full" aria-label="Authentication">
+    <Card className="w-full" aria-label={t('title')}>
       <CardHeader>
-        <CardTitle>Account access</CardTitle>
-        <CardDescription>
-          Create an account or continue with an existing session.
-        </CardDescription>
+        <CardTitle>{t('title')}</CardTitle>
+        <CardDescription>{t('description')}</CardDescription>
       </CardHeader>
       <CardContent>
         <Tabs
@@ -71,8 +71,8 @@ export function AuthForm() {
           className="mb-6"
         >
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="register">Register</TabsTrigger>
-            <TabsTrigger value="login">Login</TabsTrigger>
+            <TabsTrigger value="register">{t('tabs.register')}</TabsTrigger>
+            <TabsTrigger value="login">{t('tabs.login')}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="register" forceMount hidden={mode !== 'register'} className="mt-6">
@@ -95,6 +95,7 @@ function RegisterForm({
   onDraftChange: (draft: Partial<AuthDraft>) => void
 }) {
   const auth = useAuth()
+  const { t } = useTranslation('auth')
   const displayNameId = useId()
   const displayNameErrorId = useId()
   const emailId = useId()
@@ -124,7 +125,7 @@ function RegisterForm({
           setFormError(caughtError.message)
           return
         }
-        setFormError('Unexpected auth error')
+        setFormError(t('alerts.unexpected'))
       }
     },
   })
@@ -141,7 +142,7 @@ function RegisterForm({
           name="displayName"
           children={(field) => (
             <Field data-invalid={hasErrors(fieldErrors.displayName)}>
-              <FieldLabel htmlFor={displayNameId}>Name</FieldLabel>
+              <FieldLabel htmlFor={displayNameId}>{t('fields.name')}</FieldLabel>
               <Input
                 id={displayNameId}
                 name={field.name}
@@ -167,7 +168,7 @@ function RegisterForm({
           name="email"
           children={(field) => (
             <Field data-invalid={hasErrors(fieldErrors.email)}>
-              <FieldLabel htmlFor={emailId}>Email</FieldLabel>
+              <FieldLabel htmlFor={emailId}>{t("fields.email")}</FieldLabel>
               <Input
                 id={emailId}
                 name={field.name}
@@ -195,7 +196,7 @@ function RegisterForm({
           name="password"
           children={(field) => (
             <Field data-invalid={hasErrors(fieldErrors.password)}>
-              <FieldLabel htmlFor={passwordId}>Password</FieldLabel>
+              <FieldLabel htmlFor={passwordId}>{t("fields.password")}</FieldLabel>
               <Input
                 id={passwordId}
                 name={field.name}
@@ -224,7 +225,7 @@ function RegisterForm({
           selector={(state) => state.isSubmitting}
           children={(isSubmitting) => (
             <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? 'Working...' : 'Create account'}
+              {isSubmitting ? t('buttons.working') : t('buttons.createAccount')}
             </Button>
           )}
         />
@@ -241,6 +242,7 @@ function LoginForm({
   onDraftChange: (draft: Partial<AuthDraft>) => void
 }) {
   const auth = useAuth()
+  const { t } = useTranslation('auth')
   const emailId = useId()
   const emailErrorId = useId()
   const passwordId = useId()
@@ -271,7 +273,7 @@ function LoginForm({
           setFormError(caughtError.message)
           return
         }
-        setFormError('Unexpected auth error')
+        setFormError(t('alerts.unexpected'))
       }
     },
   })
@@ -288,7 +290,7 @@ function LoginForm({
           name="email"
           children={(field) => (
             <Field data-invalid={hasErrors(fieldErrors.email)}>
-              <FieldLabel htmlFor={emailId}>Email</FieldLabel>
+              <FieldLabel htmlFor={emailId}>{t("fields.email")}</FieldLabel>
               <Input
                 id={emailId}
                 name={field.name}
@@ -316,7 +318,7 @@ function LoginForm({
           name="password"
           children={(field) => (
             <Field data-invalid={hasErrors(fieldErrors.password)}>
-              <FieldLabel htmlFor={passwordId}>Password</FieldLabel>
+              <FieldLabel htmlFor={passwordId}>{t("fields.password")}</FieldLabel>
               <Input
                 id={passwordId}
                 name={field.name}
@@ -345,7 +347,7 @@ function LoginForm({
           selector={(state) => state.isSubmitting}
           children={(isSubmitting) => (
             <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? 'Working...' : 'Login'}
+              {isSubmitting ? t('buttons.working') : t('buttons.signIn')}
             </Button>
           )}
         />
@@ -355,11 +357,12 @@ function LoginForm({
 }
 
 function FormAlert({ message }: { message: string | null }) {
+  const { t } = useTranslation('auth')
   if (!message) return null
 
   return (
     <Alert variant="destructive">
-      <AlertTitle>Authentication failed</AlertTitle>
+      <AlertTitle>{t('alerts.failed')}</AlertTitle>
       <AlertDescription>{message}</AlertDescription>
     </Alert>
   )

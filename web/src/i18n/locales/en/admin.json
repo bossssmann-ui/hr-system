@@ -1,0 +1,13 @@
+{
+  "users": {
+    "title": "Users",
+    "empty": "No users found"
+  },
+  "auditLog": {
+    "title": "Audit log",
+    "empty": "No entries"
+  },
+  "hh": {
+    "title": "HH.ru integration"
+  }
+}

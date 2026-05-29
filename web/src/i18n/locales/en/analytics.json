@@ -1,0 +1,49 @@
+{
+  "title": "HR Analytics",
+  "signInPrompt": "Sign in to view analytics dashboards.",
+  "loading": "Loading…",
+  "loadFailed": "Failed to load dashboard.",
+  "kpi": {
+    "headcount": "Headcount",
+    "hiresMtd": "Hired MTD",
+    "terminatedMtd": "Terminated MTD",
+    "openVacancies": "Open vacancies",
+    "openRequisitions": "Open requisitions",
+    "avgTimeToHire": "Avg time-to-hire (days)",
+    "probationPassRate": "Probation pass rate (QTD)"
+  },
+  "todayKpis": "Today’s KPIs",
+  "rosterTitle": "Payroll export",
+  "rosterDescription": "Download the active employee roster for a given month as CSV.",
+  "downloadCsv": "Download CSV",
+  "month": "Month",
+  "snapshots": {
+    "title": "Last 30 snapshots",
+    "empty": "No snapshots yet. Click “Recompute snapshot” to create one.",
+    "recompute": "Recompute snapshot",
+    "recomputing": "Recomputing…"
+  },
+  "signals": {
+    "title": "Signals (flight-risk & burnout)",
+    "empty": "No open signals. Recompute to populate after the next daily run.",
+    "recompute": "Recompute signals",
+    "recomputing": "Computing…",
+    "reviewed": "Reviewed",
+    "dismiss": "Dismiss"
+  },
+  "table": {
+    "month": "Month",
+    "date": "Date",
+    "headcount": "Headcount",
+    "hires": "Hires",
+    "hiresMtd": "Hired MTD",
+    "terminated": "Terminated",
+    "terminatedMtd": "Terminated MTD",
+    "openReqs": "Open reqs",
+    "employee": "Employee",
+    "type": "Type",
+    "score": "Score",
+    "factors": "Factors",
+    "actions": "Actions"
+  }
+}

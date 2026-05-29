@@ -1,0 +1,16 @@
+{
+  "title": "Offers",
+  "status": {
+    "draft": "Draft",
+    "sent": "Sent",
+    "accepted": "Accepted",
+    "declined": "Declined",
+    "expired": "Expired"
+  },
+  "toasts": {
+    "sent": "Offer sent",
+    "accepted": "Offer accepted",
+    "declined": "Offer declined",
+    "saveFailed": "Failed to save offer"
+  }
+}
