@@ -113,6 +113,9 @@ const envSchema = z.object({
   KNOWLEDGE_HUB_PGVECTOR_ENABLED: booleanStringSchema,
   // Daily flight-risk / burnout score >= threshold creates an "open" signal.
   SIGNALS_OPEN_THRESHOLD: z.coerce.number().int().min(0).max(100).default(60),
+  // Phase 10 — Realtime (SSE / live notifications)
+  REALTIME_ENABLED: booleanStringSchema,
+  VALKEY_URL: optionalStringSchema,
 }).superRefine((env, ctx) => {
   validateJwtSecret(env, ctx)
   validateCorsOrigins(env, ctx)

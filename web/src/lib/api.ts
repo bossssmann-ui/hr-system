@@ -126,13 +126,19 @@ import {
   type InviteAssessmentRequest,
   type InviteAssessmentResponse,
   type ListAssessmentTemplatesResponse,
+  type ListNotificationsResponse,
+  type MarkNotificationsReadResponse,
+  type Notification,
   type PublicAssessmentView,
   type TrustPreviewRequest,
   type TrustPreviewResponse,
+  listNotificationsResponseSchema,
+  markNotificationsReadResponseSchema,
+  notificationSchema,
 } from '@web-app-demo/contracts'
 import { z } from 'zod'
 
-const apiBaseUrl = (import.meta.env?.VITE_API_URL ?? 'http://localhost:3000').replace(/\/$/, '')
+export const apiBaseUrl = (import.meta.env?.VITE_API_URL ?? 'http://localhost:3000').replace(/\/$/, '')
 
 type ApiClientOptions = {
   getAccessToken: () => string | null
@@ -942,6 +948,50 @@ export class ApiClient {
       retryOnUnauthorized: false,
     }).catch(() => undefined)
     await this.options.onAuthExpired?.()
+  }
+
+  // ─── Notifications (Phase 10) ───────────────────────────────────────────────
+
+  listNotifications(params: { limit?: number; unread?: boolean } = {}): Promise<ListNotificationsResponse> {
+    const qs = new URLSearchParams()
+    if (params.limit !== undefined) qs.set('limit', String(params.limit))
+    if (params.unread !== undefined) qs.set('unread', params.unread ? 'true' : 'false')
+    const tail = qs.toString() ? `?${qs.toString()}` : ''
+    return this.request(`/api/notifications${tail}`, listNotificationsResponseSchema, { auth: true })
+  }
+
+  markNotificationRead(id: string): Promise<Notification> {
+    return this.request(`/api/notifications/${id}/read`, notificationSchema, {
+      method: 'PATCH',
+      auth: true,
+    })
+  }
+
+  markAllNotificationsRead(): Promise<MarkNotificationsReadResponse> {
+    return this.request('/api/notifications/read-all', markNotificationsReadResponseSchema, {
+      method: 'POST',
+      auth: true,
+    })
+  }
+
+  async deleteNotification(id: string): Promise<void> {
+    await this.rawRequest(`/api/notifications/${id}`, {
+      method: 'DELETE',
+      auth: true,
+    })
+  }
+
+  /**
+   * Build a same-origin SSE URL for the realtime stream. EventSource cannot
+   * send custom headers, so we pass the access token as a query parameter and
+   * the server verifies it the same way as the standard auth header.
+   */
+  realtimeEventsUrl(): string | null {
+    const token = this.options.getAccessToken()
+    if (!token) return null
+    const url = new URL(`${apiBaseUrl}/api/realtime/events`)
+    url.searchParams.set('access_token', token)
+    return url.toString()
   }
 
   private async request<TSchema extends z.ZodType>(

@@ -56,6 +56,7 @@ const env: AppEnv = {
   QUIET_HOURS_QUIET_END_UTC: 23,
   KNOWLEDGE_HUB_PGVECTOR_ENABLED: false,
   SIGNALS_OPEN_THRESHOLD: 60,
+  REALTIME_ENABLED: false,
 }
 
 async function loginAs(app: ReturnType<typeof createApp>, email: string, password: string) {

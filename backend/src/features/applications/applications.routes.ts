@@ -26,6 +26,7 @@ import { requireRole, type RoleGuardBindings } from '../../auth/requireRole'
 import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
 import { AppError } from '../../http/errors'
+import { getRealtimeBus } from '../../services/realtime'
 import { canTransition } from '../applications/applications.fsm'
 import { generateInterviewQuestions } from '../assessments/assessments.service'
 import { createFromApplication } from '../employees/employees.service'
@@ -303,6 +304,24 @@ export function createApplicationsRoutes() {
         entityId: id,
         diff: { from: row.stage, to: body.to, comment: body.comment, actorUserId: userId },
       })
+
+      // Realtime fan-out so every connected recruiter sees the Kanban update
+      // without a manual refresh. Tenant-scoped — RLS already restricts which
+      // applications a viewer can hydrate when they refetch the query.
+      try {
+        getRealtimeBus().publishToTenant(tenantId, {
+          type: 'application.stage_changed',
+          payload: {
+            applicationId: id,
+            vacancyId: row.vacancyId,
+            from: row.stage,
+            to: body.to,
+            actorUserId: userId,
+          },
+        })
+      } catch {
+        // realtime is best-effort
+      }
 
       return c.json(applicationSchema.parse(toDto(updated, env)))
     },

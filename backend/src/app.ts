@@ -36,11 +36,12 @@ import {
   createOffersRoutes,
 } from './features/offers/offers.routes'
 import { createCompRoutes } from './features/comp/comp.routes'
-import {
-  createMessagingRoutes,
+import { createMessagingRoutes,
   createMessageTemplatesRoutes,
   createTelegramWebhookRoute,
 } from './features/messaging/messaging.routes'
+import { createNotificationsRoutes } from './features/notifications/notifications.routes'
+import { createRealtimeRoutes } from './features/realtime/realtime.routes'
 import { createAuditMiddleware } from './http/audit'
 import { errorResponse, handleError } from './http/errors'
 import { createStorageServiceFromEnv, type StorageService } from './storage/service'
@@ -146,6 +147,8 @@ export function createApp({ env, prisma }: CreateAppOptions) {
   app.route('/api/selection', createSelectionRoutes())
   app.route('/api/knowledge', createKnowledgeRoutes())
   app.route('/api/ai', createAiRoutes())
+  app.route('/api/notifications', createNotificationsRoutes())
+  app.route('/api/realtime', createRealtimeRoutes())
 
   app.doc('/openapi.json', {
     openapi: '3.0.0',

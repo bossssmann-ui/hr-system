@@ -1,6 +1,7 @@
 import { Link, Outlet } from '@tanstack/react-router'
 
 import { AuthForm } from '@/components/AuthForm'
+import { NotificationBell } from '@/components/NotificationBell'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import {
@@ -16,6 +17,7 @@ import { Typography } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 import { isAdmin } from '@/lib/roles'
 import { useAuth } from '@/lib/use-auth'
+import { useRealtime } from '@/lib/use-realtime'
 
 const navLinkClass = cn(
   buttonVariants({ variant: 'ghost', size: 'sm' }),
@@ -25,6 +27,9 @@ const navLinkClass = cn(
 export function RootLayout() {
   const auth = useAuth()
   const showComp = isAdmin(auth.user)
+  // Open the SSE stream once for the whole app; the hook is a no-op when the
+  // user isn't authenticated yet.
+  useRealtime()
 
   return (
     <main className="min-h-svh bg-background text-foreground">
@@ -104,6 +109,7 @@ export function RootLayout() {
               </Link>
             </Typography>
           </nav>
+          {auth.isAuthenticated && <NotificationBell />}
           {auth.isAuthenticated && (
             <Button type="button" variant="outline" size="sm" onClick={() => void auth.logout()}>
               Logout
