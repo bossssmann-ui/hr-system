@@ -1,0 +1,361 @@
+{
+  "common": {
+    "loginRequired": "Login required",
+    "loginRequiredHint": "This page is part of the recruiter workspace.",
+    "loading": "Loading...",
+    "errorTitle": "Error",
+    "unexpectedError": "Unexpected error",
+    "accessDenied": "Access denied.",
+    "working": "Working...",
+    "creating": "Creating...",
+    "queueing": "Queueing...",
+    "generating": "Generating...",
+    "uploading": "Uploading...",
+    "syncing": "Syncing...",
+    "preparing": "Preparing..."
+  },
+  "requisitions": {
+    "badge": "Recruiting · Requisitions",
+    "title": "Hiring requisitions",
+    "subtitleNew": "New hiring requisition",
+    "newButton": "New requisition",
+    "all": "All",
+    "empty": {
+      "title": "No requisitions yet",
+      "description": "Create the first one above."
+    },
+    "actions": "Actions",
+    "backToList": "← Back to list",
+    "fields": {
+      "orgUnit": "Org unit",
+      "orgUnitPlaceholder": "Select org unit...",
+      "title": "Title",
+      "titlePlaceholder": "e.g. Senior Backend Engineer",
+      "grade": "Grade",
+      "gradePlaceholder": "e.g. M3",
+      "salaryMin": "Salary min",
+      "salaryMax": "Salary max",
+      "salaryRange": "Salary range",
+      "currency": "Currency",
+      "justification": "Justification",
+      "justificationPlaceholder": "Business rationale",
+      "deadline": "Deadline (optional)",
+      "deadlineShort": "Deadline",
+      "created": "Created"
+    },
+    "submit": {
+      "create": "Create requisition",
+      "creating": "Creating…"
+    },
+    "errors": {
+      "invalidSalaryMin": "Invalid salary min",
+      "invalidSalaryMax": "Invalid salary max",
+      "createFailed": "Failed to create requisition",
+      "notFound": "Requisition not found or access denied",
+      "salaryOrder": "Salary min must be ≤ salary max"
+    },
+    "toasts": {
+      "statusUpdated": "Status updated",
+      "statusUpdateFailed": "Failed to update status"
+    },
+    "newTitle": "New hiring requisition"
+  },
+  "status": {
+    "draft": "Draft",
+    "submitted": "Submitted",
+    "manager_approved": "Manager Approved",
+    "hr_approved": "HR Approved",
+    "approved": "Approved",
+    "in_recruitment": "In Recruitment",
+    "closed": "Closed",
+    "rejected": "Rejected"
+  },
+  "transitions": {
+    "submitted": "Submit",
+    "manager_approved": "Approve as Manager",
+    "hr_approved": "Approve as HR",
+    "approved": "Final Approve",
+    "in_recruitment": "Start Recruiting",
+    "closed": "Close",
+    "rejected": "Reject"
+  },
+  "vacancies": {
+    "badge": "Recruiting · Vacancies",
+    "title": "Vacancies",
+    "empty": {
+      "title": "No vacancies yet",
+      "description": "Vacancies are auto-created when a requisition is approved."
+    },
+    "published": "Published",
+    "draft": "Draft",
+    "publish": "Publish",
+    "unpublish": "Unpublish",
+    "viewApplications": "View applications",
+    "back": "← Back",
+    "notFound": "Vacancy not found",
+    "loadFailed": "Could not load vacancies",
+    "publishFailed": "Failed to update publication"
+  },
+  "candidates": {
+    "badge": "Recruiting · Candidates",
+    "title": "Candidates",
+    "add": "Add candidate",
+    "newButton": "New candidate",
+    "addCardTitle": "Add candidate",
+    "searchPlaceholder": "Search by name, email, phone...",
+    "empty": "No candidates found",
+    "loadFailed": "Could not load candidates",
+    "fields": {
+      "fullName": "Full name *",
+      "email": "Email",
+      "phone": "Phone",
+      "location": "Location"
+    },
+    "toasts": {
+      "created": "Candidate created",
+      "deduped": "Returning existing candidate (deduped)",
+      "createFailed": "Failed to create candidate"
+    }
+  },
+  "applications": {
+    "badge": "Recruiting · Kanban",
+    "detailBadge": "Recruiting · Application",
+    "title": "Applications",
+    "newButton": "New application",
+    "filterByVacancy": "Filter by vacancy:",
+    "allVacancies": "All vacancies",
+    "openDetail": "Open detail",
+    "cardTitle": "New application",
+    "detailTitle": "Application detail",
+    "candidateAndVacancy": "Candidate + vacancy",
+    "candidateLabel": "Candidate:",
+    "vacancyLabel": "Vacancy:",
+    "stageLabel": "Stage:",
+    "stages": {
+      "new": "New",
+      "screen": "Screening",
+      "tech": "Tech",
+      "final": "Final",
+      "offer": "Offer",
+      "hired": "Hired",
+      "rejected": "Rejected"
+    },
+    "fields": {
+      "vacancy": "Vacancy",
+      "vacancyPlaceholder": "Select vacancy...",
+      "candidate": "Candidate",
+      "candidatePlaceholder": "Select candidate..."
+    },
+    "create": "Create application",
+    "cannotMove": "Cannot move from {{from}} to {{to}}",
+    "toasts": {
+      "created": "Application created",
+      "createFailed": "Failed to create application",
+      "moveFailed": "Cannot move to that stage"
+    },
+    "ai": {
+      "title": "AI scoring",
+      "rescore": "Re-score",
+      "notConfigured": "AI scoring not configured.",
+      "noScore": "No AI score yet.",
+      "inProgress": "Scoring is in progress.",
+      "rescoreSuccess": "Re-score queued",
+      "rescoreFailed": "Failed to queue re-score",
+      "summary": {
+        "notConfigured": "AI scoring not configured",
+        "failed": "Scoring failed",
+        "inProgress": "Scoring in progress",
+        "noScore": "No score yet",
+        "notScored": "Not scored yet",
+        "scored": "Scored"
+      },
+      "badge": {
+        "notConfigured": "AI not configured",
+        "failed": "AI failed",
+        "pending": "AI scoring…",
+        "notScored": "Not scored",
+        "scored": "AI {{score}}"
+      },
+      "relevanceScore": "Relevance score: {{score}}",
+      "strengths": "Strengths",
+      "gaps": "Gaps",
+      "softSkillsSignals": "Soft skills signals",
+      "redFlags": "Red flags",
+      "antiFraudSignals": "Anti-fraud signals",
+      "interviewFocusAreas": "Interview focus areas",
+      "valuesFitHypothesis": "Values fit hypothesis"
+    },
+    "feedback": {
+      "title": "Human feedback",
+      "description": "Score is advisory. Recruiter decision is final.",
+      "notePlaceholder": "Optional note about why you agree or disagree",
+      "agree": "Agree",
+      "disagree": "Disagree",
+      "saved": "Feedback saved",
+      "saveFailed": "Failed to save feedback",
+      "last": "Last feedback: {{verdict}} · {{note}}",
+      "noNote": "No note"
+    },
+    "questions": {
+      "title": "AI interview questions",
+      "description": "Advisory only — recruiter picks what to use.",
+      "generate": "Generate",
+      "empty": "No generated questions yet.",
+      "success": "Interview questions generated",
+      "failed": "Failed to generate interview questions"
+    },
+    "assessments": {
+      "title": "Assessments",
+      "description": "Create a tokenized invite and review trust-score outcomes.",
+      "selectTemplate": "Select template…",
+      "candidateLink": "Candidate link:",
+      "empty": "No assessment sessions yet.",
+      "trustScore": "Trust Score: {{score}}",
+      "inviteCreated": "Assessment invite created",
+      "inviteFailed": "Failed to invite candidate",
+      "inviting": "Inviting…",
+      "inviteCandidate": "Invite candidate",
+      "signals": "paste={{paste}} · focus={{focus}} · keystroke={{keystroke}}",
+      "selectTemplateFirst": "Select a template first"
+    },
+    "backToKanban": "← Back to kanban",
+    "notFound": "Application not found or access denied"
+  },
+  "interviews": {
+    "title": "Interviews",
+    "description": "Upload a recording to start transcription & protocol generation.",
+    "consent": {
+      "title": "Recording consent (152-ФЗ)",
+      "description": "Transcription and protocol generation will only start after the candidate consents to recording.",
+      "recorded": "Consent recorded",
+      "notRecorded": "Consent not recorded",
+      "blocked": "Transcription blocked: consent required."
+    },
+    "upload": {
+      "replace": "Replace recording",
+      "upload": "Upload recording"
+    },
+    "transcribe": {
+      "action": "Transcribe"
+    },
+    "protocol": {
+      "build": "Build protocol",
+      "title": "Interview Protocol",
+      "generatedBy": "Generated by: {{model}} · {{date}}",
+      "summary": "Summary",
+      "strengths": "Strengths",
+      "concerns": "Concerns",
+      "qa": "Questions & Answers",
+      "qPrefix": "Q:",
+      "aPrefix": "A:"
+    },
+    "status": {
+      "created": "Created",
+      "transcribing": "Transcribing…",
+      "transcribed": "Transcribed",
+      "protocol_ready": "Protocol ready",
+      "failed": "Failed"
+    },
+    "statusLabel": "Status:",
+    "failedHint": "Check backend logs or retry transcription.",
+    "transcript": {
+      "title": "Transcript",
+      "providerLine": "Provider: {{provider}} · Model: {{model}} · Language: {{language}}"
+    },
+    "agreedTerm": {
+      "showSource": "Show source",
+      "hideSource": "Hide source",
+      "title": "Agreed Terms",
+      "salary": "Salary",
+      "startDate": "Start date",
+      "condition": "Condition {{n}}",
+      "empty": "No agreed terms found in transcript.",
+      "quoteFromSegment": "Quote from segment {{idx}}:",
+      "speakerLine": "Speaker: {{speaker}} · {{start}}–{{end}}"
+    },
+    "offerDraft": {
+      "title": "Offer Draft",
+      "salary": "Salary",
+      "startDate": "Start date",
+      "conditions": "Conditions",
+      "draft": "draft",
+      "phaseHint": "Phase 3 will add full offer + DocuSeal signing",
+      "empty": "No terms extracted."
+    },
+    "empty": "No interviews yet. Create one to start the transcription pipeline.",
+    "new": "New interview",
+    "toasts": {
+      "created": "Interview created",
+      "createFailed": "Failed to create interview",
+      "consentUpdated": "Consent updated",
+      "consentFailed": "Failed to update consent",
+      "uploaded": "Recording uploaded — transcription will start if consent is given",
+      "uploadFailed": "Upload failed",
+      "transcribeQueued": "Transcription queued",
+      "transcribeNotConfigured": "Transcription not configured (set TRANSCRIPTION_ENABLED + ASR_API_KEY)",
+      "transcribeFailed": "Transcription failed",
+      "protocolQueued": "Protocol build queued",
+      "protocolNotConfigured": "LLM not configured",
+      "protocolFailed": "Protocol build failed"
+    }
+  },
+  "admin": {
+    "badge": "Admin",
+    "users": {
+      "title": "Users",
+      "fields": {
+        "name": "Name",
+        "email": "Email",
+        "roles": "Roles",
+        "joined": "Joined"
+      },
+      "loadFailed": "Could not load users"
+    },
+    "audit": {
+      "title": "Audit log",
+      "entityTypeLabel": "Entity type:",
+      "all": "All",
+      "fields": {
+        "action": "Action",
+        "entity": "Entity",
+        "actor": "Actor",
+        "when": "When"
+      },
+      "loadMore": "Load more",
+      "loadFailed": "Could not load audit log"
+    },
+    "hh": {
+      "badge": "Admin · Integrations",
+      "title": "HH.ru negotiations sync",
+      "notConfiguredTitle": "Not configured",
+      "notConfiguredReason": "HH integration is disabled or missing credentials.",
+      "connected": "Connected{{suffix}}.",
+      "employerSuffix": " (employer {{id}})",
+      "notConnected": "Not connected yet.",
+      "connect": "Connect HH",
+      "reconnect": "Reconnect HH",
+      "syncNow": "Sync now",
+      "lastSync": "Last sync: {{date}}",
+      "mapping": {
+        "title": "Vacancy mapping",
+        "description": "Link each local vacancy with its HH vacancy ID for negotiations polling.",
+        "empty": "No vacancies to map yet.",
+        "idPlaceholder": "HH vacancy ID",
+        "save": "Save"
+      },
+      "toasts": {
+        "connected": "HH connected",
+        "syncCompleted": "HH sync completed",
+        "syncFailed": "HH sync failed",
+        "mappingUpdated": "Vacancy mapping updated",
+        "mappingFailed": "Failed to save vacancy link",
+        "syncResult": "Imported {{candidates}} candidates; upserted {{applications}} applications.",
+        "authorizeUnavailable": "HH authorize URL is unavailable",
+        "prepareFailed": "Failed to prepare HH OAuth",
+        "completeFailed": "Failed to complete HH OAuth",
+        "statusLoadFailed": "Could not load HH integration status",
+        "vacanciesLoadFailed": "Could not load vacancies"
+      }
+    }
+  }
+}

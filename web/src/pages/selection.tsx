@@ -10,6 +10,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useParams } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
@@ -21,7 +22,6 @@ import { useAuth } from '@/lib/use-auth'
 
 type AnswerMap = Record<string, unknown>
 
-const STAGE_LABELS = ['Анкета-скрининг', 'Профессиональный тест', 'Психологический тест', 'Тестовое задание']
 const STAGE_2_LIMIT_MS = 30 * 60 * 1000
 
 // ─── Local-storage key for stage-2 timer ────────────────────────────────────
@@ -43,6 +43,7 @@ function setStage2StartedAt(sessionId: string, ts: number) {
 // ─── Progress indicator ──────────────────────────────────────────────────────
 
 function StageProgress({ current }: { current: number | null }) {
+  const { t } = useTranslation('selection')
   return (
     <div className="flex items-center gap-2">
       {[1, 2, 3, 4].map((n) => (
@@ -53,13 +54,17 @@ function StageProgress({ current }: { current: number | null }) {
               ? 'bg-primary'
               : 'bg-muted-foreground/30'
           }`}
-          aria-label={`Этап ${n}${current !== null && n <= current ? ' (завершён)' : ''}`}
+          aria-label={
+            current !== null && n <= current
+              ? t('candidate.stageCompletedAria', { n })
+              : t('candidate.stageAria', { n })
+          }
         />
       ))}
       <Typography variant="bodySm" tone="muted">
         {current !== null && current <= 4
-          ? `Этап ${current} из 4`
-          : 'Все этапы пройдены'}
+          ? t('candidate.stageOfFour', { n: current })
+          : t('candidate.allComplete')}
       </Typography>
     </div>
   )
@@ -68,6 +73,7 @@ function StageProgress({ current }: { current: number | null }) {
 // ─── Countdown timer (Stage 2 only) ─────────────────────────────────────────
 
 function CountdownTimer({ sessionId, startedAt }: { sessionId: string; startedAt: string | null }) {
+  const { t } = useTranslation('selection')
   const [nowMs, setNowMs] = useState(() => Date.now())
 
   useEffect(() => {
@@ -98,7 +104,10 @@ function CountdownTimer({ sessionId, startedAt }: { sessionId: string; startedAt
         isUrgent ? 'border-destructive text-destructive' : 'border-muted text-muted-foreground'
       }`}
     >
-      ⏱ {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')} до конца теста
+      {t('candidate.timer', {
+        minutes: String(minutes).padStart(2, '0'),
+        seconds: String(seconds).padStart(2, '0'),
+      })}
     </div>
   )
 }
@@ -120,6 +129,7 @@ function Stage2Questions({
   sessionId: string
   startedAt: string | null
 }) {
+  const { t } = useTranslation('selection')
   // The stage data shape from the server is just metadata. For Stage 2 we show
   // a simple text entry per question, with no ability to navigate backwards.
   const [currentQ, setCurrentQ] = useState(0)
@@ -131,7 +141,7 @@ function Stage2Questions({
 
   // Fallback placeholder if server sends no question list
   const questions: Array<{ key: string; text: string; type?: string; options?: string[] }> = stage?.questions ?? [
-    { key: 'q1', text: 'Ответьте на вопросы профессионального теста. (Вопросы загружаются из конфигурации вакансии)' },
+    { key: 'q1', text: t('candidate.stage2Fallback') },
   ]
 
   const total = questions.length
@@ -167,14 +177,14 @@ function Stage2Questions({
       <div className="flex items-center justify-between">
         <CountdownTimer sessionId={sessionId} startedAt={startedAt} />
         <Typography variant="bodySm" tone="muted">
-          Вопрос {currentQ + 1} из {total}
+          {t('candidate.questionOf', { current: currentQ + 1, total })}
         </Typography>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="text-base">{currentQ + 1}. {q.text}</CardTitle>
-          <CardDescription>Нельзя вернуться к предыдущим вопросам</CardDescription>
+          <CardDescription>{t('candidate.noGoBack')}</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3">
           {q.type === 'single_choice' && q.options ? (
@@ -197,7 +207,7 @@ function Stage2Questions({
               ref={inputRef}
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               rows={4}
-              placeholder="Ваш ответ…"
+              placeholder={t('candidate.answerPlaceholder')}
               value={currentAnswer}
               onChange={(e) => setCurrentAnswer(e.target.value)}
             />
@@ -208,9 +218,9 @@ function Stage2Questions({
           >
             {isLast
               ? isSubmitting
-                ? 'Отправляем…'
-                : 'Завершить тест'
-              : 'Следующий вопрос →'}
+                ? t('candidate.submitting')
+                : t('candidate.finishTest')
+              : t('candidate.nextQuestion')}
           </Button>
         </CardContent>
       </Card>
@@ -231,6 +241,7 @@ function GenericStageForm({
   onSubmit: (answers: AnswerMap) => void
   isSubmitting: boolean
 }) {
+  const { t } = useTranslation('selection')
   const [answers, setAnswers] = useState<AnswerMap>({})
   const stage = stageData as {
     title?: string
@@ -242,25 +253,25 @@ function GenericStageForm({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{stage?.title ?? STAGE_LABELS[stageNumber - 1]}</CardTitle>
+        <CardTitle>{stage?.title ?? t(`stages.${stageNumber}`)}</CardTitle>
         <CardDescription>
           {stageNumber === 3
-            ? 'Оцените каждое утверждение по шкале от 1 до 5'
+            ? t('candidate.generic.scaleHint')
             : stageNumber === 4
-            ? 'Выполните практическое задание'
-            : 'Заполните все поля'}
+            ? t('candidate.generic.practicalHint')
+            : t('candidate.generic.fillAll')}
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-5">
         {questions.length === 0 ? (
           <div className="grid gap-2">
             <Typography variant="bodySm" tone="muted">
-              Вопросы этого этапа настраиваются в шаблоне вакансии.
+              {t('candidate.generic.configuredInTemplate')}
             </Typography>
             <textarea
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               rows={6}
-              placeholder="Введите ответ…"
+              placeholder={t('candidate.generic.answerPlaceholder')}
               value={typeof answers['answer'] === 'string' ? String(answers['answer']) : ''}
               onChange={(e) => setAnswers({ answer: e.target.value })}
             />
@@ -311,7 +322,7 @@ function GenericStageForm({
           ))
         )}
         <Button onClick={() => onSubmit(answers)} disabled={isSubmitting}>
-          {isSubmitting ? 'Отправляем…' : 'Отправить и продолжить'}
+          {isSubmitting ? t('candidate.submitting') : t('candidate.submitContinue')}
         </Button>
       </CardContent>
     </Card>
@@ -324,6 +335,7 @@ export function PublicSelectionPage() {
   const params = useParams({ strict: false }) as { token?: string }
   const token = params.token ?? ''
   const { api } = useAuth()
+  const { t } = useTranslation('selection')
   const [locallyCompleted, setLocallyCompleted] = useState(false)
 
   const sessionQuery = useQuery({
@@ -339,17 +351,17 @@ export function PublicSelectionPage() {
     onSuccess: (result) => {
       if (result.nextStatus === 'completed') {
         setLocallyCompleted(true)
-        toast.success('Все этапы пройдены! Спасибо!')
+        toast.success(t('candidate.toasts.allComplete'))
       } else {
-        toast.success('Этап сдан. Переходим к следующему…')
+        toast.success(t('candidate.toasts.stagePassed'))
         void sessionQuery.refetch()
       }
     },
     onError: (error: unknown) => {
       if (error instanceof ApiRequestError && error.status === 422) {
-        toast.error('Время вышло. Этот этап больше недоступен.')
+        toast.error(t('candidate.toasts.timeUp'))
       } else {
-        toast.error(error instanceof ApiRequestError ? error.message : 'Не удалось отправить ответы')
+        toast.error(error instanceof ApiRequestError ? error.message : t('candidate.toasts.submitFailed'))
       }
       void sessionQuery.refetch()
     },
@@ -363,7 +375,7 @@ export function PublicSelectionPage() {
   if (sessionQuery.isPending) {
     return (
       <section className="mx-auto w-full max-w-2xl px-5 py-12">
-        <Typography>Загружаем тестирование…</Typography>
+        <Typography>{t('candidate.loading')}</Typography>
       </section>
     )
   }
@@ -373,8 +385,8 @@ export function PublicSelectionPage() {
       <section className="mx-auto w-full max-w-2xl px-5 py-12">
         <Card>
           <CardHeader>
-            <CardTitle>Тестирование недоступно</CardTitle>
-            <CardDescription>Ссылка недействительна или срок действия истёк.</CardDescription>
+            <CardTitle>{t('candidate.unavailableTitle')}</CardTitle>
+            <CardDescription>{t('candidate.unavailableHint')}</CardDescription>
           </CardHeader>
         </Card>
       </section>
@@ -398,17 +410,17 @@ export function PublicSelectionPage() {
           <CardHeader>
             <CardTitle>
               {isExpired
-                ? 'Время сессии истекло'
+                ? t('candidate.expiredTitle')
                 : isRejected
-                ? 'Тестирование завершено'
-                : 'Спасибо!'}
+                ? t('candidate.rejectedTitle')
+                : t('candidate.thanksTitle')}
             </CardTitle>
             <CardDescription>
               {isExpired
-                ? 'К сожалению, сессия недоступна — истёк срок действия ссылки.'
+                ? t('candidate.expiredHint')
                 : isRejected
-                ? 'Ваши результаты обработаны.'
-                : 'Ваши ответы переданы на рассмотрение. Мы свяжемся с вами в ближайшее время.'}
+                ? t('candidate.rejectedHint')
+                : t('candidate.thanksHint')}
             </CardDescription>
           </CardHeader>
         </Card>
@@ -422,12 +434,12 @@ export function PublicSelectionPage() {
     <section className="mx-auto grid w-full max-w-2xl gap-6 px-5 py-12">
       {/* Header */}
       <div className="grid gap-2">
-        <Badge variant="outline" className="w-fit">Отбор кандидата</Badge>
+        <Badge variant="outline" className="w-fit">{t('candidate.badge')}</Badge>
         <Typography variant="h1">
-          {session.role === 'logist' ? 'Логист-экспедитор' : 'Менеджер по продажам ТЭУ'}
+          {session.role === 'logist' ? t('candidate.roles.logist') : t('candidate.roles.sales_manager')}
         </Typography>
         {currentStage !== null && currentStage <= 4 && (
-          <Typography tone="muted">{STAGE_LABELS[currentStage - 1]}</Typography>
+          <Typography tone="muted">{t(`stages.${currentStage}`)}</Typography>
         )}
       </div>
 
@@ -438,8 +450,8 @@ export function PublicSelectionPage() {
       {currentStage === null && (
         <Card>
           <CardHeader>
-            <CardTitle>Тестирование завершено</CardTitle>
-            <CardDescription>Спасибо за участие!</CardDescription>
+            <CardTitle>{t('candidate.completedTitle')}</CardTitle>
+            <CardDescription>{t('candidate.completedHint')}</CardDescription>
           </CardHeader>
         </Card>
       )}

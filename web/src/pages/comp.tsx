@@ -9,6 +9,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import type { CompBand, CompCalculatorResponse } from '@web-app-demo/contracts'
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -28,12 +29,13 @@ type Currency = (typeof CURRENCIES)[number]
 
 export function CompPage() {
   const { user } = useAuth()
+  const { t } = useTranslation(['comp', 'common'])
   if (!user) {
     return (
       <section className="mx-auto grid w-full max-w-6xl gap-4 px-5 py-16">
-        <Badge variant="outline" className="w-fit">Login required</Badge>
-        <Typography variant="h2">Sign in to continue</Typography>
-        <Link to="/" className={cn(buttonVariants({ size: 'lg' }), 'w-fit')}>Go to auth</Link>
+        <Badge variant="outline" className="w-fit">{t('common:states.loginRequired')}</Badge>
+        <Typography variant="h2">{t('common:states.loginRequired')}</Typography>
+        <Link to="/" className={cn(buttonVariants({ size: 'lg' }), 'w-fit')}>{t('common:actions.goToAuth')}</Link>
       </section>
     )
   }
@@ -42,8 +44,8 @@ export function CompPage() {
 
 function CompContent() {
   const { api, user } = useAuth()
+  const { t } = useTranslation('comp')
   const queryClient = useQueryClient()
-  // Role-gated admin controls — the backend also enforces this via RLS.
   const admin = isAdmin(user)
 
   const bandsQuery = useQuery({
@@ -66,7 +68,7 @@ function CompContent() {
     },
     onError: (err) => {
       setCalcResult(null)
-      setCalcError(err instanceof ApiRequestError ? err.message : 'Calculator failed')
+      setCalcError(err instanceof ApiRequestError ? err.message : t('calculator.failed'))
     },
   })
 
@@ -80,17 +82,17 @@ function CompContent() {
     }) => api.createCompBand(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['comp', 'bands'] })
-      toast.success('Band created')
+      toast.success(t('bands.created'))
     },
     onError: (err) =>
-      toast.error(err instanceof ApiRequestError ? err.message : 'Failed to create band'),
+      toast.error(err instanceof ApiRequestError ? err.message : t('bands.createFailed')),
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.deleteCompBand(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['comp', 'bands'] })
-      toast.success('Band deleted')
+      toast.success(t('bands.deleted'))
     },
   })
 
@@ -99,26 +101,24 @@ function CompContent() {
   return (
     <section className="mx-auto grid w-full max-w-6xl gap-8 px-5 py-12">
       <div className="grid gap-2">
-        <Badge variant="outline" className="w-fit">Recruiting · Compensation</Badge>
-        <Typography variant="h1">Compensation calculator</Typography>
-        <Typography tone="muted">
-          Look up a salary against the configured band for a grade + currency.
-        </Typography>
+        <Badge variant="outline" className="w-fit">{t('badge')}</Badge>
+        <Typography variant="h1">{t('title')}</Typography>
+        <Typography tone="muted">{t('subtitle')}</Typography>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Calculator</CardTitle>
-          <CardDescription>Pick a grade + currency, enter a salary.</CardDescription>
+          <CardTitle>{t('calculator.title')}</CardTitle>
+          <CardDescription>{t('calculator.description')}</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
             <div>
-              <label className="text-sm font-medium">Grade</label>
-              <Input value={grade} onChange={(e) => setGrade(e.target.value)} placeholder="e.g. M2" />
+              <label className="text-sm font-medium">{t('calculator.grade')}</label>
+              <Input value={grade} onChange={(e) => setGrade(e.target.value)} placeholder={t('calculator.gradePlaceholder')} />
             </div>
             <div>
-              <label className="text-sm font-medium">Currency</label>
+              <label className="text-sm font-medium">{t('calculator.currency')}</label>
               <select
                 className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
                 value={currency}
@@ -128,12 +128,12 @@ function CompContent() {
               </select>
             </div>
             <div>
-              <label className="text-sm font-medium">Salary</label>
+              <label className="text-sm font-medium">{t('calculator.salary')}</label>
               <Input
                 type="number"
                 value={salary}
                 onChange={(e) => setSalary(e.target.value)}
-                placeholder="200000"
+                placeholder={t('calculator.salaryPlaceholder')}
               />
             </div>
             <div className="flex items-end">
@@ -141,14 +141,14 @@ function CompContent() {
                 onClick={() => calcMutation.mutate()}
                 disabled={!grade || !salary || calcMutation.isPending}
               >
-                {calcMutation.isPending ? <Spinner /> : 'Calculate'}
+                {calcMutation.isPending ? <Spinner /> : t('calculator.calculate')}
               </Button>
             </div>
           </div>
 
           {calcError && (
             <Alert variant="destructive">
-              <AlertTitle>Error</AlertTitle>
+              <AlertTitle>{t('errorTitle')}</AlertTitle>
               <AlertDescription>{calcError}</AlertDescription>
             </Alert>
           )}
@@ -163,8 +163,8 @@ function CompContent() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Band catalogue</CardTitle>
-              <CardDescription>Per-grade salary ranges.</CardDescription>
+              <CardTitle>{t('bands.title')}</CardTitle>
+              <CardDescription>{t('bands.description')}</CardDescription>
             </div>
           </div>
         </CardHeader>
@@ -172,11 +172,11 @@ function CompContent() {
           {bandsQuery.isPending && <Spinner />}
           {bandsQuery.isError && (
             <Alert variant="destructive">
-              <AlertTitle>Failed to load bands</AlertTitle>
+              <AlertTitle>{t('bands.loadFailedTitle')}</AlertTitle>
               <AlertDescription>
                 {bandsQuery.error instanceof ApiRequestError
                   ? bandsQuery.error.message
-                  : 'Unknown error'}
+                  : t('bands.unknownError')}
               </AlertDescription>
             </Alert>
           )}
@@ -184,11 +184,11 @@ function CompContent() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-left">
-                  <th className="py-2">Grade</th>
-                  <th>Currency</th>
-                  <th>Min</th>
-                  <th>Mid</th>
-                  <th>Max</th>
+                  <th className="py-2">{t('bands.fields.grade')}</th>
+                  <th>{t('bands.fields.currency')}</th>
+                  <th>{t('bands.fields.min')}</th>
+                  <th>{t('bands.fields.mid')}</th>
+                  <th>{t('bands.fields.max')}</th>
                   {admin && <th></th>}
                 </tr>
               </thead>
@@ -207,7 +207,7 @@ function CompContent() {
                           variant="destructive"
                           onClick={() => deleteMutation.mutate(b.id)}
                         >
-                          Delete
+                          {t('bands.delete')}
                         </Button>
                       </td>
                     )}
@@ -235,11 +235,11 @@ function CalculatorResult({
   result: CompCalculatorResponse
   salary: number
 }) {
+  const { t } = useTranslation('comp')
   const { band, zone, percentile } = result
   if (!band) return null
   const zoneColor =
     zone === 'within' ? 'bg-green-500' : zone === 'above' ? 'bg-orange-500' : 'bg-red-500'
-  // Bar shows the band min..max range, with a marker for salary.
   const min = band.minSalary
   const max = band.maxSalary
   const range = Math.max(1, max - min)
@@ -250,8 +250,8 @@ function CalculatorResult({
     <div className="grid gap-3">
       <div className="flex items-center gap-3">
         <Badge variant="outline">{band.grade} · {band.currency}</Badge>
-        <Badge className={cn('text-white', zoneColor)}>{zone}</Badge>
-        <Typography>Percentile: <strong>{percentile}</strong></Typography>
+        <Badge className={cn('text-white', zoneColor)}>{t(`result.zone.${zone}`)}</Badge>
+        <Typography>{t('result.percentile')} <strong>{percentile}</strong></Typography>
       </div>
       <div className="relative h-3 rounded-full bg-muted">
         <div
@@ -260,9 +260,9 @@ function CalculatorResult({
         />
       </div>
       <div className="flex justify-between text-xs text-muted-foreground">
-        <span>min {min.toLocaleString()}</span>
-        <span>mid {band.midSalary.toLocaleString()}</span>
-        <span>max {max.toLocaleString()}</span>
+        <span>{t('result.min')} {min.toLocaleString()}</span>
+        <span>{t('result.mid')} {band.midSalary.toLocaleString()}</span>
+        <span>{t('result.max')} {max.toLocaleString()}</span>
       </div>
     </div>
   )
@@ -275,6 +275,7 @@ function CreateBandForm({
   onCreate: (input: { grade: string; currency: Currency; minSalary: number; midSalary: number; maxSalary: number }) => void
   isPending: boolean
 }) {
+  const { t } = useTranslation('comp')
   const [grade, setGrade] = useState('')
   const [currency, setCurrency] = useState<Currency>('RUB')
   const [min, setMin] = useState('')
@@ -288,7 +289,7 @@ function CreateBandForm({
 
   return (
     <div className="grid grid-cols-1 gap-2 rounded border p-4 md:grid-cols-6">
-      <Input placeholder="Grade" value={grade} onChange={(e) => setGrade(e.target.value)} />
+      <Input placeholder={t('bands.addPlaceholder.grade')} value={grade} onChange={(e) => setGrade(e.target.value)} />
       <select
         className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
         value={currency}
@@ -296,9 +297,9 @@ function CreateBandForm({
       >
         {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
       </select>
-      <Input placeholder="Min" type="number" value={min} onChange={(e) => setMin(e.target.value)} />
-      <Input placeholder="Mid" type="number" value={mid} onChange={(e) => setMid(e.target.value)} />
-      <Input placeholder="Max" type="number" value={max} onChange={(e) => setMax(e.target.value)} />
+      <Input placeholder={t('bands.addPlaceholder.min')} type="number" value={min} onChange={(e) => setMin(e.target.value)} />
+      <Input placeholder={t('bands.addPlaceholder.mid')} type="number" value={mid} onChange={(e) => setMid(e.target.value)} />
+      <Input placeholder={t('bands.addPlaceholder.max')} type="number" value={max} onChange={(e) => setMax(e.target.value)} />
       <Button
         disabled={!canSubmit || isPending}
         onClick={() => {
@@ -312,7 +313,7 @@ function CreateBandForm({
           setGrade(''); setMin(''); setMid(''); setMax('')
         }}
       >
-        Add band
+        {t('bands.add')}
       </Button>
     </div>
   )

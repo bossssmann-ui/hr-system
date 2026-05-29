@@ -1,13 +1,50 @@
 {
   "title": "Offers",
+  "create": "Create offer",
+  "newOffer": "New offer",
   "status": {
     "draft": "Draft",
+    "manager_review": "Manager review",
+    "approved": "Approved",
     "sent": "Sent",
-    "accepted": "Accepted",
+    "accepted": "✓ Signed",
     "declined": "Declined",
     "expired": "Expired"
   },
+  "actions": {
+    "submit": "Submit for review",
+    "approve": "Approve",
+    "reject": "Return",
+    "send": "Send to candidate",
+    "decline": "Record decline",
+    "accept": "Accepted"
+  },
+  "fields": {
+    "salary": "Salary",
+    "currency": "Currency",
+    "grade": "Grade",
+    "startDate": "Start date",
+    "conditions": "Conditions (one per line)"
+  },
+  "form": {
+    "create": "Create offer",
+    "cancel": "Cancel"
+  },
+  "list": {
+    "loadFailed": "Failed to load offers",
+    "unknownError": "Unknown error",
+    "empty": "No offers yet.",
+    "startDate": "start {{date}}",
+    "openSigning": "Open DocuSeal signing page",
+    "reason": "Reason: {{reason}}",
+    "rejectPrompt": "Reject reason?",
+    "declinePrompt": "Decline reason?"
+  },
   "toasts": {
+    "created": "Offer created",
+    "createFailed": "Failed to create offer",
+    "transitioned": "Offer {{action}}",
+    "transitionFailed": "Transition failed",
     "sent": "Offer sent",
     "accepted": "Offer accepted",
     "declined": "Offer declined",

@@ -1,0 +1,48 @@
+{
+  "header": "Careers",
+  "meta": {
+    "listTitle": "Open Vacancies — Careers",
+    "listDescription": "Browse our open positions and apply today.",
+    "vacancyTitle": "{{title}} — Careers"
+  },
+  "list": {
+    "title": "Open Positions",
+    "subtitle": "We're growing! Browse our current openings and find your next role.",
+    "loading": "Loading vacancies…",
+    "loadFailedTitle": "Failed to load vacancies",
+    "loadFailedHint": "Please try refreshing the page.",
+    "empty": "No open positions right now. Check back soon!",
+    "apply": "Apply →"
+  },
+  "detail": {
+    "back": "← Back to Careers",
+    "notFoundTitle": "Vacancy not found",
+    "notFoundHint": "This position may have been filled or the link is incorrect.",
+    "openPosition": "Open Position",
+    "thanksTitle": "🎉 Application received!",
+    "thanksDescription": "Thank you for applying. We will review your application and reach out soon.",
+    "reference": "Reference:",
+    "applyTitle": "Apply for this position",
+    "applyDescription": "Fill in your details below. Fields marked * are required.",
+    "submissionFailedTitle": "Submission failed",
+    "consentRequiredApi": "Please check the consent box to proceed.",
+    "genericError": "Something went wrong. Please try again.",
+    "fields": {
+      "fullName": "Full name *",
+      "email": "Email *",
+      "phone": "Phone",
+      "resumeLink": "Resume link (URL)",
+      "coverNote": "Cover note",
+      "coverNotePlaceholder": "Tell us why you're interested…"
+    },
+    "consent": "I consent to the processing of my personal data in accordance with Federal Law No. 152-ФЗ «On Personal Data». *",
+    "submit": "Submit Application",
+    "submitting": "Submitting…"
+  },
+  "validation": {
+    "nameRequired": "Name is required",
+    "emailInvalid": "Enter a valid email",
+    "urlInvalid": "Enter a valid URL",
+    "consentRequired": "Consent is required"
+  }
+}

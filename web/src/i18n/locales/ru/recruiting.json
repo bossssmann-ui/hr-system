@@ -1,0 +1,361 @@
+{
+  "common": {
+    "loginRequired": "Требуется вход",
+    "loginRequiredHint": "Эта страница входит в рабочее пространство рекрутера.",
+    "loading": "Загрузка…",
+    "errorTitle": "Ошибка",
+    "unexpectedError": "Непредвиденная ошибка",
+    "accessDenied": "Доступ запрещён.",
+    "working": "Работаем…",
+    "creating": "Создаём…",
+    "queueing": "Ставим в очередь…",
+    "generating": "Генерируем…",
+    "uploading": "Загружаем…",
+    "syncing": "Синхронизация…",
+    "preparing": "Подготовка…"
+  },
+  "requisitions": {
+    "badge": "Рекрутинг · Заявки",
+    "title": "Заявки на наём",
+    "subtitleNew": "Новая заявка на наём",
+    "newButton": "Новая заявка",
+    "all": "Все",
+    "empty": {
+      "title": "Заявок пока нет",
+      "description": "Создайте первую заявку выше."
+    },
+    "actions": "Действия",
+    "backToList": "← Назад к списку",
+    "fields": {
+      "orgUnit": "Подразделение",
+      "orgUnitPlaceholder": "Выберите подразделение…",
+      "title": "Название",
+      "titlePlaceholder": "Например, Senior Backend Engineer",
+      "grade": "Грейд",
+      "gradePlaceholder": "Например, M3",
+      "salaryMin": "Зарплата от",
+      "salaryMax": "Зарплата до",
+      "salaryRange": "Диапазон зарплаты",
+      "currency": "Валюта",
+      "justification": "Обоснование",
+      "justificationPlaceholder": "Бизнес-обоснование",
+      "deadline": "Дедлайн (опционально)",
+      "deadlineShort": "Дедлайн",
+      "created": "Создано"
+    },
+    "submit": {
+      "create": "Создать заявку",
+      "creating": "Создаём…"
+    },
+    "errors": {
+      "invalidSalaryMin": "Некорректная минимальная зарплата",
+      "invalidSalaryMax": "Некорректная максимальная зарплата",
+      "createFailed": "Не удалось создать заявку",
+      "notFound": "Заявка не найдена или доступ запрещён",
+      "salaryOrder": "Минимальная зарплата должна быть ≤ максимальной"
+    },
+    "toasts": {
+      "statusUpdated": "Статус обновлён",
+      "statusUpdateFailed": "Не удалось обновить статус"
+    },
+    "newTitle": "Новая заявка на наём"
+  },
+  "status": {
+    "draft": "Черновик",
+    "submitted": "Отправлено",
+    "manager_approved": "Согласовано руководителем",
+    "hr_approved": "Согласовано HR",
+    "approved": "Утверждено",
+    "in_recruitment": "В подборе",
+    "closed": "Закрыто",
+    "rejected": "Отклонено"
+  },
+  "transitions": {
+    "submitted": "Отправить",
+    "manager_approved": "Согласовать как руководитель",
+    "hr_approved": "Согласовать как HR",
+    "approved": "Финальное утверждение",
+    "in_recruitment": "Начать подбор",
+    "closed": "Закрыть",
+    "rejected": "Отклонить"
+  },
+  "vacancies": {
+    "badge": "Рекрутинг · Вакансии",
+    "title": "Вакансии",
+    "empty": {
+      "title": "Вакансий пока нет",
+      "description": "Вакансии создаются автоматически при утверждении заявки."
+    },
+    "published": "Опубликована",
+    "draft": "Черновик",
+    "publish": "Опубликовать",
+    "unpublish": "Снять с публикации",
+    "viewApplications": "Открыть отклики",
+    "back": "← Назад",
+    "notFound": "Вакансия не найдена",
+    "loadFailed": "Не удалось загрузить вакансии",
+    "publishFailed": "Не удалось обновить публикацию"
+  },
+  "candidates": {
+    "badge": "Рекрутинг · Кандидаты",
+    "title": "Кандидаты",
+    "add": "Добавить кандидата",
+    "newButton": "Новый кандидат",
+    "addCardTitle": "Добавить кандидата",
+    "searchPlaceholder": "Поиск по имени, email, телефону…",
+    "empty": "Кандидаты не найдены",
+    "loadFailed": "Не удалось загрузить кандидатов",
+    "fields": {
+      "fullName": "Полное имя *",
+      "email": "Email",
+      "phone": "Телефон",
+      "location": "Город"
+    },
+    "toasts": {
+      "created": "Кандидат создан",
+      "deduped": "Возвращаем существующего кандидата (дедупликация)",
+      "createFailed": "Не удалось создать кандидата"
+    }
+  },
+  "applications": {
+    "badge": "Рекрутинг · Канбан",
+    "detailBadge": "Рекрутинг · Отклик",
+    "title": "Отклики",
+    "newButton": "Новый отклик",
+    "filterByVacancy": "Фильтр по вакансии:",
+    "allVacancies": "Все вакансии",
+    "openDetail": "Открыть детали",
+    "cardTitle": "Новый отклик",
+    "detailTitle": "Детали отклика",
+    "candidateAndVacancy": "Кандидат и вакансия",
+    "candidateLabel": "Кандидат:",
+    "vacancyLabel": "Вакансия:",
+    "stageLabel": "Этап:",
+    "stages": {
+      "new": "Новый",
+      "screen": "Скрининг",
+      "tech": "Техническое",
+      "final": "Финал",
+      "offer": "Оффер",
+      "hired": "Принят",
+      "rejected": "Отклонён"
+    },
+    "fields": {
+      "vacancy": "Вакансия",
+      "vacancyPlaceholder": "Выберите вакансию…",
+      "candidate": "Кандидат",
+      "candidatePlaceholder": "Выберите кандидата…"
+    },
+    "create": "Создать отклик",
+    "cannotMove": "Нельзя перевести из «{{from}}» в «{{to}}»",
+    "toasts": {
+      "created": "Отклик создан",
+      "createFailed": "Не удалось создать отклик",
+      "moveFailed": "Не удалось перевести на этот этап"
+    },
+    "ai": {
+      "title": "AI-скоринг",
+      "rescore": "Пере-оценить",
+      "notConfigured": "AI-скоринг не настроен.",
+      "noScore": "AI-оценка ещё не готова.",
+      "inProgress": "Скоринг выполняется.",
+      "rescoreSuccess": "Пере-оценка поставлена в очередь",
+      "rescoreFailed": "Не удалось поставить пере-оценку в очередь",
+      "summary": {
+        "notConfigured": "AI-скоринг не настроен",
+        "failed": "Скоринг не удался",
+        "inProgress": "Скоринг выполняется",
+        "noScore": "Оценки ещё нет",
+        "notScored": "Ещё не оценено",
+        "scored": "Оценено"
+      },
+      "badge": {
+        "notConfigured": "AI не настроен",
+        "failed": "AI ошибка",
+        "pending": "AI-скоринг…",
+        "notScored": "Не оценено",
+        "scored": "AI {{score}}"
+      },
+      "relevanceScore": "Оценка релевантности: {{score}}",
+      "strengths": "Сильные стороны",
+      "gaps": "Пробелы",
+      "softSkillsSignals": "Сигналы soft skills",
+      "redFlags": "Красные флаги",
+      "antiFraudSignals": "Антифрод-сигналы",
+      "interviewFocusAreas": "Темы для интервью",
+      "valuesFitHypothesis": "Гипотеза о соответствии ценностям"
+    },
+    "feedback": {
+      "title": "Обратная связь рекрутера",
+      "description": "Оценка носит рекомендательный характер. Решение рекрутера — финальное.",
+      "notePlaceholder": "Опциональный комментарий, почему Вы согласны или не согласны",
+      "agree": "Согласен",
+      "disagree": "Не согласен",
+      "saved": "Отзыв сохранён",
+      "saveFailed": "Не удалось сохранить отзыв",
+      "last": "Последний отзыв: {{verdict}} · {{note}}",
+      "noNote": "без комментария"
+    },
+    "questions": {
+      "title": "AI-вопросы для интервью",
+      "description": "Только рекомендация — рекрутер сам решает, что использовать.",
+      "generate": "Сгенерировать",
+      "empty": "Сгенерированных вопросов пока нет.",
+      "success": "Вопросы для интервью сгенерированы",
+      "failed": "Не удалось сгенерировать вопросы"
+    },
+    "assessments": {
+      "title": "Ассессменты",
+      "description": "Создайте токенизированное приглашение и просмотрите результаты trust-score.",
+      "selectTemplate": "Выберите шаблон…",
+      "candidateLink": "Ссылка для кандидата:",
+      "empty": "Сессий ассессмента пока нет.",
+      "trustScore": "Trust Score: {{score}}",
+      "inviteCreated": "Приглашение на ассессмент создано",
+      "inviteFailed": "Не удалось пригласить кандидата",
+      "inviting": "Отправка приглашения…",
+      "inviteCandidate": "Пригласить кандидата",
+      "signals": "вставка={{paste}} · потеря фокуса={{focus}} · клавиатура={{keystroke}}",
+      "selectTemplateFirst": "Сначала выберите шаблон"
+    },
+    "backToKanban": "← Назад к канбану",
+    "notFound": "Отклик не найден или доступ запрещён"
+  },
+  "interviews": {
+    "title": "Интервью",
+    "description": "Загрузите запись, чтобы запустить транскрипцию и генерацию протокола.",
+    "consent": {
+      "title": "Согласие на запись (152-ФЗ)",
+      "description": "Транскрипция и генерация протокола начнутся только после согласия кандидата на запись.",
+      "recorded": "Согласие зафиксировано",
+      "notRecorded": "Согласие не зафиксировано",
+      "blocked": "Транскрипция заблокирована: требуется согласие."
+    },
+    "upload": {
+      "replace": "Заменить запись",
+      "upload": "Загрузить запись"
+    },
+    "transcribe": {
+      "action": "Транскрибировать"
+    },
+    "protocol": {
+      "build": "Собрать протокол",
+      "title": "Протокол интервью",
+      "generatedBy": "Сгенерировано: {{model}} · {{date}}",
+      "summary": "Резюме",
+      "strengths": "Сильные стороны",
+      "concerns": "Опасения",
+      "qa": "Вопросы и ответы",
+      "qPrefix": "В:",
+      "aPrefix": "О:"
+    },
+    "status": {
+      "created": "Создано",
+      "transcribing": "Транскрипция…",
+      "transcribed": "Транскрибировано",
+      "protocol_ready": "Протокол готов",
+      "failed": "Ошибка"
+    },
+    "statusLabel": "Статус:",
+    "failedHint": "Проверьте логи бэкенда или повторите транскрипцию.",
+    "transcript": {
+      "title": "Транскрипт",
+      "providerLine": "Провайдер: {{provider}} · Модель: {{model}} · Язык: {{language}}"
+    },
+    "agreedTerm": {
+      "showSource": "Показать источник",
+      "hideSource": "Скрыть источник",
+      "title": "Согласованные условия",
+      "salary": "Зарплата",
+      "startDate": "Дата выхода",
+      "condition": "Условие {{n}}",
+      "empty": "Согласованные условия в транскрипте не найдены.",
+      "quoteFromSegment": "Цитата из сегмента {{idx}}:",
+      "speakerLine": "Спикер: {{speaker}} · {{start}}–{{end}}"
+    },
+    "offerDraft": {
+      "title": "Черновик оффера",
+      "salary": "Зарплата",
+      "startDate": "Дата выхода",
+      "conditions": "Условия",
+      "draft": "черновик",
+      "phaseHint": "Фаза 3 добавит полноценный оффер и подписание через DocuSeal",
+      "empty": "Условия не извлечены."
+    },
+    "empty": "Интервью пока нет. Создайте, чтобы запустить пайплайн транскрипции.",
+    "new": "Новое интервью",
+    "toasts": {
+      "created": "Интервью создано",
+      "createFailed": "Не удалось создать интервью",
+      "consentUpdated": "Согласие обновлено",
+      "consentFailed": "Не удалось обновить согласие",
+      "uploaded": "Запись загружена — транскрипция начнётся при наличии согласия",
+      "uploadFailed": "Загрузка не удалась",
+      "transcribeQueued": "Транскрипция поставлена в очередь",
+      "transcribeNotConfigured": "Транскрипция не настроена (укажите TRANSCRIPTION_ENABLED + ASR_API_KEY)",
+      "transcribeFailed": "Транскрипция не удалась",
+      "protocolQueued": "Сборка протокола поставлена в очередь",
+      "protocolNotConfigured": "LLM не настроен",
+      "protocolFailed": "Сборка протокола не удалась"
+    }
+  },
+  "admin": {
+    "badge": "Админ",
+    "users": {
+      "title": "Пользователи",
+      "fields": {
+        "name": "Имя",
+        "email": "Email",
+        "roles": "Роли",
+        "joined": "Дата регистрации"
+      },
+      "loadFailed": "Не удалось загрузить пользователей"
+    },
+    "audit": {
+      "title": "Журнал аудита",
+      "entityTypeLabel": "Тип сущности:",
+      "all": "Все",
+      "fields": {
+        "action": "Действие",
+        "entity": "Сущность",
+        "actor": "Инициатор",
+        "when": "Когда"
+      },
+      "loadMore": "Загрузить ещё",
+      "loadFailed": "Не удалось загрузить журнал аудита"
+    },
+    "hh": {
+      "badge": "Админ · Интеграции",
+      "title": "Синхронизация откликов HH.ru",
+      "notConfiguredTitle": "Не настроено",
+      "notConfiguredReason": "Интеграция HH отключена или отсутствуют учётные данные.",
+      "connected": "Подключено{{suffix}}.",
+      "employerSuffix": " (работодатель {{id}})",
+      "notConnected": "Ещё не подключено.",
+      "connect": "Подключить HH",
+      "reconnect": "Переподключить HH",
+      "syncNow": "Синхронизировать сейчас",
+      "lastSync": "Последняя синхронизация: {{date}}",
+      "mapping": {
+        "title": "Сопоставление вакансий",
+        "description": "Свяжите каждую локальную вакансию с её ID на HH для опроса откликов.",
+        "empty": "Вакансий для сопоставления пока нет.",
+        "idPlaceholder": "ID вакансии HH",
+        "save": "Сохранить"
+      },
+      "toasts": {
+        "connected": "HH подключён",
+        "syncCompleted": "Синхронизация HH завершена",
+        "syncFailed": "Синхронизация HH не удалась",
+        "mappingUpdated": "Сопоставление вакансии обновлено",
+        "mappingFailed": "Не удалось сохранить связь с вакансией",
+        "syncResult": "Импортировано кандидатов: {{candidates}}; обновлено откликов: {{applications}}.",
+        "authorizeUnavailable": "URL авторизации HH недоступен",
+        "prepareFailed": "Не удалось подготовить OAuth HH",
+        "completeFailed": "Не удалось завершить OAuth HH",
+        "statusLoadFailed": "Не удалось загрузить статус интеграции HH",
+        "vacanciesLoadFailed": "Не удалось загрузить вакансии"
+      }
+    }
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "channels": {
+    "in_app": "In-App",
+    "email": "Email",
+    "telegram": "Telegram",
+    "hh_chat": "HH Chat"
+  },
+  "list": {
+    "badge": "Messaging · Inbox",
+    "title": "Candidate Inbox",
+    "subtitle": "Multi-channel message threads with candidates.",
+    "loading": "Loading conversations…",
+    "errorTitle": "Error loading conversations",
+    "unknownError": "Unknown error",
+    "empty": "No conversations yet. Messages will appear here when candidates write or you initiate contact.",
+    "conversation": "Conversation",
+    "candidate": "Candidate:"
+  },
+  "thread": {
+    "back": "← Back to Inbox",
+    "badge": "Messaging · Conversation",
+    "messagesTitle": "Messages",
+    "noMessages": "No messages yet. Send the first message using the composer below.",
+    "loading": "Loading conversation…",
+    "notFoundTitle": "Conversation not found",
+    "notFound": "Not found",
+    "composerTitle": "Send a message",
+    "channel": "Channel",
+    "templates": "Templates",
+    "bodyPlaceholder": "Type your message…",
+    "send": "Send",
+    "aiDraft": "AI Draft",
+    "sendingAs": "Sending as:",
+    "toasts": {
+      "queued": "Message queued for delivery",
+      "sendFailed": "Failed to send message",
+      "aiReady": "AI draft ready — review and send",
+      "aiFailed": "AI draft failed"
+    }
+  }
+}
