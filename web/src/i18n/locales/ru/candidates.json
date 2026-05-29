@@ -1,0 +1,13 @@
+{
+  "title": "Кандидаты",
+  "empty": "Кандидаты не найдены",
+  "applicationStatus": {
+    "new": "Новая",
+    "screening": "Скрининг",
+    "interview": "Собеседование",
+    "offer": "Оффер",
+    "hired": "Принят",
+    "rejected": "Отказ",
+    "withdrawn": "Отозвана"
+  }
+}

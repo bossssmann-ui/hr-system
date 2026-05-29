@@ -1,0 +1,22 @@
+{
+  "nav": {
+    "home": "Главная",
+    "auth": "Вход",
+    "app": "Профиль",
+    "requisitions": "Заявки на найм",
+    "vacancies": "Вакансии",
+    "candidates": "Кандидаты",
+    "applications": "Заявки кандидатов",
+    "comp": "Компенсации",
+    "analytics": "Аналитика",
+    "inbox": "Сообщения",
+    "admin": "Администрирование",
+    "hh": "HH.ru",
+    "integrations": "Интеграции",
+    "selection": "Отбор",
+    "primary": "Основная навигация"
+  },
+  "header": {
+    "openMenu": "Открыть меню"
+  }
+}

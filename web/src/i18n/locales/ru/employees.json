@@ -1,0 +1,13 @@
+{
+  "title": "Сотрудники",
+  "empty": "Сотрудники не найдены",
+  "employmentStatus": {
+    "pre_onboarding": "Подготовка к выходу",
+    "onboarding": "Онбординг",
+    "on_probation": "На испытании",
+    "active": "Активен",
+    "on_leave": "В отпуске",
+    "terminated": "Уволен",
+    "alumni": "Выпускник"
+  }
+}

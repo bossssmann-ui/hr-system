@@ -1,0 +1,32 @@
+{
+  "alumni": {
+    "title": "Alumni Network",
+    "description": "Alumni directory — hr_admin / owner only.",
+    "soon": "Full table with filters coming in the next iteration."
+  },
+  "learning": {
+    "title": "Learning",
+    "description": "Course catalog, learning paths, and your assignments.",
+    "soon": "Full LMS UI lands alongside the Phase 6 backend (issue Phase 6)."
+  },
+  "reviews": {
+    "title": "360° Reviews",
+    "description": "Review cycles, request matrix, and aggregated results.",
+    "soon": "Full review UI lands alongside the Phase 6 backend (issue Phase 6)."
+  },
+  "portal": {
+    "title": "Employee Self-Service Portal",
+    "description": "View your onboarding tasks, documents, and personal employment details.",
+    "myLearning": "My learning",
+    "myLearningDescription": "Courses and learning paths assigned to you.",
+    "reviewRequests": "Pending review requests",
+    "reviewRequestsDescription": "360° feedback waiting on your input.",
+    "okrs": "My OKRs",
+    "okrsDescription": "Quarterly objectives and key results.",
+    "idp": "My IDP",
+    "idpDescription": "Individual development plan for the current quarter.",
+    "knowledgeHub": "Knowledge Hub",
+    "searchPlaceholder": "Search HR articles…",
+    "soon": "Full self-service portal content lands alongside the Phase 6 UI."
+  }
+}

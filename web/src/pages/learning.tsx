@@ -1,10 +1,13 @@
+import { useTranslation } from 'react-i18next'
+
 export function LearningPage() {
+  const { t } = useTranslation('portal')
   return (
     <div style={{ padding: '2rem' }}>
-      <h1>Learning</h1>
-      <p>Course catalog, learning paths, and your assignments.</p>
+      <h1>{t('learning.title')}</h1>
+      <p>{t('learning.description')}</p>
       <p>
-        <em>Full LMS UI lands alongside the Phase 6 backend (issue Phase 6).</em>
+        <em>{t('learning.soon')}</em>
       </p>
     </div>
   )

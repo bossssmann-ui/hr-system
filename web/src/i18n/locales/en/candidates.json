@@ -1,0 +1,13 @@
+{
+  "title": "Candidates",
+  "empty": "No candidates found",
+  "applicationStatus": {
+    "new": "New",
+    "screening": "Screening",
+    "interview": "Interview",
+    "offer": "Offer",
+    "hired": "Hired",
+    "rejected": "Rejected",
+    "withdrawn": "Withdrawn"
+  }
+}

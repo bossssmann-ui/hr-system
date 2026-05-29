@@ -1,0 +1,31 @@
+{
+  "title": "Настройки · Интеграции",
+  "loginRequired": "Требуется вход",
+  "signInPrompt": "Войдите для продолжения",
+  "loading": "Загружаем интеграции…",
+  "loadFailed": "Не удалось загрузить статус интеграций. Попробуйте обновить страницу.",
+  "intro": "Управление внешними каналами связи и job-бордами. Доступ только для owner / hr_admin.",
+  "status": {
+    "enabled": "Включено",
+    "needsConfig": "Требуется настройка",
+    "disabled": "Отключено",
+    "connected": "Подключено",
+    "notConnected": "Не подключено"
+  },
+  "telegram": {
+    "activeLinks": "Активных привязок: {{count}}",
+    "webhook": "Inbound webhook",
+    "link": "Привязка"
+  },
+  "email": {
+    "title": "Email (SMTP)",
+    "from": "От: {{from}}"
+  },
+  "hh": {
+    "lastSync": "Последняя синхронизация: {{when}}",
+    "openPanel": "Открыть панель HH.ru"
+  },
+  "jobBoards": {
+    "published": "Опубликованных вакансий: {{count}}"
+  }
+}

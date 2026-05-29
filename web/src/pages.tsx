@@ -1,6 +1,8 @@
 import { Link, Outlet } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
 
 import { AuthForm } from '@/components/AuthForm'
+import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { NotificationBell } from '@/components/NotificationBell'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -27,6 +29,7 @@ const navLinkClass = cn(
 export function RootLayout() {
   const auth = useAuth()
   const showComp = isAdmin(auth.user)
+  const { t } = useTranslation(['navigation', 'common'])
   // Open the SSE stream once for the whole app; the hook is a no-op when the
   // user isn't authenticated yet.
   useRealtime()
@@ -36,83 +39,84 @@ export function RootLayout() {
       <header className="border-b bg-background/95 backdrop-blur">
         <div className="mx-auto flex min-h-16 w-full max-w-6xl flex-wrap items-center gap-3 px-5 py-3">
           <Typography asChild variant="h6">
-            <Link to="/">web_app_demo</Link>
+            <Link to="/">{t('common:appName')}</Link>
           </Typography>
-          <nav className="ml-auto flex items-center gap-2" aria-label="Primary">
+          <nav className="ml-auto flex items-center gap-2" aria-label={t('navigation:nav.primary')}>
             <Typography asChild variant="control" tone="muted">
               <Link to="/" className={navLinkClass}>
-                Auth
+                {t('navigation:nav.auth')}
               </Link>
             </Typography>
             <Typography asChild variant="control" tone="muted">
               <Link to="/app" className={navLinkClass}>
-                App
+                {t('navigation:nav.app')}
               </Link>
             </Typography>
             <Typography asChild variant="control" tone="muted">
               <Link to="/requisitions" className={navLinkClass}>
-                Requisitions
+                {t('navigation:nav.requisitions')}
               </Link>
             </Typography>
             <Typography asChild variant="control" tone="muted">
               <Link to="/vacancies" className={navLinkClass}>
-                Vacancies
+                {t('navigation:nav.vacancies')}
               </Link>
             </Typography>
             <Typography asChild variant="control" tone="muted">
               <Link to="/candidates" className={navLinkClass}>
-                Candidates
+                {t('navigation:nav.candidates')}
               </Link>
             </Typography>
             <Typography asChild variant="control" tone="muted">
               <Link to="/applications" className={navLinkClass}>
-                Applications
+                {t('navigation:nav.applications')}
               </Link>
             </Typography>
             {showComp && (
               <Typography asChild variant="control" tone="muted">
                 <Link to="/comp" className={navLinkClass}>
-                  Comp
+                  {t('navigation:nav.comp')}
                 </Link>
               </Typography>
             )}
             {showComp && (
               <Typography asChild variant="control" tone="muted">
                 <Link to="/analytics" className={navLinkClass}>
-                  Analytics
+                  {t('navigation:nav.analytics')}
                 </Link>
               </Typography>
             )}
             <Typography asChild variant="control" tone="muted">
               <Link to="/inbox" className={navLinkClass}>
-                Inbox
+                {t('navigation:nav.inbox')}
               </Link>
             </Typography>
             <Typography asChild variant="control" tone="muted">
               <Link to="/admin/users" className={navLinkClass}>
-                Admin
+                {t('navigation:nav.admin')}
               </Link>
             </Typography>
             <Typography asChild variant="control" tone="muted">
               <Link to="/admin/integrations/hh" className={navLinkClass}>
-                HH
+                {t('navigation:nav.hh')}
               </Link>
             </Typography>
             <Typography asChild variant="control" tone="muted">
               <Link to="/settings/integrations" className={navLinkClass}>
-                Integrations
+                {t('navigation:nav.integrations')}
               </Link>
             </Typography>
             <Typography asChild variant="control" tone="muted">
               <Link to="/selection/dashboard" className={navLinkClass}>
-                Отбор
+                {t('navigation:nav.selection')}
               </Link>
             </Typography>
           </nav>
+          <LanguageSwitcher />
           {auth.isAuthenticated && <NotificationBell />}
           {auth.isAuthenticated && (
             <Button type="button" variant="outline" size="sm" onClick={() => void auth.logout()}>
-              Logout
+              {t('common:actions.logout')}
             </Button>
           )}
         </div>
@@ -124,6 +128,7 @@ export function RootLayout() {
 
 export function HomePage() {
   const auth = useAuth()
+  const { t } = useTranslation(['common', 'auth'])
 
   if (auth.isBootstrapping) {
     return <LoadingState />
@@ -133,21 +138,20 @@ export function HomePage() {
     return (
       <section className="mx-auto grid w-full max-w-6xl gap-6 px-5 py-16">
         <Badge variant="outline" className="w-fit">
-          Authenticated starter
+          {t('auth:session.authenticatedStarter')}
         </Badge>
         <div className="grid max-w-3xl gap-4">
-          <Typography variant="h1">Session is active</Typography>
+          <Typography variant="h1">{t('common:states.sessionActive')}</Typography>
           <Typography className="max-w-2xl" tone="muted">
-            Logged in as{' '}
+            {t('common:states.loggedInAs')}{' '}
             <Typography as="strong" variant="emphasis" tone="default">
               {auth.user.email}
             </Typography>
             .
-            This is the baseline auth pattern for future web features.
           </Typography>
         </div>
         <Button asChild size="lg" className="w-fit">
-          <Link to="/app">Open app</Link>
+          <Link to="/app">{t('common:actions.openApp')}</Link>
         </Button>
       </section>
     )
@@ -157,14 +161,13 @@ export function HomePage() {
     <section className="mx-auto grid w-full max-w-6xl gap-8 px-5 py-12 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-center">
       <div className="grid gap-5">
         <Badge variant="outline" className="w-fit">
-          Golden path template
+          {t('auth:starter.badge')}
         </Badge>
         <Typography className="max-w-3xl" variant="h1">
-          Auth, validation, API state, and forms are wired from day one.
+          {t('auth:starter.headline')}
         </Typography>
         <Typography className="max-w-2xl" tone="muted">
-          The web app uses shared Zod contracts, TanStack Query for server state, TanStack Form for
-          input state, and an API client that refreshes sessions through the backend.
+          {t('auth:starter.description')}
         </Typography>
       </div>
       <AuthForm />
@@ -174,6 +177,7 @@ export function HomePage() {
 
 export function AppPage() {
   const auth = useAuth()
+  const { t } = useTranslation(['common', 'auth'])
 
   if (auth.isBootstrapping) {
     return <LoadingState />
@@ -183,16 +187,16 @@ export function AppPage() {
     return (
       <section className="mx-auto grid w-full max-w-6xl gap-6 px-5 py-16">
         <Badge variant="outline" className="w-fit">
-          Protected example
+          {t('auth:protected.badge')}
         </Badge>
         <div className="grid max-w-3xl gap-4">
-          <Typography variant="h1">Login required</Typography>
+          <Typography variant="h1">{t('common:states.loginRequired')}</Typography>
           <Typography className="max-w-2xl" tone="muted">
-            This route intentionally stays small and shows where protected product UI begins.
+            {t('common:states.loginRequiredHint')}
           </Typography>
         </div>
         <Button asChild size="lg" className="w-fit">
-          <Link to="/">Go to auth</Link>
+          <Link to="/">{t('common:actions.goToAuth')}</Link>
         </Button>
       </section>
     )
@@ -202,7 +206,7 @@ export function AppPage() {
     <section className="mx-auto grid w-full max-w-6xl gap-6 px-5 py-12">
       <div className="grid gap-3">
         <Badge variant="outline" className="w-fit">
-          Current user
+          {t('auth:protected.currentUser')}
         </Badge>
         <Typography variant="h1">
           {auth.user.displayName ?? auth.user.email}
@@ -215,13 +219,13 @@ export function AppPage() {
       <div className="grid gap-4 sm:grid-cols-2">
         <Card size="sm">
           <CardHeader>
-            <CardTitle>User ID</CardTitle>
+            <CardTitle>{t('common:labels.userId')}</CardTitle>
             <CardDescription wrap="break">{auth.user.id}</CardDescription>
           </CardHeader>
         </Card>
         <Card size="sm">
           <CardHeader>
-            <CardTitle>Created</CardTitle>
+            <CardTitle>{t('common:labels.created')}</CardTitle>
             <CardDescription>{new Date(auth.user.createdAt).toLocaleString()}</CardDescription>
           </CardHeader>
         </Card>
@@ -231,13 +235,14 @@ export function AppPage() {
 }
 
 function LoadingState() {
+  const { t } = useTranslation('common')
   return (
     <section className="mx-auto w-full max-w-6xl px-5 py-16">
       <Card className="w-fit">
         <CardContent className="flex items-center gap-3">
           <Spinner />
           <Typography variant="bodySm" tone="muted">
-            Checking session...
+            {t('states.checkingSession')}
           </Typography>
         </CardContent>
       </Card>

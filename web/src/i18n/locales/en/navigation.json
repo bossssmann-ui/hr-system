@@ -1,0 +1,22 @@
+{
+  "nav": {
+    "home": "Home",
+    "auth": "Auth",
+    "app": "App",
+    "requisitions": "Requisitions",
+    "vacancies": "Vacancies",
+    "candidates": "Candidates",
+    "applications": "Applications",
+    "comp": "Comp",
+    "analytics": "Analytics",
+    "inbox": "Inbox",
+    "admin": "Admin",
+    "hh": "HH",
+    "integrations": "Integrations",
+    "selection": "Selection",
+    "primary": "Primary"
+  },
+  "header": {
+    "openMenu": "Open menu"
+  }
+}

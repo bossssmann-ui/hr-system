@@ -9,6 +9,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import type { IntegrationsStatus } from "@web-app-demo/contracts"
+import { useTranslation } from "react-i18next"
 
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
@@ -25,22 +26,24 @@ const JOB_BOARD_LABELS: Record<string, string> = {
 }
 
 function StatusBadge({ enabled, configured }: { enabled: boolean; configured: boolean }) {
+  const { t } = useTranslation("settings")
   if (enabled && configured) {
-    return <Badge variant="default">Включено</Badge>
+    return <Badge variant="default">{t("status.enabled")}</Badge>
   }
   if (enabled && !configured) {
-    return <Badge variant="destructive">Требуется настройка</Badge>
+    return <Badge variant="destructive">{t("status.needsConfig")}</Badge>
   }
-  return <Badge variant="outline">Отключено</Badge>
+  return <Badge variant="outline">{t("status.disabled")}</Badge>
 }
 
 function LoginRequired() {
+  const { t } = useTranslation(["settings", "common"])
   return (
     <section className="mx-auto grid w-full max-w-6xl gap-4 px-5 py-16">
-      <Badge variant="outline" className="w-fit">Login required</Badge>
-      <Typography variant="h2">Sign in to continue</Typography>
+      <Badge variant="outline" className="w-fit">{t("settings:loginRequired")}</Badge>
+      <Typography variant="h2">{t("settings:signInPrompt")}</Typography>
       <Link to="/" className={cn(buttonVariants({ size: "lg" }), "w-fit")}>
-        Go to auth
+        {t("common:actions.goToAuth")}
       </Link>
     </section>
   )
@@ -54,6 +57,7 @@ export function SettingsIntegrationsPage() {
 
 function SettingsIntegrations() {
   const { api, user } = useAuth()
+  const { t } = useTranslation("settings")
   const statusQuery = useQuery({
     queryKey: ["settings", "integrations"],
     queryFn: () => api.getIntegrationsStatus(),
@@ -65,7 +69,7 @@ function SettingsIntegrations() {
       <section className="mx-auto grid w-full max-w-5xl gap-4 px-5 py-10">
         <div className="flex items-center gap-2">
           <Spinner aria-hidden />
-          <Typography tone="muted">Loading integrations…</Typography>
+          <Typography tone="muted">{t("loading")}</Typography>
         </div>
       </section>
     )
@@ -74,10 +78,8 @@ function SettingsIntegrations() {
   if (statusQuery.isError || !statusQuery.data) {
     return (
       <section className="mx-auto grid w-full max-w-5xl gap-4 px-5 py-10">
-        <Typography variant="h2">Settings · Integrations</Typography>
-        <Typography tone="muted">
-          Failed to load integrations status. Try refreshing the page.
-        </Typography>
+        <Typography variant="h2">{t("title")}</Typography>
+        <Typography tone="muted">{t("loadFailed")}</Typography>
       </section>
     )
   }
@@ -87,11 +89,8 @@ function SettingsIntegrations() {
   return (
     <section className="mx-auto grid w-full max-w-5xl gap-6 px-5 py-10">
       <header className="grid gap-2">
-        <Typography variant="h2">Settings · Integrations</Typography>
-        <Typography tone="muted">
-          Управление внешними каналами связи и job-бордами. Доступ только для
-          owner / hr_admin.
-        </Typography>
+        <Typography variant="h2">{t("title")}</Typography>
+        <Typography tone="muted">{t("intro")}</Typography>
       </header>
 
       <Card>
@@ -99,7 +98,7 @@ function SettingsIntegrations() {
           <div>
             <CardTitle>Telegram</CardTitle>
             <CardDescription>
-              Активных привязок: {data.telegram.activeLinks}
+              {t("telegram.activeLinks", { count: data.telegram.activeLinks })}
             </CardDescription>
           </div>
           <StatusBadge
@@ -109,8 +108,8 @@ function SettingsIntegrations() {
         </CardHeader>
         <CardContent>
           <Typography tone="muted" variant="bodySm">
-            Inbound webhook: <code>/api/integrations/telegram/webhook</code>.
-            Привязка: <code>/api/integrations/telegram/link?token=…</code>
+            {t("telegram.webhook")}: <code>/api/integrations/telegram/webhook</code>.{" "}
+            {t("telegram.link")}: <code>/api/integrations/telegram/link?token=…</code>
           </Typography>
         </CardContent>
       </Card>
@@ -118,8 +117,8 @@ function SettingsIntegrations() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-4">
           <div>
-            <CardTitle>Email (SMTP)</CardTitle>
-            <CardDescription>From: {data.email.from ?? "—"}</CardDescription>
+            <CardTitle>{t("email.title")}</CardTitle>
+            <CardDescription>{t("email.from", { from: data.email.from ?? "—" })}</CardDescription>
           </div>
           <StatusBadge
             enabled={data.email.enabled}
@@ -133,16 +132,17 @@ function SettingsIntegrations() {
           <div>
             <CardTitle>HH.ru</CardTitle>
             <CardDescription>
-              {data.hh.connected ? "Подключено" : "Не подключено"} ·
-              {" "}Последняя синхронизация:{" "}
-              {data.hh.lastSyncAt ? new Date(data.hh.lastSyncAt).toLocaleString() : "—"}
+              {data.hh.connected ? t("status.connected") : t("status.notConnected")} ·{" "}
+              {t("hh.lastSync", {
+                when: data.hh.lastSyncAt ? new Date(data.hh.lastSyncAt).toLocaleString() : "—",
+              })}
             </CardDescription>
           </div>
           <StatusBadge enabled={data.hh.enabled} configured={data.hh.configured} />
         </CardHeader>
         <CardContent>
           <Link to="/admin/integrations/hh" className={buttonVariants({ size: "sm" })}>
-            Открыть панель HH.ru
+            {t("hh.openPanel")}
           </Link>
         </CardContent>
       </Card>
@@ -153,7 +153,7 @@ function SettingsIntegrations() {
             <div>
               <CardTitle>{JOB_BOARD_LABELS[board.board] ?? board.board}</CardTitle>
               <CardDescription>
-                Опубликованных вакансий: {board.publishedVacancies}
+                {t("jobBoards.published", { count: board.publishedVacancies })}
                 {board.reason ? ` · ${board.reason}` : ""}
               </CardDescription>
             </div>

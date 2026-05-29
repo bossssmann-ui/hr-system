@@ -1,0 +1,13 @@
+{
+  "title": "Employees",
+  "empty": "No employees found",
+  "employmentStatus": {
+    "pre_onboarding": "Pre-onboarding",
+    "onboarding": "Onboarding",
+    "on_probation": "On probation",
+    "active": "Active",
+    "on_leave": "On leave",
+    "terminated": "Terminated",
+    "alumni": "Alumni"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "title": "Requisitions",
+  "status": {
+    "draft": "Draft",
+    "pending_approval": "Pending approval",
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "published": "Published",
+    "closed": "Closed"
+  }
+}
