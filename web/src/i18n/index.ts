@@ -83,12 +83,16 @@ export const resources = {
 export const supportedLngs = ['ru', 'en'] as const
 export type SupportedLng = (typeof supportedLngs)[number]
 
+// Single source of truth for the default UI language. Used both for i18next
+// initialization (`lng`) and for the <html lang="…"> sync helper below.
+export const defaultLng: SupportedLng = 'ru'
+
 void i18n
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
     resources,
-    lng: typeof window === 'undefined' ? 'ru' : undefined,
+    lng: typeof window === 'undefined' ? defaultLng : undefined,
     fallbackLng: 'en',
     supportedLngs: [...supportedLngs],
     nonExplicitSupportedLngs: true,
@@ -128,7 +132,7 @@ void i18n
 // match the UI language. Runs once on init and again on every language change.
 if (typeof document !== 'undefined') {
   const applyHtmlLang = (lng: string | undefined) => {
-    const next = (lng ?? 'ru').slice(0, 2)
+    const next = (lng ?? defaultLng).slice(0, 2)
     if (supportedLngs.includes(next as SupportedLng)) {
       document.documentElement.setAttribute('lang', next)
     }
