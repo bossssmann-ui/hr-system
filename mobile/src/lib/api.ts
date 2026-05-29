@@ -6,12 +6,16 @@ import {
   meResponseSchema,
   refreshRequestSchema,
   refreshResponseSchema,
+  registerDeviceRequestSchema,
+  registerDeviceResponseSchema,
   registerRequestSchema,
   type AuthResponse,
   type LoginRequest,
   type LogoutRequest,
   type MeResponse,
   type RefreshResponse,
+  type RegisterDeviceRequest,
+  type RegisterDeviceResponse,
   type RegisterRequest,
 } from '@web-app-demo/contracts';
 import type { z } from 'zod';
@@ -95,6 +99,17 @@ export class ApiClient {
       body: payload,
       auth: false,
       retryOnUnauthorized: false,
+    });
+  }
+
+  // Phase 11 — register the device's Expo push token with the backend.
+  // Safe to call on every cold-start: the backend upsert is idempotent.
+  registerDevice(input: RegisterDeviceRequest): Promise<RegisterDeviceResponse> {
+    const payload = registerDeviceRequestSchema.parse(input);
+    return this.request('/api/devices', registerDeviceResponseSchema, {
+      method: 'POST',
+      body: payload,
+      auth: true,
     });
   }
 

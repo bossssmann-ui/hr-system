@@ -87,6 +87,13 @@ enum NotificationChannel {
   email
   telegram
   in_app
+  push
+}
+
+enum DevicePlatform {
+  ios
+  android
+  web
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -441,6 +448,26 @@ model Notification {
   @@index([tenantId], map: "notifications_tenant_id_idx")
   @@index([recipientUserId, readAt], map: "notifications_recipient_read_idx")
   @@map("notifications")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 11 — Mobile push tokens (Expo / FCM / APNs token strings).
+// One row per (user, token). A user may have multiple active devices.
+// ─────────────────────────────────────────────────────────────────────────────
+model DeviceToken {
+  id        String         @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId  String         @map("tenant_id") @db.Uuid
+  userId    String         @map("user_id") @db.Uuid
+  platform  DevicePlatform
+  token     String
+  isActive  Boolean        @default(true) @map("is_active")
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+
+  @@unique([userId, token], map: "device_tokens_user_id_token_uk")
+  @@index([tenantId], map: "device_tokens_tenant_id_idx")
+  @@index([userId, isActive], map: "device_tokens_user_active_idx")
+  @@map("device_tokens")
 }
 
 model HhConnection {

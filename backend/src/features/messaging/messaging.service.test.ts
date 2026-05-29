@@ -81,6 +81,8 @@ const baseEnv: AppEnv = {
   KNOWLEDGE_HUB_PGVECTOR_ENABLED: false,
   SIGNALS_OPEN_THRESHOLD: 60,
   REALTIME_ENABLED: false,
+  MOBILE_PUSH_ENABLED: false,
+  EXPO_PUSH_API_URL: 'https://exp.host/--/api/v2/push/send',
 }
 
 // ─── Prisma mock builder ──────────────────────────────────────────────────────

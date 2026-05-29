@@ -1,0 +1,300 @@
+---
+import CareersLayout from '../../layouts/CareersLayout.astro';
+
+/**
+ * Careers SPA — Phase 11.
+ *
+ * One Astro page that renders three logical screens, dispatched client-side
+ * by `window.location.pathname`:
+ *
+ *   /careers                  → vacancy list
+ *   /careers/:slug            → vacancy detail
+ *   /careers/:slug/apply      → application form
+ *
+ * Why a single page? The Astro project is configured for static (SSG) output
+ * and served by nginx in production. Slugs are dynamic (driven by published
+ * vacancies in the backend) so we can't enumerate them at build time. We pair
+ * this page with an nginx `try_files … /careers/index.html` fallback so every
+ * `/careers/*` URL serves this shell, and the script below renders the
+ * matching view by fetching the public API at request time.
+ *
+ * No client JS frameworks; just fetch + DOM. Keeps the static bundle tiny.
+ */
+---
+
+<CareersLayout title="Карьера" description="Список открытых вакансий компании и форма отклика.">
+  <p class="breadcrumb"><a href="/careers" data-link="list">← Все вакансии</a></p>
+  <div id="careers-root" data-testid="careers.root"></div>
+
+  <script>
+    import { apiUrl } from '../../lib/api';
+
+    type VacancyListItem = { slug: string; title: string; description: string };
+    type ListResponse = { items: VacancyListItem[] };
+    type Vacancy = { slug: string; title: string; description: string };
+    type ApplyResponse = { reference: string; message: string };
+
+    const root = document.getElementById('careers-root');
+    const breadcrumb = document.querySelector('.breadcrumb') as HTMLElement | null;
+    if (!root) throw new Error('careers root missing');
+
+    function escapeHtml(value: string) {
+      return value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function summarize(text: string, maxLen = 220) {
+      const flat = text.replace(/\s+/g, ' ').trim();
+      return flat.length > maxLen ? `${flat.slice(0, maxLen).trim()}…` : flat;
+    }
+
+    function setBreadcrumb(view: 'list' | 'detail' | 'apply', slug?: string) {
+      if (!breadcrumb) return;
+      if (view === 'list') {
+        breadcrumb.style.display = 'none';
+        return;
+      }
+      breadcrumb.style.display = '';
+      if (view === 'apply' && slug) {
+        breadcrumb.innerHTML = `<a href="/careers">← Все вакансии</a> · <a href="/careers/${encodeURIComponent(slug)}">К вакансии</a>`;
+      } else {
+        breadcrumb.innerHTML = `<a href="/careers">← Все вакансии</a>`;
+      }
+    }
+
+    function setStatus(message: string, kind: 'loading' | 'empty' | 'error' = 'loading') {
+      const cls = kind === 'error' ? 'alert error' : 'empty';
+      const testId = `careers.list.${kind}`;
+      root!.innerHTML = `<div class="${cls}" data-testid="${testId}">${escapeHtml(message)}</div>`;
+    }
+
+    async function renderList() {
+      setBreadcrumb('list');
+      document.title = 'Открытые вакансии — Careers';
+      setStatus('Загрузка вакансий…', 'loading');
+
+      try {
+        const response = await fetch(apiUrl('/api/public/vacancies'), {
+          headers: { Accept: 'application/json' },
+        });
+        if (!response.ok) throw new Error(`status ${response.status}`);
+        const data = (await response.json()) as ListResponse;
+        const items = data.items ?? [];
+
+        const header = `
+          <p class="eyebrow">Карьера</p>
+          <h1>Открытые вакансии</h1>
+          <p style="color: var(--muted); margin: 0 0 2rem;">
+            Откликайтесь онлайн — мы свяжемся с вами в течение нескольких дней.
+          </p>
+        `;
+
+        if (items.length === 0) {
+          root!.innerHTML = `${header}<div class="empty" data-testid="careers.list.empty">Сейчас нет открытых вакансий. Загляните позже!</div>`;
+          return;
+        }
+
+        const cards = items
+          .map(
+            (item) => `
+              <a class="card" href="/careers/${encodeURIComponent(item.slug)}" data-testid="careers.list.item">
+                <h2>${escapeHtml(item.title)}</h2>
+                <p>${escapeHtml(summarize(item.description))}</p>
+              </a>
+            `,
+          )
+          .join('');
+        root!.innerHTML = `${header}<div data-testid="careers.list.ready">${cards}</div>`;
+      } catch (err) {
+        console.error('careers list failed', err);
+        setStatus('Не удалось загрузить вакансии. Попробуйте позже.', 'error');
+      }
+    }
+
+    async function renderDetail(slug: string) {
+      setBreadcrumb('detail');
+      document.title = 'Вакансия — Careers';
+      root!.innerHTML = `<div class="empty" data-testid="careers.detail.loading">Загрузка…</div>`;
+
+      try {
+        const response = await fetch(
+          apiUrl(`/api/public/vacancies/${encodeURIComponent(slug)}`),
+          { headers: { Accept: 'application/json' } },
+        );
+        if (response.status === 404) {
+          root!.innerHTML = `<div class="empty" data-testid="careers.detail.not-found">Такая вакансия закрыта или не существует.</div>`;
+          return;
+        }
+        if (!response.ok) throw new Error(`status ${response.status}`);
+        const vacancy = (await response.json()) as Vacancy;
+        document.title = `${vacancy.title} — Careers`;
+        root!.innerHTML = `
+          <article data-testid="careers.detail.ready">
+            <p class="eyebrow">Вакансия</p>
+            <h1 data-testid="careers.detail.title">${escapeHtml(vacancy.title)}</h1>
+            <div class="prose" data-testid="careers.detail.description" style="margin-top: 1.5rem;">${escapeHtml(vacancy.description)}</div>
+            <p style="margin-top: 2rem;">
+              <a class="button" href="/careers/${encodeURIComponent(vacancy.slug)}/apply" data-testid="careers.detail.apply">
+                Откликнуться
+              </a>
+            </p>
+          </article>
+        `;
+      } catch (err) {
+        console.error('careers detail failed', err);
+        root!.innerHTML = `<div class="alert error" data-testid="careers.detail.error">Не удалось загрузить вакансию. Попробуйте позже.</div>`;
+      }
+    }
+
+    function renderApply(slug: string) {
+      setBreadcrumb('apply', slug);
+      document.title = 'Отклик — Careers';
+      root!.innerHTML = `
+        <p class="eyebrow">Отклик</p>
+        <h1>Расскажите о себе</h1>
+        <p style="color: var(--muted); margin: 0 0 1.5rem;">
+          Заполните короткую форму — мы рассмотрим заявку и свяжемся с вами по email.
+        </p>
+        <div id="apply-alert" hidden></div>
+        <form id="apply-form" novalidate data-testid="careers.apply.form">
+          <div class="field">
+            <label for="full_name">Имя и фамилия*</label>
+            <input id="full_name" name="full_name" type="text" required data-testid="careers.apply.full_name" />
+          </div>
+          <div class="field">
+            <label for="email">Email*</label>
+            <input id="email" name="email" type="email" required data-testid="careers.apply.email" />
+          </div>
+          <div class="field">
+            <label for="phone">Телефон</label>
+            <input id="phone" name="phone" type="tel" data-testid="careers.apply.phone" />
+          </div>
+          <div class="field">
+            <label for="cover_note">Сопроводительное письмо</label>
+            <textarea id="cover_note" name="cover_note" data-testid="careers.apply.cover_note"></textarea>
+            <p class="hint">Если есть резюме, прикрепите ссылку на PDF (например, Yandex.Disk).</p>
+          </div>
+          <div class="field">
+            <label>
+              <input id="consent" name="consent" type="checkbox" required data-testid="careers.apply.consent" />
+              Согласен(на) на обработку персональных данных (152-ФЗ)
+            </label>
+          </div>
+          <div class="honeypot" aria-hidden="true">
+            <label for="website">Сайт</label>
+            <input id="website" name="website" type="text" tabindex="-1" autocomplete="off" />
+          </div>
+          <button class="button" type="submit" data-testid="careers.apply.submit">Отправить отклик</button>
+        </form>
+      `;
+
+      const form = document.getElementById('apply-form') as HTMLFormElement;
+      const alert = document.getElementById('apply-alert') as HTMLElement;
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const submit = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+        submit.disabled = true;
+        alert.hidden = true;
+        alert.className = '';
+        alert.textContent = '';
+        alert.removeAttribute('data-testid');
+
+        const fd = new FormData(form);
+        const body = {
+          full_name: String(fd.get('full_name') ?? '').trim(),
+          email: String(fd.get('email') ?? '').trim(),
+          phone: String(fd.get('phone') ?? '').trim() || undefined,
+          cover_note: String(fd.get('cover_note') ?? '').trim() || undefined,
+          consent: fd.get('consent') === 'on',
+          website: String(fd.get('website') ?? '').trim() || undefined,
+        };
+
+        try {
+          const response = await fetch(
+            apiUrl(`/api/public/vacancies/${encodeURIComponent(slug)}/apply`),
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+              body: JSON.stringify(body),
+            },
+          );
+
+          if (response.status === 429) {
+            alert.className = 'alert error';
+            alert.textContent = 'Слишком много попыток. Подождите немного и попробуйте снова.';
+            alert.setAttribute('data-testid', 'careers.apply.error.rate-limit');
+            alert.hidden = false;
+            return;
+          }
+
+          if (!response.ok) {
+            const detail = (await response.json().catch(() => null)) as
+              | { error?: { message?: string } }
+              | null;
+            alert.className = 'alert error';
+            alert.textContent =
+              detail?.error?.message ??
+              'Не удалось отправить отклик. Проверьте поля и попробуйте снова.';
+            alert.setAttribute('data-testid', 'careers.apply.error');
+            alert.hidden = false;
+            return;
+          }
+
+          const data = (await response.json()) as ApplyResponse;
+          alert.className = 'alert success';
+          alert.innerHTML = `<strong>${escapeHtml(data.message)}</strong><br />Номер обращения: <code>${escapeHtml(data.reference)}</code>`;
+          alert.setAttribute('data-testid', 'careers.apply.success');
+          alert.hidden = false;
+          form.reset();
+        } catch (err) {
+          console.error('careers apply failed', err);
+          alert.className = 'alert error';
+          alert.textContent = 'Сетевая ошибка. Попробуйте ещё раз.';
+          alert.setAttribute('data-testid', 'careers.apply.error.network');
+          alert.hidden = false;
+        } finally {
+          submit.disabled = false;
+        }
+      });
+    }
+
+    function dispatch() {
+      const path = window.location.pathname.replace(/\/+$/, '');
+      const m = path.match(/^\/careers(?:\/([^/]+)(?:\/([^/]+))?)?$/);
+      if (!m) {
+        renderList();
+        return;
+      }
+      const [, slug, sub] = m;
+      if (slug && sub === 'apply') {
+        renderApply(slug);
+      } else if (slug) {
+        renderDetail(slug);
+      } else {
+        renderList();
+      }
+    }
+
+    // Intercept same-origin /careers/* link clicks for client-side navigation.
+    document.addEventListener('click', (event) => {
+      const target = (event.target as HTMLElement | null)?.closest('a');
+      if (!target) return;
+      const href = target.getAttribute('href');
+      if (!href || !href.startsWith('/careers')) return;
+      if (target.target === '_blank' || event.metaKey || event.ctrlKey || event.shiftKey) return;
+      event.preventDefault();
+      if (href !== window.location.pathname) {
+        window.history.pushState({}, '', href);
+      }
+      dispatch();
+    });
+
+    window.addEventListener('popstate', () => dispatch());
+    dispatch();
+  </script>
+</CareersLayout>

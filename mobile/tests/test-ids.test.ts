@@ -10,3 +10,11 @@ test('navigation test IDs cover tab and details flows', () => {
   expect(TEST_IDS.details.screen).toBe('details.screen');
   expect(TEST_IDS.screen.backButton).toBe('screen.back-button');
 });
+
+test('phase 11 mobile surfaces expose stable test IDs', () => {
+  expect(TEST_IDS.hrDashboard.screen).toBe('hr-dashboard.screen');
+  expect(TEST_IDS.hrDashboard.approveOfferButton).toBe('hr-dashboard.approve-offer');
+  expect(TEST_IDS.portal.screen).toBe('portal.screen');
+  expect(TEST_IDS.portal.onboardingChecklist).toBe('portal.onboarding-checklist');
+  expect(TEST_IDS.devices.registerButton).toBe('devices.register-button');
+});
