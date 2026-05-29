@@ -14,8 +14,8 @@ COPY landing/package.json ./landing/package.json
 
 RUN bun install --frozen-lockfile
 
-ARG VITE_API_URL=https://career.pacificstar.ru
-ENV VITE_API_URL=$VITE_API_URL
+# Inject production API URL for Vite build
+RUN echo "VITE_API_URL=https://career.pacificstar.ru" > web/.env.production
 
 RUN cd web && bun run build
 
