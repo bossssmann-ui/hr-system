@@ -5,7 +5,7 @@
  * forwards events from the in-process realtime bus to the authenticated user.
  *
  * Auth: native `EventSource` cannot set custom headers, so we accept the
- * access token from either the `Authorization: ****** header (used by the
+ * access token from either the standard Authorization header (used by the
  * `event-source-polyfill` and our own fetch-based readers) or the
  * `?access_token=…` query string. The token is verified the same way as in
  * `requireRole`; if it's missing or invalid we return a JSON error before

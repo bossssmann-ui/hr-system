@@ -47,10 +47,12 @@ export function useRealtime(): void {
           qc.invalidateQueries({ queryKey: ['applications'] })
           break
         case 'checklist.task_updated':
+          // Reserved for future onboarding/offboarding checklist publishers.
           qc.invalidateQueries({ queryKey: ['checklist'] })
           qc.invalidateQueries({ queryKey: ['employees'] })
           break
         case 'review.request_submitted':
+          // Reserved for the reviews module publisher.
           qc.invalidateQueries({ queryKey: ['reviews'] })
           break
       }

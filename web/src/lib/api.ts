@@ -984,7 +984,7 @@ export class ApiClient {
   /**
    * Build a same-origin SSE URL for the realtime stream. EventSource cannot
    * send custom headers, so we pass the access token as a query parameter and
-   * the server verifies it the same way as the ******
+   * the server verifies it the same way as the standard auth header.
    */
   realtimeEventsUrl(): string | null {
     const token = this.options.getAccessToken()
