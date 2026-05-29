@@ -78,6 +78,8 @@ const baseEnv: AppEnv = {
   SMTP_FROM: undefined,
   QUIET_HOURS_QUIET_START_UTC: 15,
   QUIET_HOURS_QUIET_END_UTC: 23,
+  KNOWLEDGE_HUB_PGVECTOR_ENABLED: false,
+  SIGNALS_OPEN_THRESHOLD: 60,
 }
 
 // ─── Prisma mock builder ──────────────────────────────────────────────────────

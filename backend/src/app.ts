@@ -8,16 +8,19 @@ import { createAuthRoutes } from './auth/routes'
 import { AuthService } from './auth/service'
 import { createAdminRoutes } from './features/admin/admin.routes'
 import { createAlumniRoutes } from './features/alumni/alumni.routes'
+import { createAiRoutes } from './features/ai/ai.routes'
 import { createAnalyticsRoutes, createPayrollRoutes } from './features/analytics/analytics.routes'
 import { createApplicationsRoutes } from './features/applications/applications.routes'
 import { createCandidatesRoutes } from './features/candidates/candidates.routes'
 import { createEmployeesRoutes } from './features/employees/employees.routes'
+import { createKnowledgeRoutes } from './features/knowledge/knowledge.routes'
 import { createLearningRoutes, createOkrsRoutes, createReviewsRoutes } from './features/learning/learning.routes'
 import { createOrgUnitsRoutes } from './features/org-units/org-units.routes'
 import { createPublicCareersRoutes } from './features/public/public.routes'
 import { createPortalRoutes } from './features/portal/portal.routes'
 import { createAssessmentRoutes, createPublicAssessmentRoutes } from './features/assessments/assessments.routes'
 import { createSelectionRoutes } from './features/selection/selection.routes'
+import { createSignalsRoutes, createEmployeeSignalsRoutes } from './features/signals/signals.routes'
 import { createRequisitionsRoutes } from './features/requisitions/requisitions.routes'
 import { createVacanciesRoutes } from './features/vacancies/vacancies.routes'
 import { createHhIntegrationRoutes } from './integrations/hh/routes'
@@ -114,6 +117,7 @@ export function createApp({ env, prisma }: CreateAppOptions) {
   app.route('/api/vacancies', createVacanciesRoutes())
   app.route('/api/candidates', createCandidatesRoutes())
   app.route('/api/employees', createEmployeesRoutes())
+  app.route('/api/employees', createEmployeeSignalsRoutes())
   app.route('/api/learning', createLearningRoutes())
   app.route('/api/reviews', createReviewsRoutes())
   app.route('/api/okrs', createOkrsRoutes())
@@ -124,6 +128,7 @@ export function createApp({ env, prisma }: CreateAppOptions) {
   app.route('/api/offers', createOffersRoutes())
   app.route('/api/comp', createCompRoutes())
   app.route('/api/analytics', createAnalyticsRoutes())
+  app.route('/api/analytics/signals', createSignalsRoutes())
   app.route('/api/payroll', createPayrollRoutes())
   app.route('/api/integrations/docuseal', createDocusealWebhookRoute())
   app.route('/api/interviews', createInterviewRoutes())
@@ -139,6 +144,8 @@ export function createApp({ env, prisma }: CreateAppOptions) {
   app.route('/api/public/assessment', createPublicAssessmentRoutes())
   app.route('/api/public', createPublicCareersRoutes())
   app.route('/api/selection', createSelectionRoutes())
+  app.route('/api/knowledge', createKnowledgeRoutes())
+  app.route('/api/ai', createAiRoutes())
 
   app.doc('/openapi.json', {
     openapi: '3.0.0',

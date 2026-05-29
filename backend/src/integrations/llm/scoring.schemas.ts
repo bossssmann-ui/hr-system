@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export const SCORING_SCHEMA_VERSION = 1
+export const SCORING_SCHEMA_VERSION = 2
 
 export const scoringInputSchema = z.object({
   job_profile: z.object({
@@ -26,6 +26,14 @@ export const scoringInputSchema = z.object({
 
 export type ScoringInput = z.infer<typeof scoringInputSchema>
 
+// Phase 9 — LLM Scoring v2 fields (all optional, so v1 providers keep working).
+export const competencyAssessmentSchema = z.object({
+  score: z.number().int().min(0).max(10),
+  reasoning: z.string().min(1),
+})
+
+export type CompetencyAssessment = z.infer<typeof competencyAssessmentSchema>
+
 export const scoringResultCoreSchema = z.object({
   relevance_score: z.number().int().min(0).max(100),
   summary: z.string().min(1),
@@ -36,12 +44,20 @@ export const scoringResultCoreSchema = z.object({
   anti_fraud_signals: z.array(z.string()),
   values_fit_hypothesis: z.string(),
   interview_focus_areas: z.array(z.string()),
+  // ── v2 (Phase 9) ─────────────────────────────────────────────────────────
+  competencies: z.record(z.string(), competencyAssessmentSchema).optional(),
+  suggested_grade: z.string().nullable().optional(),
+  suggested_salary: z.number().int().nonnegative().nullable().optional(),
+  interview_questions: z.array(z.string()).optional(),
 })
 
 export const scoringResultSchema = scoringResultCoreSchema.extend({
   model: z.string().min(1),
   scored_at: z.string().datetime(),
   schema_version: z.number().int().default(SCORING_SCHEMA_VERSION),
+  // Cost-tracking metadata (best-effort; provider may not report tokens).
+  tokens_used: z.number().int().nonnegative().optional(),
+  model_version: z.string().optional(),
 })
 
 export type ScoringResult = z.infer<typeof scoringResultSchema>

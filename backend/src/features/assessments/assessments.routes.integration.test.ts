@@ -54,6 +54,8 @@ const env: AppEnv = {
   TRUST_LOW_THRESHOLD: 60,
   QUIET_HOURS_QUIET_START_UTC: 15,
   QUIET_HOURS_QUIET_END_UTC: 23,
+  KNOWLEDGE_HUB_PGVECTOR_ENABLED: false,
+  SIGNALS_OPEN_THRESHOLD: 60,
 }
 
 async function loginAs(app: ReturnType<typeof createApp>, email: string, password: string) {

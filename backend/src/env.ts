@@ -107,6 +107,12 @@ const envSchema = z.object({
   DOCUSEAL_API_KEY: optionalStringSchema,
   DOCUSEAL_TEMPLATE_ID: optionalStringSchema,
   DOCUSEAL_WEBHOOK_SECRET: optionalStringSchema,
+  // Phase 9 — AI & Intelligence
+  // Knowledge Hub semantic search is opt-in; without pgvector configured we
+  // fall back to tsvector text search (always available).
+  KNOWLEDGE_HUB_PGVECTOR_ENABLED: booleanStringSchema,
+  // Daily flight-risk / burnout score >= threshold creates an "open" signal.
+  SIGNALS_OPEN_THRESHOLD: z.coerce.number().int().min(0).max(100).default(60),
 }).superRefine((env, ctx) => {
   validateJwtSecret(env, ctx)
   validateCorsOrigins(env, ctx)

@@ -144,7 +144,91 @@ function AnalyticsContent() {
           <p>No snapshots yet. Click “Recompute snapshot” to create one.</p>
         )}
       </section>
+
+      <SignalsSection />
     </div>
+  )
+}
+
+function SignalsSection() {
+  const { api } = useAuth()
+  const queryClient = useQueryClient()
+  const signals = useQuery({
+    queryKey: ['analytics', 'signals'],
+    queryFn: () => api.listAnalyticsSignals({ status: 'open', limit: 50 }),
+  })
+  const update = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: 'reviewed' | 'dismissed' }) =>
+      api.updateAnalyticsSignal(id, status),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['analytics', 'signals'] })
+    },
+  })
+  const recompute = useMutation({
+    mutationFn: () => api.computeAnalyticsSignals(),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['analytics', 'signals'] })
+    },
+  })
+
+  return (
+    <section style={{ marginTop: '2rem' }}>
+      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <h2>Signals (flight-risk &amp; burnout)</h2>
+        <button type="button" onClick={() => recompute.mutate()} disabled={recompute.isPending}>
+          {recompute.isPending ? 'Computing…' : 'Recompute signals'}
+        </button>
+      </header>
+      {signals.isLoading ? (
+        <p>Loading…</p>
+      ) : signals.data && signals.data.items.length > 0 ? (
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              <th style={{ textAlign: 'left' }}>Employee</th>
+              <th>Type</th>
+              <th>Score</th>
+              <th style={{ textAlign: 'left' }}>Factors</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {signals.data.items.map((s) => (
+              <tr key={s.id} style={{ borderTop: '1px solid #eee' }}>
+                <td><code>{s.employeeId.slice(0, 8)}…</code></td>
+                <td>{s.type}</td>
+                <td><strong>{s.score}</strong></td>
+                <td>
+                  <ul style={{ margin: 0, paddingLeft: '1rem' }}>
+                    {s.factors.map((f, i) => (
+                      <li key={i}><small>{f.note}</small></li>
+                    ))}
+                  </ul>
+                </td>
+                <td>
+                  <button
+                    type="button"
+                    onClick={() => update.mutate({ id: s.id, status: 'reviewed' })}
+                    disabled={update.isPending}
+                  >
+                    Reviewed
+                  </button>{' '}
+                  <button
+                    type="button"
+                    onClick={() => update.mutate({ id: s.id, status: 'dismissed' })}
+                    disabled={update.isPending}
+                  >
+                    Dismiss
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p>No open signals. Recompute to populate after the next daily run.</p>
+      )}
+    </section>
   )
 }
 

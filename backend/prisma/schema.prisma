@@ -1561,6 +1561,70 @@ model ExternalVacancyPost {
   @@map("external_vacancy_posts")
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 9 — AI & Intelligence (signals, knowledge hub).
+// Spec: docs/contracts/00-overview.md, issue Phase 9.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum AnalyticsSignalType {
+  flight_risk
+  burnout
+
+  @@map("analytics_signal_type")
+}
+
+enum AnalyticsSignalStatus {
+  open
+  reviewed
+  dismissed
+
+  @@map("analytics_signal_status")
+}
+
+/// Per-employee risk signal computed by the daily `signals.compute` job.
+/// One row per (employee, signal type) — re-computation upserts.
+model AnalyticsSignal {
+  id          String                @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId    String                @map("tenant_id") @db.Uuid
+  employeeId  String                @map("employee_id") @db.Uuid
+  type        AnalyticsSignalType
+  score       Int
+  factors     Json                  @default("[]")
+  status      AnalyticsSignalStatus @default(open)
+  computedAt  DateTime              @default(now()) @map("computed_at")
+  reviewedAt  DateTime?             @map("reviewed_at")
+  reviewedBy  String?               @map("reviewed_by") @db.Uuid
+  createdAt   DateTime              @default(now()) @map("created_at")
+  updatedAt   DateTime              @updatedAt @map("updated_at")
+
+  @@unique([employeeId, type], map: "analytics_signals_employee_type_uk")
+  @@index([tenantId], map: "analytics_signals_tenant_id_idx")
+  @@index([status], map: "analytics_signals_status_idx")
+  @@index([type, score], map: "analytics_signals_type_score_idx")
+  @@map("analytics_signals")
+}
+
+/// RAG knowledge-hub article (HR-curated). Stores markdown body + a
+/// pre-computed `searchVector` (tsvector) maintained by a Postgres trigger.
+/// `embedding` is reserved for future pgvector usage; absent in this phase.
+model KnowledgeArticle {
+  id              String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId        String   @map("tenant_id") @db.Uuid
+  title           String
+  body            String
+  tags            String[] @default([])
+  visibility      String   @default("internal") // internal | portal
+  createdByUserId String   @map("created_by_user_id") @db.Uuid
+  updatedByUserId String?  @map("updated_by_user_id") @db.Uuid
+  deletedAt       DateTime? @map("deleted_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId], map: "knowledge_articles_tenant_id_idx")
+  @@index([deletedAt], map: "knowledge_articles_deleted_at_idx")
+  @@map("knowledge_articles")
+}
+
 /// Telegram chat binding for a candidate or employee.
 /// `chatId` is unique globally because Telegram chat ids are global.
 model TelegramLink {
