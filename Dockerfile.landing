@@ -10,6 +10,11 @@ COPY package.json bunfig.toml bun.lock ./
 COPY packages/ ./packages/
 COPY landing/ ./landing/
 
+# Stub package.json for sibling workspaces so bun workspace resolution doesn't fail
+COPY backend/package.json ./backend/package.json
+COPY web/package.json ./web/package.json
+COPY mobile/package.json ./mobile/package.json
+
 RUN bun install --frozen-lockfile
 RUN cd landing && bun run build
 
