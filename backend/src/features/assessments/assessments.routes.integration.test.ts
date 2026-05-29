@@ -59,6 +59,9 @@ const env: AppEnv = {
   REALTIME_ENABLED: false,
   MOBILE_PUSH_ENABLED: false,
   EXPO_PUSH_API_URL: 'https://exp.host/--/api/v2/push/send',
+  BILLING_ENABLED: false,
+  SUBDOMAIN_ROUTING_ENABLED: false,
+  TENANT_REGISTRATION_ENABLED: true,
 }
 
 async function loginAs(app: ReturnType<typeof createApp>, email: string, password: string) {
