@@ -24,6 +24,9 @@ services:
       dockerfile: Dockerfile.backend
     restart: unless-stopped
     env_file: .env.prod
+    # Phase 14 — Assessment System requires GEMINI_API_KEY (Gemini 2.0 Flash
+    # evaluator) and ASSESSMENT_SYSTEM_ENABLED=true to be set in .env.prod.
+    # See backend/.env.example for the full list of supported variables.
     depends_on:
       postgres:
         condition: service_healthy

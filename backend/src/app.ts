@@ -144,6 +144,8 @@ export function createApp({ env, prisma }: CreateAppOptions) {
   app.route('/api/admin', createAdminRoutes())
   app.route('/api/integrations/hh', createHhIntegrationRoutes())
   app.route('/api/integrations/hh', createHhWebhookRoute())
+  // Phase 14 DoD: HH.ru callback also available at /api/hh/callback for short-URL OAuth2 redirects.
+  app.route('/api/hh', createHhIntegrationRoutes())
   app.route('/api/integrations', createIntegrationsStatusRoutes())
   app.route('/api/integrations/telegram', createTelegramLinkRoute())
   app.route('/api/conversations', createMessagingRoutes())

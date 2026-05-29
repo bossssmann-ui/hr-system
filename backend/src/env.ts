@@ -87,8 +87,12 @@ const envSchema = z.object({
   QUIET_HOURS_QUIET_END_UTC: z.coerce.number().int().min(0).max(23).default(23),
   // Phase 1D — Assessments / proctoring
   ASSESSMENTS_ENABLED: booleanStringSchema,
-  // Phase 2 — Automated selection system (Onboardix 4-stage screening)
+  // Phase 2 / Phase 14 — Automated selection system (Onboardix 4-stage screening)
   ASSESSMENT_SYSTEM_ENABLED: booleanStringSchema,
+  // Gemini 2.0 Flash AI evaluator for Phase 14 selection verdicts.
+  // Called via fetch on generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent.
+  GEMINI_API_KEY: optionalStringSchema,
+  GEMINI_MODEL: stringWithDefault('gemini-2.0-flash'),
   PROCTORING_WEBCAM_ENABLED: booleanStringSchema,
   TRUST_WEIGHT_PASTE: z.coerce.number().nonnegative().default(0.35),
   TRUST_WEIGHT_FOCUS: z.coerce.number().nonnegative().default(0.4),

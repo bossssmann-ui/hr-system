@@ -5,10 +5,10 @@
  * that calls the Anthropic AI evaluator after all 4 stages are submitted.
  */
 
-import Anthropic from '@anthropic-ai/sdk'
 import { Prisma } from '../../generated/prisma/client'
 import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
+import { callGeminiGenerateContent, GeminiApiError } from '../../integrations/llm/gemini'
 import { createInMemoryQueue } from '../../queues'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -41,6 +41,29 @@ export function computeCrossCheckFlags(
   const flags: CrossCheckFlag[] = []
 
   if (stageNumber === 1) {
+    // Stop-criteria on Stage 1 (salary / location / experience / format).
+    // Any "fail" answer to these screening questions is itself a RED flag
+    // and triggers auto-rejection without invoking the AI evaluator.
+    // The questionnaire UI exposes these as `stop_*` keys.
+    const stopChecks: Array<{ key: string; description: string }> = [
+      { key: 'stop_salary', description: 'Стоп-критерий: ожидаемая зарплата выходит за рамки вакансии' },
+      { key: 'stop_location', description: 'Стоп-критерий: локация не соответствует требованию вакансии' },
+      { key: 'stop_experience', description: 'Стоп-критерий: профильный опыт ниже минимального порога' },
+      { key: 'stop_format', description: 'Стоп-критерий: формат работы (офис/удалёнка/гибрид) не совпадает' },
+    ]
+    let nextStopId = 100
+    for (const sc of stopChecks) {
+      const v = answers[sc.key]
+      if (v === true || v === 'fail' || v === 'no' || v === 'reject') {
+        flags.push({
+          id: nextStopId++,
+          type: 'RED',
+          description: sc.description,
+          triggeredAt: 1,
+        })
+      }
+    }
+
     // RED-1: Trap question — candidate claimed to know a non-existent TMS/methodology
     // For logist: LogiTrack PRO X7; for sales_manager: LogiSales Framework 4.0
     const trapAnswer1 = answers['trap_answer_1'] ?? answers['trap_answer']
@@ -88,6 +111,18 @@ export function computeCrossCheckFlags(
   }
 
   return flags
+}
+
+/**
+ * Stage 1 auto-rejection rule (Phase 14 §6 "anti-lie" / §11 "stop-criteria"):
+ * any stop-criterion or 2+ RED flags must reject the candidate immediately,
+ * before any further stage is presented and without calling the AI evaluator.
+ */
+export function shouldAutoRejectAfterStage1(flags: CrossCheckFlag[]): boolean {
+  const redCount = flags.filter((f) => f.type === 'RED').length
+  // Stop-criteria use id ≥ 100; their presence alone is enough to reject.
+  const hasStopCriterion = flags.some((f) => f.type === 'RED' && f.id >= 100)
+  return hasStopCriterion || redCount >= 2
 }
 
 // ─── AI evaluation prompt ─────────────────────────────────────────────────────
@@ -236,8 +271,8 @@ async function runEvaluation({ prisma, env, sessionId }: EvaluateJob): Promise<v
     cross_check_flags: allFlags,
   }
 
-  // 4. Call Anthropic API
-  if (!env.LLM_SCORING_API_KEY) {
+  // 4. Call Gemini 2.0 Flash via fetch on generativelanguage.googleapis.com
+  if (!env.GEMINI_API_KEY) {
     console.error(JSON.stringify({
       level: 'error',
       msg: 'selection.evaluator.no_api_key',
@@ -246,26 +281,24 @@ async function runEvaluation({ prisma, env, sessionId }: EvaluateJob): Promise<v
     return
   }
 
-  const client = new Anthropic({ apiKey: env.LLM_SCORING_API_KEY })
-
   let rawText: string
   try {
-    const response = await client.messages.create({
-      model: env.LLM_SCORING_MODEL,
-      max_tokens: 2000,
-      system: SELECTION_SYSTEM_PROMPT,
-      messages: [
-        {
-          role: 'user',
-          content: `Оцени кандидата. Данные:\n\n${JSON.stringify(promptPayload, null, 2)}\n\nВерни результат строго в формате JSON.`,
-        },
-      ],
+    const result = await callGeminiGenerateContent({
+      apiKey: env.GEMINI_API_KEY,
+      model: env.GEMINI_MODEL,
+      systemInstruction: SELECTION_SYSTEM_PROMPT,
+      userText: `Оцени кандидата. Данные:\n\n${JSON.stringify(promptPayload, null, 2)}\n\nВерни результат строго в формате JSON.`,
     })
-
-    const firstContent = response.content[0]
-    rawText = firstContent?.type === 'text' ? firstContent.text : ''
+    rawText = result.text
   } catch (err) {
-    console.error(JSON.stringify({ level: 'error', msg: 'selection.evaluator.api_error', sessionId, err: String(err) }))
+    const status = err instanceof GeminiApiError ? err.status : undefined
+    console.error(JSON.stringify({
+      level: 'error',
+      msg: 'selection.evaluator.api_error',
+      sessionId,
+      status,
+      err: String(err),
+    }))
     return
   }
 
