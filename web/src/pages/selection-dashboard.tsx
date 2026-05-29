@@ -52,13 +52,13 @@ function verdictBadgeVariant(verdict: string): 'default' | 'outline' | 'secondar
   return 'secondary' // НА РУЧНУЮ ПРОВЕРКУ HR
 }
 
-function statusBadge(t: TFunction, status: string) {
+function statusBadge(t: TFunction<'selection'>, status: string) {
   const key = `dashboard.status.${status}`
-  const translated = t(key)
-  return translated === key ? status : translated
+  const translated = t(key, { defaultValue: status })
+  return translated
 }
 
-function roleName(t: TFunction, role: string) {
+function roleName(t: TFunction<'selection'>, role: string) {
   if (role === 'logist') return t('dashboard.roles.logistShort')
   if (role === 'sales_manager') return t('dashboard.roles.salesManagerShort')
   return role
