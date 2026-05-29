@@ -1,13 +1,50 @@
 {
   "title": "Офферы",
+  "create": "Создать оффер",
+  "newOffer": "Новый оффер",
   "status": {
     "draft": "Черновик",
+    "manager_review": "На согласовании",
+    "approved": "Одобрен",
     "sent": "Отправлен",
-    "accepted": "Принят",
+    "accepted": "✓ Подписан",
     "declined": "Отклонён",
     "expired": "Истёк"
   },
+  "actions": {
+    "submit": "Отправить на согласование",
+    "approve": "Одобрить",
+    "reject": "Вернуть",
+    "send": "Отправить кандидату",
+    "decline": "Зафиксировать отказ",
+    "accept": "Принят"
+  },
+  "fields": {
+    "salary": "Зарплата",
+    "currency": "Валюта",
+    "grade": "Грейд",
+    "startDate": "Дата выхода",
+    "conditions": "Условия (по одному на строке)"
+  },
+  "form": {
+    "create": "Создать оффер",
+    "cancel": "Отмена"
+  },
+  "list": {
+    "loadFailed": "Не удалось загрузить офферы",
+    "unknownError": "Неизвестная ошибка",
+    "empty": "Офферов пока нет.",
+    "startDate": "выход {{date}}",
+    "openSigning": "Открыть страницу подписания DocuSeal",
+    "reason": "Причина: {{reason}}",
+    "rejectPrompt": "Причина возврата?",
+    "declinePrompt": "Причина отказа?"
+  },
   "toasts": {
+    "created": "Оффер создан",
+    "createFailed": "Не удалось создать оффер",
+    "transitioned": "Действие выполнено: {{action}}",
+    "transitionFailed": "Не удалось выполнить переход",
     "sent": "Оффер отправлен",
     "accepted": "Оффер принят",
     "declined": "Оффер отклонён",

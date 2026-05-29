@@ -11,6 +11,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Notification } from '@web-app-demo/contracts'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -41,6 +42,7 @@ function notificationBody(n: Notification): string | null {
 
 export function NotificationBell() {
   const { api, isAuthenticated } = useAuth()
+  const { t } = useTranslation('notifications')
   const [open, setOpen] = useState(false)
   const queryClient = useQueryClient()
 
@@ -74,7 +76,7 @@ export function NotificationBell() {
           type="button"
           variant="ghost"
           size="sm"
-          aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
+          aria-label={unreadCount > 0 ? t('ariaLabelWithCount', { count: unreadCount }) : t('ariaLabel')}
           className="relative"
         >
           <span aria-hidden>🔔</span>
@@ -90,7 +92,7 @@ export function NotificationBell() {
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 gap-2 p-0">
         <div className="flex items-center justify-between border-b px-4 py-3">
-          <Typography variant="h6">Notifications</Typography>
+          <Typography variant="h6">{t('title')}</Typography>
           <Button
             type="button"
             variant="ghost"
@@ -98,14 +100,14 @@ export function NotificationBell() {
             disabled={unreadCount === 0 || markAllRead.isPending}
             onClick={() => markAllRead.mutate()}
           >
-            Mark all read
+            {t('markAllRead')}
           </Button>
         </div>
         <ul className="max-h-96 overflow-y-auto">
           {items.length === 0 && (
             <li className="px-4 py-6 text-center">
               <Typography variant="body" tone="muted">
-                No notifications yet
+                {t('empty')}
               </Typography>
             </li>
           )}
@@ -140,7 +142,7 @@ export function NotificationBell() {
                       variant="ghost"
                       size="sm"
                       onClick={() => markRead.mutate(n.id)}
-                      aria-label="Mark as read"
+                      aria-label={t('markAsRead')}
                     >
                       ✓
                     </Button>

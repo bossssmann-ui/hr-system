@@ -13,7 +13,8 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { Link, useParams } from '@tanstack/react-router'
 import type { PublicApplyRequest, PublicVacancy } from '@web-app-demo/contracts'
 import { publicApplyRequestSchema } from '@web-app-demo/contracts'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -109,6 +110,7 @@ function PageMeta({ title, description }: { title: string; description?: string 
 // ─── Careers List Page ────────────────────────────────────────────────────────
 
 export function CareersPage() {
+  const { t } = useTranslation('careers')
   const { data: vacancies, isLoading, error } = useQuery({
     queryKey: ['public-vacancies'],
     queryFn: fetchPublicVacancies,
@@ -117,40 +119,40 @@ export function CareersPage() {
   return (
     <div className="min-h-svh bg-background text-foreground">
       <PageMeta
-        title="Open Vacancies — Careers"
-        description="Browse our open positions and apply today."
+        title={t('meta.listTitle')}
+        description={t('meta.listDescription')}
       />
 
       <header className="border-b bg-background/95 backdrop-blur">
         <div className="mx-auto flex min-h-16 w-full max-w-4xl items-center px-5">
-          <Typography variant="h6">Careers</Typography>
+          <Typography variant="h6">{t('header')}</Typography>
         </div>
       </header>
 
       <main className="mx-auto w-full max-w-4xl px-5 py-12">
         <section className="mb-10">
-          <Typography variant="h2" className="mb-2">Open Positions</Typography>
+          <Typography variant="h2" className="mb-2">{t('list.title')}</Typography>
           <Typography tone="muted">
-            We're growing! Browse our current openings and find your next role.
+            {t('list.subtitle')}
           </Typography>
         </section>
 
         {isLoading && (
           <div className="flex items-center gap-3">
             <Spinner aria-hidden />
-            <Typography tone="muted">Loading vacancies…</Typography>
+            <Typography tone="muted">{t('list.loading')}</Typography>
           </div>
         )}
 
         {error && (
           <Alert variant="destructive" className="max-w-lg">
-            <AlertTitle>Failed to load vacancies</AlertTitle>
-            <AlertDescription>Please try refreshing the page.</AlertDescription>
+            <AlertTitle>{t('list.loadFailedTitle')}</AlertTitle>
+            <AlertDescription>{t('list.loadFailedHint')}</AlertDescription>
           </Alert>
         )}
 
         {!isLoading && !error && vacancies?.length === 0 && (
-          <Typography tone="muted">No open positions right now. Check back soon!</Typography>
+          <Typography tone="muted">{t('list.empty')}</Typography>
         )}
 
         {vacancies && vacancies.length > 0 && (
@@ -163,7 +165,7 @@ export function CareersPage() {
                     <CardDescription className="line-clamp-2">{v.description}</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <Badge variant="outline">Apply →</Badge>
+                    <Badge variant="outline">{t('list.apply')}</Badge>
                   </CardContent>
                 </Card>
               </Link>
@@ -177,19 +179,35 @@ export function CareersPage() {
 
 // ─── Vacancy Detail + Apply Form ──────────────────────────────────────────────
 
-const applyFormSchema = z.object({
-  full_name: z.string().min(1, 'Name is required'),
-  email: z.string().email('Enter a valid email'),
-  phone: z.string().optional(),
-  cover_note: z.string().optional(),
-  resume_link: z.string().url('Enter a valid URL').optional().or(z.literal('')),
-  consent: z.boolean().refine((v) => v, { message: 'Consent is required' }),
-})
+function useApplyFormSchema() {
+  const { t } = useTranslation('careers')
+  return useMemo(
+    () =>
+      z.object({
+        full_name: z.string().min(1, t('validation.nameRequired')),
+        email: z.string().email(t('validation.emailInvalid')),
+        phone: z.string().optional(),
+        cover_note: z.string().optional(),
+        resume_link: z.string().url(t('validation.urlInvalid')).optional().or(z.literal('')),
+        consent: z.boolean().refine((v) => v, { message: t('validation.consentRequired') }),
+      }),
+    [t],
+  )
+}
 
-type ApplyFormValues = z.infer<typeof applyFormSchema>
+type ApplyFormValues = {
+  full_name: string
+  email: string
+  phone?: string
+  cover_note?: string
+  resume_link?: string
+  consent: boolean
+}
 
 export function CareersVacancyPage() {
   const { slug } = useParams({ from: '/careers/$slug' })
+  const { t } = useTranslation('careers')
+  const applyFormSchema = useApplyFormSchema()
 
   const {
     data: vacancy,
@@ -272,15 +290,15 @@ export function CareersVacancyPage() {
         <header className="border-b bg-background/95 backdrop-blur">
           <div className="mx-auto flex min-h-16 w-full max-w-4xl items-center gap-4 px-5">
             <Link to="/careers" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
-              ← Back to Careers
+              {t('detail.back')}
             </Link>
           </div>
         </header>
         <main className="mx-auto w-full max-w-4xl px-5 py-12">
           <Alert variant="destructive" className="max-w-lg">
-            <AlertTitle>Vacancy not found</AlertTitle>
+            <AlertTitle>{t('detail.notFoundTitle')}</AlertTitle>
             <AlertDescription>
-              This position may have been filled or the link is incorrect.
+              {t('detail.notFoundHint')}
             </AlertDescription>
           </Alert>
         </main>
@@ -291,17 +309,17 @@ export function CareersVacancyPage() {
   return (
     <div className="min-h-svh bg-background text-foreground">
       <PageMeta
-        title={`${vacancy.title} — Careers`}
+        title={t('meta.vacancyTitle', { title: vacancy.title })}
         description={vacancy.description.slice(0, 160)}
       />
 
       <header className="border-b bg-background/95 backdrop-blur">
         <div className="mx-auto flex min-h-16 w-full max-w-4xl items-center gap-4 px-5">
           <Link to="/careers" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
-            ← Back to Careers
+            {t('detail.back')}
           </Link>
           <Typography variant="h6" className="ml-auto">
-            Careers
+            {t('header')}
           </Typography>
         </div>
       </header>
@@ -309,7 +327,7 @@ export function CareersVacancyPage() {
       <main className="mx-auto w-full max-w-4xl px-5 py-12">
         {/* Vacancy header */}
         <section className="mb-10">
-          <Badge variant="outline" className="mb-3">Open Position</Badge>
+          <Badge variant="outline" className="mb-3">{t('detail.openPosition')}</Badge>
           <Typography variant="h2" className="mb-4">
             {vacancy.title}
           </Typography>
@@ -322,35 +340,35 @@ export function CareersVacancyPage() {
         {submitted ? (
           <Card className="max-w-lg">
             <CardHeader>
-              <CardTitle>🎉 Application received!</CardTitle>
+              <CardTitle>{t('detail.thanksTitle')}</CardTitle>
               <CardDescription>
-                Thank you for applying. We will review your application and reach out soon.
+                {t('detail.thanksDescription')}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <Typography tone="muted" className="text-sm">
-                Reference: <span className="font-mono">{submittedRef}</span>
+                {t('detail.reference')} <span className="font-mono">{submittedRef}</span>
               </Typography>
             </CardContent>
           </Card>
         ) : (
           <Card className="max-w-lg">
             <CardHeader>
-              <CardTitle>Apply for this position</CardTitle>
+              <CardTitle>{t('detail.applyTitle')}</CardTitle>
               <CardDescription>
-                Fill in your details below. Fields marked * are required.
+                {t('detail.applyDescription')}
               </CardDescription>
             </CardHeader>
             <CardContent>
               {mutation.error && (
                 <Alert variant="destructive" className="mb-6">
-                  <AlertTitle>Submission failed</AlertTitle>
+                  <AlertTitle>{t('detail.submissionFailedTitle')}</AlertTitle>
                   <AlertDescription>
                     {mutation.error instanceof CareersApiError
                       ? mutation.error.code === 'CONSENT_REQUIRED'
-                        ? 'Please check the consent box to proceed.'
+                        ? t('detail.consentRequiredApi')
                         : mutation.error.message
-                      : 'Something went wrong. Please try again.'}
+                      : t('detail.genericError')}
                   </AlertDescription>
                 </Alert>
               )}
@@ -368,7 +386,7 @@ export function CareersVacancyPage() {
                 />
 
                 <div className="grid gap-2">
-                  <Label htmlFor="full_name">Full name *</Label>
+                  <Label htmlFor="full_name">{t('detail.fields.fullName')}</Label>
                   <Input
                     id="full_name"
                     name="full_name"
@@ -383,7 +401,7 @@ export function CareersVacancyPage() {
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="email">Email *</Label>
+                  <Label htmlFor="email">{t('detail.fields.email')}</Label>
                   <Input
                     id="email"
                     name="email"
@@ -399,7 +417,7 @@ export function CareersVacancyPage() {
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="phone">Phone</Label>
+                  <Label htmlFor="phone">{t('detail.fields.phone')}</Label>
                   <Input
                     id="phone"
                     name="phone"
@@ -411,7 +429,7 @@ export function CareersVacancyPage() {
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="resume_link">Resume link (URL)</Label>
+                  <Label htmlFor="resume_link">{t('detail.fields.resumeLink')}</Label>
                   <Input
                     id="resume_link"
                     name="resume_link"
@@ -427,14 +445,14 @@ export function CareersVacancyPage() {
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="cover_note">Cover note</Label>
+                  <Label htmlFor="cover_note">{t('detail.fields.coverNote')}</Label>
                   <Textarea
                     id="cover_note"
                     name="cover_note"
                     value={form.cover_note}
                     onChange={handleChange}
                     rows={4}
-                    placeholder="Tell us why you're interested…"
+                    placeholder={t('detail.fields.coverNotePlaceholder')}
                   />
                 </div>
 
@@ -453,8 +471,7 @@ export function CareersVacancyPage() {
                       htmlFor="consent"
                       className={cn(formErrors.consent && 'text-destructive')}
                     >
-                      I consent to the processing of my personal data in accordance with
-                      Federal Law No. 152-ФЗ «On Personal Data». *
+                      {t('detail.consent')}
                     </Label>
                     {formErrors.consent && (
                       <p className="text-destructive text-sm">{formErrors.consent}</p>
@@ -466,10 +483,10 @@ export function CareersVacancyPage() {
                   {mutation.isPending ? (
                     <>
                       <Spinner aria-hidden className="mr-2 size-4" />
-                      Submitting…
+                      {t('detail.submitting')}
                     </>
                   ) : (
-                    'Submit Application'
+                    t('detail.submit')
                   )}
                 </Button>
               </form>

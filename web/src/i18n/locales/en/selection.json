@@ -1,0 +1,114 @@
+{
+  "stages": {
+    "1": "Screening questionnaire",
+    "2": "Professional test",
+    "3": "Psychological test",
+    "4": "Test assignment"
+  },
+  "candidate": {
+    "badge": "Candidate selection",
+    "stageAria": "Stage {{n}}",
+    "stageCompletedAria": "Stage {{n}} (complete)",
+    "stageOfFour": "Stage {{n}} of 4",
+    "allComplete": "All stages complete",
+    "loading": "Loading assessment…",
+    "unavailableTitle": "Assessment unavailable",
+    "unavailableHint": "The link is invalid or has expired.",
+    "expiredTitle": "Session has expired",
+    "expiredHint": "Unfortunately, this session is no longer available — the link has expired.",
+    "rejectedTitle": "Assessment complete",
+    "rejectedHint": "Your results have been processed.",
+    "thanksTitle": "Thank you!",
+    "thanksHint": "Your answers have been submitted for review. We will be in touch shortly.",
+    "completedTitle": "Assessment complete",
+    "completedHint": "Thanks for participating!",
+    "timer": "⏱ {{minutes}}:{{seconds}} until the test ends",
+    "questionOf": "Question {{current}} of {{total}}",
+    "noGoBack": "You cannot return to previous questions",
+    "answerPlaceholder": "Your answer…",
+    "finishTest": "Finish test",
+    "submitting": "Submitting…",
+    "nextQuestion": "Next question →",
+    "submitContinue": "Submit and continue",
+    "generic": {
+      "scaleHint": "Rate each statement on a scale from 1 to 5",
+      "practicalHint": "Complete the practical assignment",
+      "fillAll": "Fill in all fields",
+      "configuredInTemplate": "Questions for this stage are configured in the vacancy template.",
+      "answerPlaceholder": "Enter your answer…"
+    },
+    "stage2Fallback": "Answer the professional test questions. (Questions are loaded from the vacancy configuration)",
+    "toasts": {
+      "allComplete": "All stages complete! Thank you!",
+      "stagePassed": "Stage submitted. Moving to the next…",
+      "timeUp": "Time is up. This stage is no longer available.",
+      "submitFailed": "Failed to submit answers"
+    },
+    "roles": {
+      "logist": "Logistics specialist",
+      "sales_manager": "Sales manager (forwarding)"
+    }
+  },
+  "dashboard": {
+    "badge": "HR panel",
+    "title": "Candidate selection system",
+    "subtitle": "Automated 4-stage screening. Total: {{total}}",
+    "authRequired": "Authentication required",
+    "loading": "Loading…",
+    "loadFailedTitle": "Loading error",
+    "loadFailedHint": "Failed to load the list of selection sessions.",
+    "filterRole": "Role:",
+    "allRoles": "All",
+    "roles": {
+      "logist": "Logistics specialist",
+      "sales_manager": "Sales manager (forwarding)",
+      "logistShort": "Logistics",
+      "salesManagerShort": "Sales manager"
+    },
+    "status": {
+      "pending": "Pending",
+      "stage_1": "Stage 1",
+      "stage_2": "Stage 2",
+      "stage_3": "Stage 3",
+      "stage_4": "Stage 4",
+      "completed": "Completed",
+      "rejected": "Rejected",
+      "expired": "Expired"
+    },
+    "columns": {
+      "candidate": "Candidate / Session",
+      "role": "Role",
+      "status": "Status",
+      "verdict": "Verdict",
+      "score": "Score",
+      "flags": "Flags",
+      "date": "Date"
+    },
+    "empty": "No selection sessions",
+    "pagination": {
+      "prev": "← Back",
+      "next": "Next →",
+      "pageOf": "Page {{current}} of {{total}}"
+    },
+    "detail": {
+      "title": "Selection details",
+      "role": "Role: {{name}}",
+      "status": "Status: {{name}}",
+      "completed": "Completed: {{date}}",
+      "score": "Score: {{score}} / 100",
+      "flags": "Flags ({{red}} RED, {{orange}} ORANGE)",
+      "verdictReason": "Verdict reasoning",
+      "hrNotes": "HR notes",
+      "stageScores": "Stage scores",
+      "verdictNotReady": "The verdict is not ready yet.",
+      "moveToInterview": "→ Invite to interview",
+      "reject": "Reject"
+    },
+    "toasts": {
+      "movedToInterview": "Candidate moved to interview stage",
+      "moveFailed": "Move failed",
+      "rejected": "Candidate rejected",
+      "rejectFailed": "Reject failed"
+    }
+  }
+}

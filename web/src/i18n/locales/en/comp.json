@@ -1,0 +1,52 @@
+{
+  "badge": "Recruiting · Compensation",
+  "title": "Compensation calculator",
+  "subtitle": "Look up a salary against the configured band for a grade + currency.",
+  "calculator": {
+    "title": "Calculator",
+    "description": "Pick a grade + currency, enter a salary.",
+    "grade": "Grade",
+    "gradePlaceholder": "e.g. M2",
+    "currency": "Currency",
+    "salary": "Salary",
+    "salaryPlaceholder": "200000",
+    "calculate": "Calculate",
+    "failed": "Calculator failed"
+  },
+  "errorTitle": "Error",
+  "bands": {
+    "title": "Band catalogue",
+    "description": "Per-grade salary ranges.",
+    "loadFailedTitle": "Failed to load bands",
+    "unknownError": "Unknown error",
+    "fields": {
+      "grade": "Grade",
+      "currency": "Currency",
+      "min": "Min",
+      "mid": "Mid",
+      "max": "Max"
+    },
+    "delete": "Delete",
+    "created": "Band created",
+    "deleted": "Band deleted",
+    "createFailed": "Failed to create band",
+    "addPlaceholder": {
+      "grade": "Grade",
+      "min": "Min",
+      "mid": "Mid",
+      "max": "Max"
+    },
+    "add": "Add band"
+  },
+  "result": {
+    "zone": {
+      "within": "within",
+      "above": "above",
+      "below": "below"
+    },
+    "percentile": "Percentile:",
+    "min": "min",
+    "mid": "mid",
+    "max": "max"
+  }
+}

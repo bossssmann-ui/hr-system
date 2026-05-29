@@ -7,6 +7,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate, useParams } from "@tanstack/react-router"
 import type { Application, ApplicationStage, AssessmentTemplate, Interview, OrgUnit, RequisitionStatus, Vacancy } from "@web-app-demo/contracts"
 import { useEffect, useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
+import type { TFunction } from "i18next"
 import { toast } from "sonner"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -23,40 +25,45 @@ import { useAuth } from "@/lib/use-auth"
 import { cn } from "@/lib/utils"
 
 function LoginRequired() {
+  const { t } = useTranslation('recruiting')
   return (
     <section className="mx-auto grid w-full max-w-6xl gap-4 px-5 py-16">
-      <Badge variant="outline" className="w-fit">Login required</Badge>
-      <Typography variant="h2">Sign in to continue</Typography>
-      <Typography tone="muted">This page is part of the recruiter workspace.</Typography>
-      <Link to="/" className={cn(buttonVariants({ size: "lg" }), "w-fit")}>Go to auth</Link>
+      <Badge variant="outline" className="w-fit">{t('common.loginRequired')}</Badge>
+      <Typography variant="h2">{t('common.loginRequired')}</Typography>
+      <Typography tone="muted">{t('common.loginRequiredHint')}</Typography>
+      <Link to="/" className={cn(buttonVariants({ size: "lg" }), "w-fit")}>{t('common:actions.goToAuth')}</Link>
     </section>
   )
 }
 
 function LoadingCard() {
+  const { t } = useTranslation('recruiting')
   return (
     <Card className="w-fit">
       <CardContent className="flex items-center gap-3 py-8">
         <Spinner aria-hidden />
-        <Typography tone="muted">Loading...</Typography>
+        <Typography tone="muted">{t('common.loading')}</Typography>
       </CardContent>
     </Card>
   )
 }
 
 function ErrorCard({ message }: { message: string }) {
+  const { t } = useTranslation('recruiting')
   return (
     <Alert variant="destructive" className="max-w-2xl">
-      <AlertTitle>Error</AlertTitle>
+      <AlertTitle>{t('common.errorTitle')}</AlertTitle>
       <AlertDescription>{message}</AlertDescription>
     </Alert>
   )
 }
 
-const STATUS_LABELS: Record<RequisitionStatus, string> = {
-  draft: "Draft", submitted: "Submitted", manager_approved: "Manager Approved",
-  hr_approved: "HR Approved", approved: "Approved", in_recruitment: "In Recruitment",
-  closed: "Closed", rejected: "Rejected",
+const REQUISITION_STATUSES: RequisitionStatus[] = [
+  "draft", "submitted", "manager_approved", "hr_approved", "approved", "in_recruitment", "closed", "rejected",
+]
+
+function getStatusLabel(t: TFunction, status: RequisitionStatus): string {
+  return t(`recruiting:status.${status}`)
 }
 
 const STATUS_VARIANT: Record<RequisitionStatus, "default" | "outline" | "secondary"> = {
@@ -65,14 +72,14 @@ const STATUS_VARIANT: Record<RequisitionStatus, "default" | "outline" | "seconda
   closed: "outline", rejected: "outline",
 }
 
-const REQUISITION_TRANSITIONS: Array<{ from: RequisitionStatus[]; to: RequisitionStatus; label: string; roles: string[] }> = [
-  { from: ["draft"], to: "submitted", label: "Submit", roles: ["recruiter", "hiring_manager", "hr_admin", "owner"] },
-  { from: ["submitted"], to: "manager_approved", label: "Approve as Manager", roles: ["hiring_manager", "hr_admin", "owner"] },
-  { from: ["submitted", "manager_approved"], to: "rejected", label: "Reject", roles: ["hiring_manager", "hr_admin", "owner"] },
-  { from: ["manager_approved"], to: "hr_approved", label: "Approve as HR", roles: ["hr_admin", "owner"] },
-  { from: ["hr_approved"], to: "approved", label: "Final Approve", roles: ["hr_admin", "owner"] },
-  { from: ["approved"], to: "in_recruitment", label: "Start Recruiting", roles: ["recruiter", "hr_admin", "owner"] },
-  { from: ["in_recruitment"], to: "closed", label: "Close", roles: ["recruiter", "hr_admin", "owner"] },
+const REQUISITION_TRANSITIONS: Array<{ from: RequisitionStatus[]; to: RequisitionStatus; roles: string[] }> = [
+  { from: ["draft"], to: "submitted", roles: ["recruiter", "hiring_manager", "hr_admin", "owner"] },
+  { from: ["submitted"], to: "manager_approved", roles: ["hiring_manager", "hr_admin", "owner"] },
+  { from: ["submitted", "manager_approved"], to: "rejected", roles: ["hiring_manager", "hr_admin", "owner"] },
+  { from: ["manager_approved"], to: "hr_approved", roles: ["hr_admin", "owner"] },
+  { from: ["hr_approved"], to: "approved", roles: ["hr_admin", "owner"] },
+  { from: ["approved"], to: "in_recruitment", roles: ["recruiter", "hr_admin", "owner"] },
+  { from: ["in_recruitment"], to: "closed", roles: ["recruiter", "hr_admin", "owner"] },
 ]
 
 // ─── Requisitions List ────────────────────────────────────────────────────────
@@ -85,8 +92,8 @@ export function RequisitionsPage() {
 
 function RequisitionsList() {
   const { api, user } = useAuth()
+  const { t } = useTranslation(['recruiting', 'common'])
   const [statusFilter, setStatusFilter] = useState<string>("")
-  const statuses: RequisitionStatus[] = ["draft", "submitted", "manager_approved", "hr_approved", "approved", "in_recruitment", "closed", "rejected"]
 
   const query = useQuery({
     queryKey: ["requisitions", "list", statusFilter],
@@ -98,23 +105,23 @@ function RequisitionsList() {
     <section className="mx-auto grid w-full max-w-6xl gap-6 px-5 py-12">
       <div className="flex items-start justify-between gap-4">
         <div className="grid gap-3">
-          <Badge variant="outline" className="w-fit">Recruiting · Requisitions</Badge>
-          <Typography variant="h1">Hiring requisitions</Typography>
+          <Badge variant="outline" className="w-fit">{t('requisitions.badge')}</Badge>
+          <Typography variant="h1">{t('requisitions.title')}</Typography>
         </div>
         <Button asChild>
-          <Link to="/requisitions/new" data-testid="new-requisition-button">New requisition</Link>
+          <Link to="/requisitions/new" data-testid="new-requisition-button">{t('requisitions.newButton')}</Link>
         </Button>
       </div>
       <div className="flex flex-wrap gap-2">
-        <Button size="sm" variant={statusFilter === "" ? "default" : "outline"} onClick={() => setStatusFilter("")}>All</Button>
-        {statuses.map((s) => (
-          <Button key={s} size="sm" variant={statusFilter === s ? "default" : "outline"} onClick={() => setStatusFilter(s)}>{STATUS_LABELS[s]}</Button>
+        <Button size="sm" variant={statusFilter === "" ? "default" : "outline"} onClick={() => setStatusFilter("")}>{t('requisitions.all')}</Button>
+        {REQUISITION_STATUSES.map((s) => (
+          <Button key={s} size="sm" variant={statusFilter === s ? "default" : "outline"} onClick={() => setStatusFilter(s)}>{getStatusLabel(t, s)}</Button>
         ))}
       </div>
       {query.isPending ? <LoadingCard />
-        : query.isError ? <ErrorCard message={query.error instanceof ApiRequestError ? query.error.message : "Unexpected error"} />
+        : query.isError ? <ErrorCard message={query.error instanceof ApiRequestError ? query.error.message : t('common.unexpectedError')} />
         : query.data.items.length === 0 ? (
-          <Card size="sm" className="max-w-3xl"><CardHeader><CardTitle>No requisitions yet</CardTitle><CardDescription>Create the first one above.</CardDescription></CardHeader></Card>
+          <Card size="sm" className="max-w-3xl"><CardHeader><CardTitle>{t('requisitions.empty.title')}</CardTitle><CardDescription>{t('requisitions.empty.description')}</CardDescription></CardHeader></Card>
         ) : (
           <ul className="grid gap-3" data-testid="requisitions-list">
             {query.data.items.map((r) => (
@@ -124,7 +131,7 @@ function RequisitionsList() {
                     <CardHeader>
                       <div className="flex items-center justify-between gap-2">
                         <CardTitle>{r.title}</CardTitle>
-                        <Badge variant={STATUS_VARIANT[r.status]}>{STATUS_LABELS[r.status]}</Badge>
+                        <Badge variant={STATUS_VARIANT[r.status]}>{getStatusLabel(t, r.status)}</Badge>
                       </div>
                       <CardDescription>{r.grade} · {r.salaryMin.toLocaleString()}–{r.salaryMax.toLocaleString()} {r.currency}</CardDescription>
                     </CardHeader>
@@ -149,6 +156,7 @@ export function RequisitionsNewPage() {
 
 function RequisitionCreateForm() {
   const { api } = useAuth()
+  const { t } = useTranslation(['recruiting', 'common'])
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [formError, setFormError] = useState<string | null>(null)
@@ -162,7 +170,7 @@ function RequisitionCreateForm() {
       await navigate({ to: "/requisitions/$requisitionId", params: { requisitionId: r.id } })
     },
     onError: (error: unknown) => {
-      setFormError(error instanceof ApiRequestError ? error.message : "Failed to create requisition")
+      setFormError(error instanceof ApiRequestError ? error.message : t('requisitions.errors.createFailed'))
     },
   })
 
@@ -172,9 +180,9 @@ function RequisitionCreateForm() {
       setFormError(null)
       const salaryMin = Number(value.salaryMin)
       const salaryMax = Number(value.salaryMax)
-      if (Number.isNaN(salaryMin) || salaryMin < 0) { setFormError("Invalid salary min"); return }
-      if (Number.isNaN(salaryMax) || salaryMax < 0) { setFormError("Invalid salary max"); return }
-      if (salaryMin > salaryMax) { setFormError("Salary min must be ≤ salary max"); return }
+      if (Number.isNaN(salaryMin) || salaryMin < 0) { setFormError(t('requisitions.errors.invalidSalaryMin')); return }
+      if (Number.isNaN(salaryMax) || salaryMax < 0) { setFormError(t('requisitions.errors.invalidSalaryMax')); return }
+      if (salaryMin > salaryMax) { setFormError(t('requisitions.errors.salaryOrder')); return }
       mutation.mutate({
         orgUnitId: value.orgUnitId, title: value.title, grade: value.grade,
         salaryMin, salaryMax, currency: value.currency as "RUB" | "USD" | "THB" | "USDT",
@@ -190,8 +198,8 @@ function RequisitionCreateForm() {
   return (
     <section className="mx-auto grid w-full max-w-3xl gap-6 px-5 py-12">
       <div className="grid gap-3">
-        <Badge variant="outline" className="w-fit">Recruiting · Requisitions</Badge>
-        <Typography variant="h1">New hiring requisition</Typography>
+        <Badge variant="outline" className="w-fit">{t('requisitions.badge')}</Badge>
+        <Typography variant="h1">{t('requisitions.newTitle')}</Typography>
       </div>
       <Card>
         <CardContent className="pt-6">
@@ -199,43 +207,43 @@ function RequisitionCreateForm() {
             <FieldGroup className="gap-4">
               <form.Field name="orgUnitId" children={(field) => (
                 <Field>
-                  <FieldLabel htmlFor="orgUnitId">Org unit</FieldLabel>
+                  <FieldLabel htmlFor="orgUnitId">{t('requisitions.fields.orgUnit')}</FieldLabel>
                   <select id="orgUnitId" name={field.name} value={field.state.value} onChange={(e) => field.handleChange(e.target.value)}
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" data-testid="org-unit-select">
-                    <option value="">Select org unit...</option>
+                    <option value="">{t('requisitions.fields.orgUnitPlaceholder')}</option>
                     {orgUnits.map((ou) => <option key={ou.id} value={ou.id}>{ou.name}</option>)}
                   </select>
                 </Field>
               )} />
               <form.Field name="title" children={(field) => (
                 <Field>
-                  <FieldLabel htmlFor="title">Title</FieldLabel>
-                  <Input id="title" name={field.name} value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} placeholder="e.g. Senior Backend Engineer" data-testid="title-input" />
+                  <FieldLabel htmlFor="title">{t('requisitions.fields.title')}</FieldLabel>
+                  <Input id="title" name={field.name} value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} placeholder={t('requisitions.fields.titlePlaceholder')} data-testid="title-input" />
                 </Field>
               )} />
               <form.Field name="grade" children={(field) => (
                 <Field>
-                  <FieldLabel htmlFor="grade">Grade</FieldLabel>
-                  <Input id="grade" name={field.name} value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} placeholder="e.g. M3" />
+                  <FieldLabel htmlFor="grade">{t('requisitions.fields.grade')}</FieldLabel>
+                  <Input id="grade" name={field.name} value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} placeholder={t('requisitions.fields.gradePlaceholder')} />
                 </Field>
               )} />
               <div className="grid grid-cols-2 gap-4">
                 <form.Field name="salaryMin" children={(field) => (
                   <Field>
-                    <FieldLabel htmlFor="salaryMin">Salary min</FieldLabel>
+                    <FieldLabel htmlFor="salaryMin">{t('requisitions.fields.salaryMin')}</FieldLabel>
                     <Input id="salaryMin" name={field.name} type="number" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} data-testid="salary-min-input" />
                   </Field>
                 )} />
                 <form.Field name="salaryMax" children={(field) => (
                   <Field>
-                    <FieldLabel htmlFor="salaryMax">Salary max</FieldLabel>
+                    <FieldLabel htmlFor="salaryMax">{t('requisitions.fields.salaryMax')}</FieldLabel>
                     <Input id="salaryMax" name={field.name} type="number" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} data-testid="salary-max-input" />
                   </Field>
                 )} />
               </div>
               <form.Field name="currency" children={(field) => (
                 <Field>
-                  <FieldLabel htmlFor="currency">Currency</FieldLabel>
+                  <FieldLabel htmlFor="currency">{t('requisitions.fields.currency')}</FieldLabel>
                   <select id="currency" name={field.name} value={field.state.value} onChange={(e) => field.handleChange(e.target.value)}
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
                     <option value="RUB">RUB</option>
@@ -247,25 +255,25 @@ function RequisitionCreateForm() {
               )} />
               <form.Field name="justification" children={(field) => (
                 <Field>
-                  <FieldLabel htmlFor="justification">Justification</FieldLabel>
+                  <FieldLabel htmlFor="justification">{t('requisitions.fields.justification')}</FieldLabel>
                   <textarea id="justification" name={field.name} value={field.state.value} onChange={(e) => field.handleChange(e.target.value)}
-                    rows={3} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="Business rationale" data-testid="justification-input" />
+                    rows={3} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder={t('requisitions.fields.justificationPlaceholder')} data-testid="justification-input" />
                 </Field>
               )} />
               <form.Field name="deadlineAt" children={(field) => (
                 <Field>
-                  <FieldLabel htmlFor="deadlineAt">Deadline (optional)</FieldLabel>
+                  <FieldLabel htmlFor="deadlineAt">{t('requisitions.fields.deadline')}</FieldLabel>
                   <Input id="deadlineAt" name={field.name} type="date" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} />
                 </Field>
               )} />
-              {formError && <Alert variant="destructive"><AlertTitle>Error</AlertTitle><AlertDescription>{formError}</AlertDescription></Alert>}
+              {formError && <Alert variant="destructive"><AlertTitle>{t('common.errorTitle')}</AlertTitle><AlertDescription>{formError}</AlertDescription></Alert>}
               <div className="flex gap-3">
                 <form.Subscribe selector={(s) => s.isSubmitting} children={(isSubmitting) => (
                   <Button type="submit" disabled={isSubmitting || mutation.isPending} data-testid="submit-button">
-                    {isSubmitting || mutation.isPending ? "Creating..." : "Create requisition"}
+                    {isSubmitting || mutation.isPending ? t('requisitions.submit.creating') : t('requisitions.submit.create')}
                   </Button>
                 )} />
-                <Button type="button" variant="outline" asChild><Link to="/requisitions">Cancel</Link></Button>
+                <Button type="button" variant="outline" asChild><Link to="/requisitions">{t('common:actions.cancel')}</Link></Button>
               </div>
             </FieldGroup>
           </form>
@@ -285,6 +293,7 @@ export function RequisitionDetailPage() {
 
 function RequisitionDetail() {
   const { api } = useAuth()
+  const { t } = useTranslation(['recruiting', 'common'])
   const params = useParams({ strict: false }) as { requisitionId?: string }
   const requisitionId = params.requisitionId ?? ""
   const queryClient = useQueryClient()
@@ -300,60 +309,57 @@ function RequisitionDetail() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["requisitions"] })
       await queryClient.invalidateQueries({ queryKey: ["vacancies"] })
-      toast.success("Status updated")
+      toast.success(t('requisitions.toasts.statusUpdated'))
     },
     onError: (error: unknown) => {
-      toast.error(error instanceof ApiRequestError ? error.message : "Failed to update status")
+      toast.error(error instanceof ApiRequestError ? error.message : t('requisitions.toasts.statusUpdateFailed'))
     },
   })
 
   if (query.isPending) return <LoadingCard />
-  if (query.isError) return <ErrorCard message="Requisition not found or access denied" />
+  if (query.isError) return <ErrorCard message={t('requisitions.errors.notFound')} />
 
   const r = query.data
-  // Show all valid transitions from the current status.
-  // The server is the source of truth for role enforcement;
-  // a 422 FSM_TRANSITION_DENIED response is toasted if the user lacks the right role.
-  const availableTransitions = REQUISITION_TRANSITIONS.filter((t) => t.from.includes(r.status))
+  const availableTransitions = REQUISITION_TRANSITIONS.filter((tr) => tr.from.includes(r.status))
 
   return (
     <section className="mx-auto grid w-full max-w-3xl gap-6 px-5 py-12">
       <div className="flex items-start justify-between gap-4">
         <div className="grid gap-3">
-          <Badge variant="outline" className="w-fit">Recruiting · Requisitions</Badge>
+          <Badge variant="outline" className="w-fit">{t('requisitions.badge')}</Badge>
           <Typography variant="h1">{r.title}</Typography>
         </div>
-        <Badge variant={STATUS_VARIANT[r.status]}>{STATUS_LABELS[r.status]}</Badge>
+        <Badge variant={STATUS_VARIANT[r.status]}>{getStatusLabel(t, r.status)}</Badge>
       </div>
       <Card>
         <CardContent className="grid gap-4 pt-6">
           <div className="grid grid-cols-2 gap-4 text-sm">
-            <div><Typography tone="muted">Grade</Typography><Typography>{r.grade}</Typography></div>
-            <div><Typography tone="muted">Salary range</Typography><Typography>{r.salaryMin.toLocaleString()}–{r.salaryMax.toLocaleString()} {r.currency}</Typography></div>
-            <div><Typography tone="muted">Created</Typography><Typography>{new Date(r.createdAt).toLocaleDateString()}</Typography></div>
-            {r.deadlineAt && <div><Typography tone="muted">Deadline</Typography><Typography>{new Date(r.deadlineAt).toLocaleDateString()}</Typography></div>}
+            <div><Typography tone="muted">{t('requisitions.fields.grade')}</Typography><Typography>{r.grade}</Typography></div>
+            <div><Typography tone="muted">{t('requisitions.fields.salaryRange')}</Typography><Typography>{r.salaryMin.toLocaleString()}–{r.salaryMax.toLocaleString()} {r.currency}</Typography></div>
+            <div><Typography tone="muted">{t('requisitions.fields.created')}</Typography><Typography>{new Date(r.createdAt).toLocaleDateString()}</Typography></div>
+            {r.deadlineAt && <div><Typography tone="muted">{t('requisitions.fields.deadlineShort')}</Typography><Typography>{new Date(r.deadlineAt).toLocaleDateString()}</Typography></div>}
           </div>
           <div className="border-t pt-4">
-            <Typography tone="muted" variant="bodySm">Justification</Typography>
+            <Typography tone="muted" variant="bodySm">{t('requisitions.fields.justification')}</Typography>
             <Typography>{r.justification}</Typography>
           </div>
         </CardContent>
       </Card>
       {availableTransitions.length > 0 && (
         <div className="grid gap-3">
-          <Typography variant="h3">Actions</Typography>
+          <Typography variant="h3">{t('requisitions.actions')}</Typography>
           <div className="flex flex-wrap gap-2">
-            {availableTransitions.map((t) => (
-              <Button key={t.to} variant={t.to === "rejected" ? "outline" : "default"}
-                disabled={transitionMutation.isPending} onClick={() => transitionMutation.mutate(t.to)}
-                data-testid={"transition-" + t.to}>
-                {transitionMutation.isPending ? "Working..." : t.label}
+            {availableTransitions.map((tr) => (
+              <Button key={tr.to} variant={tr.to === "rejected" ? "outline" : "default"}
+                disabled={transitionMutation.isPending} onClick={() => transitionMutation.mutate(tr.to)}
+                data-testid={"transition-" + tr.to}>
+                {transitionMutation.isPending ? t('common.working') : t(`transitions.${tr.to}`)}
               </Button>
             ))}
           </div>
         </div>
       )}
-      <Button variant="outline" asChild className="w-fit"><Link to="/requisitions">← Back to list</Link></Button>
+      <Button variant="outline" asChild className="w-fit"><Link to="/requisitions">{t('requisitions.backToList')}</Link></Button>
     </section>
   )
 }
@@ -368,6 +374,7 @@ export function VacanciesPage() {
 
 function VacanciesList() {
   const { api, user } = useAuth()
+  const { t } = useTranslation('recruiting')
   const queryClient = useQueryClient()
 
   const query = useQuery({ queryKey: ["vacancies"], queryFn: () => api.listVacancies(), enabled: Boolean(user) })
@@ -375,20 +382,20 @@ function VacanciesList() {
   const publishMutation = useMutation({
     mutationFn: ({ id, isPublished }: { id: string; isPublished: boolean }) => api.publishVacancy(id, { isPublished }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["vacancies"] }),
-    onError: (error: unknown) => toast.error(error instanceof ApiRequestError ? error.message : "Failed"),
+    onError: (error: unknown) => toast.error(error instanceof ApiRequestError ? error.message : t('vacancies.publishFailed')),
   })
 
   if (query.isPending) return <LoadingCard />
-  if (query.isError) return <ErrorCard message="Could not load vacancies" />
+  if (query.isError) return <ErrorCard message={t('vacancies.loadFailed')} />
 
   return (
     <section className="mx-auto grid w-full max-w-6xl gap-6 px-5 py-12">
       <div className="grid gap-3">
-        <Badge variant="outline" className="w-fit">Recruiting · Vacancies</Badge>
-        <Typography variant="h1">Vacancies</Typography>
+        <Badge variant="outline" className="w-fit">{t('vacancies.badge')}</Badge>
+        <Typography variant="h1">{t('vacancies.title')}</Typography>
       </div>
       {query.data.items.length === 0 ? (
-        <Card size="sm" className="max-w-3xl"><CardHeader><CardTitle>No vacancies yet</CardTitle><CardDescription>Vacancies are auto-created when a requisition is approved.</CardDescription></CardHeader></Card>
+        <Card size="sm" className="max-w-3xl"><CardHeader><CardTitle>{t('vacancies.empty.title')}</CardTitle><CardDescription>{t('vacancies.empty.description')}</CardDescription></CardHeader></Card>
       ) : (
         <ul className="grid gap-3">
           {query.data.items.map((v: Vacancy) => (
@@ -398,11 +405,11 @@ function VacanciesList() {
                   <div className="flex items-center justify-between gap-2">
                     <CardTitle><Link to="/vacancies/$vacancyId" params={{ vacancyId: v.id }} className="hover:underline">{v.title}</Link></CardTitle>
                     <div className="flex items-center gap-2">
-                      <Badge variant={v.isPublished ? "default" : "outline"}>{v.isPublished ? "Published" : "Draft"}</Badge>
+                      <Badge variant={v.isPublished ? "default" : "outline"}>{v.isPublished ? t('vacancies.published') : t('vacancies.draft')}</Badge>
                       <Button size="sm" variant="outline" disabled={publishMutation.isPending}
                         onClick={() => publishMutation.mutate({ id: v.id, isPublished: !v.isPublished })}
                         data-testid={"publish-toggle-" + v.id}>
-                        {v.isPublished ? "Unpublish" : "Publish"}
+                        {v.isPublished ? t('vacancies.unpublish') : t('vacancies.publish')}
                       </Button>
                     </div>
                   </div>
@@ -424,13 +431,14 @@ export function VacancyDetailPage() {
 
 function VacancyDetail() {
   const { api } = useAuth()
+  const { t } = useTranslation('recruiting')
   const params = useParams({ strict: false }) as { vacancyId?: string }
   const vacancyId = params.vacancyId ?? ""
 
   const query = useQuery({ queryKey: ["vacancies", vacancyId], queryFn: () => api.getVacancy(vacancyId), enabled: Boolean(vacancyId) })
 
   if (query.isPending) return <LoadingCard />
-  if (query.isError) return <ErrorCard message="Vacancy not found" />
+  if (query.isError) return <ErrorCard message={t('vacancies.notFound')} />
 
   const v = query.data
 
@@ -438,22 +446,22 @@ function VacancyDetail() {
     <section className="mx-auto grid w-full max-w-3xl gap-6 px-5 py-12">
       <div className="flex items-start justify-between gap-4">
         <div className="grid gap-3">
-          <Badge variant="outline" className="w-fit">Recruiting · Vacancies</Badge>
+          <Badge variant="outline" className="w-fit">{t('vacancies.badge')}</Badge>
           <Typography variant="h1">{v.title}</Typography>
         </div>
-        <Badge variant={v.isPublished ? "default" : "outline"}>{v.isPublished ? "Published" : "Draft"}</Badge>
+        <Badge variant={v.isPublished ? "default" : "outline"}>{v.isPublished ? t('vacancies.published') : t('vacancies.draft')}</Badge>
       </div>
       <Card>
         <CardContent className="grid gap-4 pt-6">
           <Typography>{v.description}</Typography>
           <div className="border-t pt-4">
-            <Typography tone="muted" variant="bodySm">Created {new Date(v.createdAt).toLocaleDateString()}</Typography>
+            <Typography tone="muted" variant="bodySm">{t('requisitions.fields.created')} {new Date(v.createdAt).toLocaleDateString()}</Typography>
           </div>
         </CardContent>
       </Card>
       <div className="flex gap-3">
-        <Button asChild><Link to="/applications">View applications</Link></Button>
-        <Button variant="outline" asChild><Link to="/vacancies">← Back</Link></Button>
+        <Button asChild><Link to="/applications">{t('vacancies.viewApplications')}</Link></Button>
+        <Button variant="outline" asChild><Link to="/vacancies">{t('vacancies.back')}</Link></Button>
       </div>
     </section>
   )
@@ -469,6 +477,7 @@ export function CandidatesPage() {
 
 function CandidatesList() {
   const { api, user } = useAuth()
+  const { t } = useTranslation(['recruiting', 'common'])
   const [search, setSearch] = useState("")
   const [showForm, setShowForm] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
@@ -484,36 +493,36 @@ function CandidatesList() {
     mutationFn: (data: Parameters<typeof api.createCandidate>[0]) => api.createCandidate(data),
     onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: ["candidates"] })
-      if (result.deduped) { toast.info("Returning existing candidate (deduped)") } else { toast.success("Candidate created") }
+      if (result.deduped) { toast.info(t('candidates.toasts.deduped')) } else { toast.success(t('candidates.toasts.created')) }
       setShowForm(false); setFormError(null)
     },
-    onError: (error: unknown) => setFormError(error instanceof ApiRequestError ? error.message : "Failed to create candidate"),
+    onError: (error: unknown) => setFormError(error instanceof ApiRequestError ? error.message : t('candidates.toasts.createFailed')),
   })
 
   return (
     <section className="mx-auto grid w-full max-w-6xl gap-6 px-5 py-12">
       <div className="flex items-start justify-between gap-4">
         <div className="grid gap-3">
-          <Badge variant="outline" className="w-fit">Recruiting · Candidates</Badge>
-          <Typography variant="h1">Candidates</Typography>
+          <Badge variant="outline" className="w-fit">{t('candidates.badge')}</Badge>
+          <Typography variant="h1">{t('candidates.title')}</Typography>
         </div>
         <Button onClick={() => { setShowForm(!showForm); setFormError(null) }} data-testid="new-candidate-button">
-          {showForm ? "Cancel" : "New candidate"}
+          {showForm ? t('common:actions.cancel') : t('candidates.newButton')}
         </Button>
       </div>
       {showForm && (
         <Card className="max-w-lg">
-          <CardHeader><CardTitle>Add candidate</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{t('candidates.addCardTitle')}</CardTitle></CardHeader>
           <CardContent>
             <NewCandidateForm onSubmit={(data) => createMutation.mutate(data)} isLoading={createMutation.isPending} error={formError} />
           </CardContent>
         </Card>
       )}
-      <Input placeholder="Search by name, email, phone..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-sm" data-testid="candidate-search" />
+      <Input placeholder={t('candidates.searchPlaceholder')} value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-sm" data-testid="candidate-search" />
       {query.isPending ? <LoadingCard />
-        : query.isError ? <ErrorCard message="Could not load candidates" />
+        : query.isError ? <ErrorCard message={t('candidates.loadFailed')} />
         : query.data.items.length === 0 ? (
-          <Card size="sm" className="max-w-3xl"><CardHeader><CardTitle>No candidates found</CardTitle></CardHeader></Card>
+          <Card size="sm" className="max-w-3xl"><CardHeader><CardTitle>{t('candidates.empty')}</CardTitle></CardHeader></Card>
         ) : (
           <ul className="grid gap-3">
             {query.data.items.map((c) => (
@@ -534,6 +543,7 @@ function CandidatesList() {
 }
 
 function NewCandidateForm({ onSubmit, isLoading, error }: { onSubmit: (data: { fullName: string; email?: string; phone?: string; location?: string }) => void; isLoading: boolean; error: string | null }) {
+  const { t } = useTranslation('recruiting')
   const form = useForm({
     defaultValues: { fullName: "", email: "", phone: "", location: "" },
     onSubmit: ({ value }) => {
@@ -547,12 +557,12 @@ function NewCandidateForm({ onSubmit, isLoading, error }: { onSubmit: (data: { f
   return (
     <form onSubmit={(e) => { e.preventDefault(); void form.handleSubmit() }}>
       <FieldGroup className="gap-3">
-        <form.Field name="fullName" children={(field) => (<Field><FieldLabel htmlFor="cand-fullName">Full name *</FieldLabel><Input id="cand-fullName" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} data-testid="candidate-fullname" /></Field>)} />
-        <form.Field name="email" children={(field) => (<Field><FieldLabel htmlFor="cand-email">Email</FieldLabel><Input id="cand-email" type="email" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} data-testid="candidate-email" /></Field>)} />
-        <form.Field name="phone" children={(field) => (<Field><FieldLabel htmlFor="cand-phone">Phone</FieldLabel><Input id="cand-phone" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} /></Field>)} />
-        <form.Field name="location" children={(field) => (<Field><FieldLabel htmlFor="cand-location">Location</FieldLabel><Input id="cand-location" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} /></Field>)} />
+        <form.Field name="fullName" children={(field) => (<Field><FieldLabel htmlFor="cand-fullName">{t('candidates.fields.fullName')}</FieldLabel><Input id="cand-fullName" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} data-testid="candidate-fullname" /></Field>)} />
+        <form.Field name="email" children={(field) => (<Field><FieldLabel htmlFor="cand-email">{t('candidates.fields.email')}</FieldLabel><Input id="cand-email" type="email" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} data-testid="candidate-email" /></Field>)} />
+        <form.Field name="phone" children={(field) => (<Field><FieldLabel htmlFor="cand-phone">{t('candidates.fields.phone')}</FieldLabel><Input id="cand-phone" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} /></Field>)} />
+        <form.Field name="location" children={(field) => (<Field><FieldLabel htmlFor="cand-location">{t('candidates.fields.location')}</FieldLabel><Input id="cand-location" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} /></Field>)} />
         {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
-        <Button type="submit" disabled={isLoading} data-testid="create-candidate-submit">{isLoading ? "Creating..." : "Add candidate"}</Button>
+        <Button type="submit" disabled={isLoading} data-testid="create-candidate-submit">{isLoading ? t('common.creating') : t('candidates.add')}</Button>
       </FieldGroup>
     </form>
   )
@@ -561,35 +571,34 @@ function NewCandidateForm({ onSubmit, isLoading, error }: { onSubmit: (data: { f
 // ─── Applications Kanban ──────────────────────────────────────────────────────
 
 const KANBAN_STAGES: ApplicationStage[] = ["new", "screen", "tech", "final", "offer", "hired", "rejected"]
-const STAGE_LABELS: Record<ApplicationStage, string> = { new: "New", screen: "Screening", tech: "Tech", final: "Final", offer: "Offer", hired: "Hired", rejected: "Rejected" }
 const APP_TRANSITIONS: Partial<Record<ApplicationStage, ApplicationStage[]>> = {
   new: ["screen", "rejected"], screen: ["tech", "rejected"], tech: ["final", "rejected"], final: ["offer", "rejected"], offer: ["hired", "rejected"],
 }
 
-function aiScoreBadge(scoring: Record<string, unknown> | null | undefined) {
+function aiScoreBadge(t: TFunction, scoring: Record<string, unknown> | null | undefined) {
   const status = typeof scoring?.status === "string" ? scoring.status : "pending"
   if (status === "not_configured") {
-    return { label: "AI not configured", className: "border-zinc-300 text-zinc-600", summary: "AI scoring not configured" }
+    return { label: t('applications.ai.badge.notConfigured'), className: "border-zinc-300 text-zinc-600", summary: t('applications.ai.summary.notConfigured') }
   }
   if (status === "failed") {
     const failure = typeof scoring?.failure === "object" && scoring.failure ? scoring.failure as Record<string, unknown> : null
-    return { label: "AI failed", className: "border-red-300 text-red-700", summary: typeof failure?.error === "string" ? failure.error : "Scoring failed" }
+    return { label: t('applications.ai.badge.failed'), className: "border-red-300 text-red-700", summary: typeof failure?.error === "string" ? failure.error : t('applications.ai.summary.failed') }
   }
   if (status === "pending") {
-    return { label: "AI scoring…", className: "border-zinc-300 text-zinc-600", summary: "Scoring in progress" }
+    return { label: t('applications.ai.badge.pending'), className: "border-zinc-300 text-zinc-600", summary: t('applications.ai.summary.inProgress') }
   }
   if (status === "not_scored") {
-    return { label: "Not scored", className: "border-zinc-300 text-zinc-600", summary: "No score yet" }
+    return { label: t('applications.ai.badge.notScored'), className: "border-zinc-300 text-zinc-600", summary: t('applications.ai.summary.noScore') }
   }
   const result = typeof scoring?.result === "object" && scoring.result ? scoring.result as Record<string, unknown> : null
-  if (!result) return { label: "Not scored", className: "border-zinc-300 text-zinc-600", summary: "Not scored yet" }
+  if (!result) return { label: t('applications.ai.badge.notScored'), className: "border-zinc-300 text-zinc-600", summary: t('applications.ai.summary.notScored') }
   const score = typeof result.relevance_score === "number" ? result.relevance_score : 0
   const className = score >= 75
     ? "border-emerald-300 text-emerald-700"
     : score >= 50
       ? "border-amber-300 text-amber-700"
       : "border-red-300 text-red-700"
-  return { label: `AI ${score}`, className, summary: typeof result.summary === "string" ? result.summary : "Scored" }
+  return { label: t('applications.ai.badge.scored', { score }), className, summary: typeof result.summary === "string" ? result.summary : t('applications.ai.summary.scored') }
 }
 
 function canMoveStage(from: ApplicationStage, to: ApplicationStage): boolean {
@@ -604,6 +613,7 @@ export function ApplicationsPage() {
 
 function KanbanBoard() {
   const { api, user } = useAuth()
+  const { t } = useTranslation(['recruiting', 'common'])
   const queryClient = useQueryClient()
   const [vacancyFilter, setVacancyFilter] = useState("")
   const [dragging, setDragging] = useState<{ id: string; from: ApplicationStage } | null>(null)
@@ -622,7 +632,7 @@ function KanbanBoard() {
     mutationFn: ({ id, to }: { id: string; to: ApplicationStage }) => api.moveApplicationStage(id, { to }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["applications"] }),
     onError: (error: unknown) => {
-      toast.error(error instanceof ApiRequestError ? error.message : "Cannot move to that stage")
+      toast.error(error instanceof ApiRequestError ? error.message : t('applications.toasts.moveFailed'))
       void queryClient.invalidateQueries({ queryKey: ["applications"] })
     },
   })
@@ -631,9 +641,9 @@ function KanbanBoard() {
     mutationFn: (data: { candidateId: string; vacancyId: string }) => api.createApplication(data),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["applications"] })
-      toast.success("Application created"); setShowNewAppForm(false); setAppFormError(null)
+      toast.success(t('applications.toasts.created')); setShowNewAppForm(false); setAppFormError(null)
     },
-    onError: (error: unknown) => setAppFormError(error instanceof ApiRequestError ? error.message : "Failed to create application"),
+    onError: (error: unknown) => setAppFormError(error instanceof ApiRequestError ? error.message : t('applications.toasts.createFailed')),
   })
 
   const applications: Application[] = applicationsQuery.data?.items ?? []
@@ -645,7 +655,7 @@ function KanbanBoard() {
     if (!dragging) return
     if (dragging.from === to) { setDragging(null); return }
     if (!canMoveStage(dragging.from, to)) {
-      toast.error("Cannot move from " + STAGE_LABELS[dragging.from] + " to " + STAGE_LABELS[to])
+      toast.error(t('applications.cannotMove', { from: t(`applications.stages.${dragging.from}`), to: t(`applications.stages.${to}`) }))
       setDragging(null); return
     }
     stageMutation.mutate({ id: dragging.id, to }); setDragging(null)
@@ -655,16 +665,16 @@ function KanbanBoard() {
     <section className="mx-auto grid w-full gap-4 px-5 py-8">
       <div className="flex items-start justify-between gap-4">
         <div className="grid gap-2">
-          <Badge variant="outline" className="w-fit">Recruiting · Kanban</Badge>
-          <Typography variant="h1">Applications</Typography>
+          <Badge variant="outline" className="w-fit">{t('applications.badge')}</Badge>
+          <Typography variant="h1">{t('applications.title')}</Typography>
         </div>
         <Button onClick={() => { setShowNewAppForm(!showNewAppForm); setAppFormError(null) }} data-testid="new-application-button">
-          {showNewAppForm ? "Cancel" : "New application"}
+          {showNewAppForm ? t('common:actions.cancel') : t('applications.newButton')}
         </Button>
       </div>
       {showNewAppForm && (
         <Card className="max-w-md">
-          <CardHeader><CardTitle>New application</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{t('applications.cardTitle')}</CardTitle></CardHeader>
           <CardContent>
             <NewApplicationForm vacancies={vacancies} candidates={candidatesQuery.data?.items ?? []}
               onSubmit={(data) => createAppMutation.mutate(data)} isLoading={createAppMutation.isPending} error={appFormError} />
@@ -672,10 +682,10 @@ function KanbanBoard() {
         </Card>
       )}
       <div className="flex items-center gap-3">
-        <Typography variant="bodySm" tone="muted">Filter by vacancy:</Typography>
+        <Typography variant="bodySm" tone="muted">{t('applications.filterByVacancy')}</Typography>
         <select value={vacancyFilter} onChange={(e) => setVacancyFilter(e.target.value)}
           className="rounded-md border border-input bg-background px-3 py-1.5 text-sm" data-testid="vacancy-filter">
-          <option value="">All vacancies</option>
+          <option value="">{t('applications.allVacancies')}</option>
           {vacancies.map((v) => <option key={v.id} value={v.id}>{v.title}</option>)}
         </select>
       </div>
@@ -689,13 +699,13 @@ function KanbanBoard() {
                 onDragOver={(e) => e.preventDefault()} onDrop={() => handleDrop(stage)}
                 data-testid={"kanban-column-" + stage}>
                 <div className="flex items-center justify-between">
-                  <Typography variant="bodySm" className="font-semibold">{STAGE_LABELS[stage]}</Typography>
+                  <Typography variant="bodySm" className="font-semibold">{t(`applications.stages.${stage}`)}</Typography>
                   <Badge variant="outline" className="text-xs">{byStage(stage).length}</Badge>
                 </div>
                 <div className="grid gap-2">
                   {byStage(stage).map((app) => {
                     const vac = vacancies.find((v) => v.id === app.vacancyId)
-                    const scoreBadge = aiScoreBadge((app.aiScoring ?? null) as Record<string, unknown> | null)
+                    const scoreBadge = aiScoreBadge(t, (app.aiScoring ?? null) as Record<string, unknown> | null)
                     return (
                       <div key={app.id} draggable onDragStart={() => setDragging({ id: app.id, from: app.stage })} onDragEnd={() => setDragging(null)}
                         className="cursor-grab rounded-md border bg-background p-3 shadow-sm active:cursor-grabbing"
@@ -706,7 +716,7 @@ function KanbanBoard() {
                         </div>
                         {vac && <Typography variant="bodySm" tone="muted">{vac.title}</Typography>}
                         <Link to="/applications/$applicationId" params={{ applicationId: app.id }} className="text-xs text-primary underline-offset-4 hover:underline">
-                          Open detail
+                          {t('applications.openDetail')}
                         </Link>
                       </div>
                     )
@@ -722,6 +732,7 @@ function KanbanBoard() {
 }
 
 function NewApplicationForm({ vacancies, candidates, onSubmit, isLoading, error }: { vacancies: Vacancy[]; candidates: Array<{ id: string; fullName: string }>; onSubmit: (data: { candidateId: string; vacancyId: string }) => void; isLoading: boolean; error: string | null }) {
+  const { t } = useTranslation('recruiting')
   const form = useForm({
     defaultValues: { candidateId: "", vacancyId: "" },
     onSubmit: ({ value }) => {
@@ -733,25 +744,25 @@ function NewApplicationForm({ vacancies, candidates, onSubmit, isLoading, error 
     <form onSubmit={(e) => { e.preventDefault(); void form.handleSubmit() }}>
       <FieldGroup className="gap-3">
         <form.Field name="vacancyId" children={(field) => (
-          <Field><FieldLabel htmlFor="app-vacancyId">Vacancy</FieldLabel>
+          <Field><FieldLabel htmlFor="app-vacancyId">{t('applications.fields.vacancy')}</FieldLabel>
             <select id="app-vacancyId" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)}
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" data-testid="app-vacancy-select">
-              <option value="">Select vacancy...</option>
+              <option value="">{t('applications.fields.vacancyPlaceholder')}</option>
               {vacancies.map((v) => <option key={v.id} value={v.id}>{v.title}</option>)}
             </select>
           </Field>
         )} />
         <form.Field name="candidateId" children={(field) => (
-          <Field><FieldLabel htmlFor="app-candidateId">Candidate</FieldLabel>
+          <Field><FieldLabel htmlFor="app-candidateId">{t('applications.fields.candidate')}</FieldLabel>
             <select id="app-candidateId" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)}
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" data-testid="app-candidate-select">
-              <option value="">Select candidate...</option>
+              <option value="">{t('applications.fields.candidatePlaceholder')}</option>
               {candidates.map((c) => <option key={c.id} value={c.id}>{c.fullName}</option>)}
             </select>
           </Field>
         )} />
         {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
-        <Button type="submit" disabled={isLoading} data-testid="create-application-submit">{isLoading ? "Creating..." : "Create application"}</Button>
+        <Button type="submit" disabled={isLoading} data-testid="create-application-submit">{isLoading ? t('common.creating') : t('applications.create')}</Button>
       </FieldGroup>
     </form>
   )
@@ -762,7 +773,12 @@ function NewApplicationForm({ vacancies, candidates, onSubmit, isLoading, error 
 export function ApplicationDetailPage() {
   const auth = useAuth()
   if (!auth.user) return <LoginRequired />
-  const { api } = auth
+  return <ApplicationDetail />
+}
+
+function ApplicationDetail() {
+  const { api } = useAuth()
+  const { t } = useTranslation(['recruiting', 'common'])
   const params = useParams({ strict: false }) as { applicationId?: string }
   const applicationId = params.applicationId ?? ""
   const queryClient = useQueryClient()
@@ -791,14 +807,14 @@ export function ApplicationDetailPage() {
     mutationFn: () => api.rescoreApplication(applicationId),
     onSuccess: async (result) => {
       if (!result.queued) {
-        toast.info("AI scoring not configured")
+        toast.info(t('applications.ai.summary.notConfigured'))
       } else {
-        toast.success("Re-score queued")
+        toast.success(t('applications.ai.rescoreSuccess'))
       }
       await queryClient.invalidateQueries({ queryKey: ["applications"] })
     },
     onError: (error: unknown) => {
-      toast.error(error instanceof ApiRequestError ? error.message : "Failed to queue re-score")
+      toast.error(error instanceof ApiRequestError ? error.message : t('applications.ai.rescoreFailed'))
     },
   })
 
@@ -809,24 +825,24 @@ export function ApplicationDetailPage() {
         note: feedbackNote.trim() || undefined,
       }),
     onSuccess: async () => {
-      toast.success("Feedback saved")
+      toast.success(t('applications.feedback.saved'))
       setFeedbackNote("")
       await queryClient.invalidateQueries({ queryKey: ["applications"] })
     },
     onError: (error: unknown) => {
-      toast.error(error instanceof ApiRequestError ? error.message : "Failed to save feedback")
+      toast.error(error instanceof ApiRequestError ? error.message : t('applications.feedback.saveFailed'))
     },
   })
 
   const generateQuestionsMutation = useMutation({
     mutationFn: () => api.generateInterviewQuestions(applicationId),
     onSuccess: async () => {
-      toast.success("Interview questions generated")
+      toast.success(t('applications.questions.success'))
       await queryClient.invalidateQueries({ queryKey: ["applications"] })
       await queryClient.invalidateQueries({ queryKey: ["applications", applicationId, "detail"] })
     },
     onError: (error: unknown) => {
-      toast.error(error instanceof ApiRequestError ? error.message : "Failed to generate interview questions")
+      toast.error(error instanceof ApiRequestError ? error.message : t('applications.questions.failed'))
     },
   })
 
@@ -837,24 +853,24 @@ export function ApplicationDetailPage() {
     },
     onSuccess: async (result) => {
       setLatestInviteLink(result.link)
-      toast.success("Assessment invite created")
+      toast.success(t('applications.assessments.inviteCreated'))
       await queryClient.invalidateQueries({ queryKey: ["assessment-sessions", applicationId] })
     },
     onError: (error: unknown) => {
       if (error instanceof Error && error.message === "template_required") {
-        toast.error("Select a template first")
+        toast.error(t('applications.assessments.selectTemplateFirst'))
         return
       }
-      toast.error(error instanceof ApiRequestError ? error.message : "Failed to invite candidate")
+      toast.error(error instanceof ApiRequestError ? error.message : t('applications.assessments.inviteFailed'))
     },
   })
 
   if (query.isPending) return <LoadingCard />
-  if (query.isError) return <ErrorCard message="Application not found or access denied" />
+  if (query.isError) return <ErrorCard message={t('applications.notFound')} />
 
   const app = query.data
   const scoring = (app.aiScoring ?? null) as Record<string, unknown> | null
-  const scoreBadge = aiScoreBadge(scoring)
+  const scoreBadge = aiScoreBadge(t, scoring)
   const result = scoring?.status === "scored" && typeof scoring.result === "object" && scoring.result
     ? scoring.result as Record<string, unknown>
     : null
@@ -868,56 +884,56 @@ export function ApplicationDetailPage() {
   return (
     <section className="mx-auto grid w-full max-w-6xl gap-6 px-5 py-12">
       <div className="grid gap-3">
-        <Badge variant="outline" className="w-fit">Recruiting · Application</Badge>
+        <Badge variant="outline" className="w-fit">{t('applications.detailBadge')}</Badge>
         <div className="flex flex-wrap items-center gap-3">
-          <Typography variant="h1">Application detail</Typography>
+          <Typography variant="h1">{t('applications.detailTitle')}</Typography>
           <Badge variant="outline" className={cn("text-xs", scoreBadge.className)} title={scoreBadge.summary}>{scoreBadge.label}</Badge>
         </div>
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>Candidate + vacancy</CardTitle>
+          <CardTitle>{t('applications.candidateAndVacancy')}</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-2 text-sm">
-          <Typography><span className="font-medium">Candidate:</span> {app.candidate.fullName}</Typography>
-          <Typography><span className="font-medium">Vacancy:</span> {app.vacancy.title}</Typography>
-          <Typography><span className="font-medium">Stage:</span> {STAGE_LABELS[app.stage]}</Typography>
+          <Typography><span className="font-medium">{t('applications.candidateLabel')}</span> {app.candidate.fullName}</Typography>
+          <Typography><span className="font-medium">{t('applications.vacancyLabel')}</span> {app.vacancy.title}</Typography>
+          <Typography><span className="font-medium">{t('applications.stageLabel')}</span> {t(`applications.stages.${app.stage}`)}</Typography>
           <Typography tone="muted">{app.vacancy.description}</Typography>
         </CardContent>
       </Card>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-3">
           <div className="grid gap-1">
-            <CardTitle>AI scoring</CardTitle>
+            <CardTitle>{t('applications.ai.title')}</CardTitle>
             <CardDescription>{scoreBadge.summary}</CardDescription>
           </div>
           <Button variant="outline" onClick={() => rescoreMutation.mutate()} disabled={rescoreMutation.isPending} data-testid="application-rescore-button">
-            {rescoreMutation.isPending ? "Queueing..." : "Re-score"}
+            {rescoreMutation.isPending ? t('common.queueing') : t('applications.ai.rescore')}
           </Button>
         </CardHeader>
         <CardContent className="grid gap-4">
-          {scoring?.status === "not_configured" && <Typography tone="muted">AI scoring not configured.</Typography>}
-          {scoring?.status === "not_scored" && <Typography tone="muted">No AI score yet.</Typography>}
-          {scoring?.status === "pending" && <Typography tone="muted">Scoring is in progress.</Typography>}
+          {scoring?.status === "not_configured" && <Typography tone="muted">{t('applications.ai.notConfigured')}</Typography>}
+          {scoring?.status === "not_scored" && <Typography tone="muted">{t('applications.ai.noScore')}</Typography>}
+          {scoring?.status === "pending" && <Typography tone="muted">{t('applications.ai.inProgress')}</Typography>}
           {failure && (
             <Alert variant="destructive">
-              <AlertDescription>{String(failure.error ?? "Scoring failed")}</AlertDescription>
+              <AlertDescription>{String(failure.error ?? t('applications.ai.summary.failed'))}</AlertDescription>
             </Alert>
           )}
           {result && (
             <div className="grid gap-4">
               <div className="grid gap-1">
-                <Typography variant="h3">Relevance score: {String(result.relevance_score)}</Typography>
+                <Typography variant="h3">{t('applications.ai.relevanceScore', { score: String(result.relevance_score) })}</Typography>
                 <Typography>{String(result.summary ?? "")}</Typography>
               </div>
-              <ScoringList title="Strengths" items={asStringList(result.strengths)} />
-              <ScoringList title="Gaps" items={asStringList(result.gaps)} />
-              <ScoringList title="Soft skills signals" items={asStringList(result.soft_skills_signals)} />
-              <ScoringList title="Red flags" items={asStringList(result.red_flags)} />
-              <ScoringList title="Anti-fraud signals" items={asStringList(result.anti_fraud_signals)} />
-              <ScoringList title="Interview focus areas" items={asStringList(result.interview_focus_areas)} />
+              <ScoringList title={t('applications.ai.strengths')} items={asStringList(result.strengths)} />
+              <ScoringList title={t('applications.ai.gaps')} items={asStringList(result.gaps)} />
+              <ScoringList title={t('applications.ai.softSkillsSignals')} items={asStringList(result.soft_skills_signals)} />
+              <ScoringList title={t('applications.ai.redFlags')} items={asStringList(result.red_flags)} />
+              <ScoringList title={t('applications.ai.antiFraudSignals')} items={asStringList(result.anti_fraud_signals)} />
+              <ScoringList title={t('applications.ai.interviewFocusAreas')} items={asStringList(result.interview_focus_areas)} />
               <div>
-                <Typography variant="bodySm" tone="muted">Values fit hypothesis</Typography>
+                <Typography variant="bodySm" tone="muted">{t('applications.ai.valuesFitHypothesis')}</Typography>
                 <Typography>{String(result.values_fit_hypothesis ?? "—")}</Typography>
               </div>
             </div>
@@ -926,8 +942,8 @@ export function ApplicationDetailPage() {
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle>Human feedback</CardTitle>
-          <CardDescription>Score is advisory. Recruiter decision is final.</CardDescription>
+          <CardTitle>{t('applications.feedback.title')}</CardTitle>
+          <CardDescription>{t('applications.feedback.description')}</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3">
           <textarea
@@ -935,15 +951,18 @@ export function ApplicationDetailPage() {
             onChange={(e) => setFeedbackNote(e.target.value)}
             rows={3}
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            placeholder="Optional note about why you agree or disagree"
+            placeholder={t('applications.feedback.notePlaceholder')}
           />
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => feedbackMutation.mutate(true)} disabled={feedbackMutation.isPending}>Agree</Button>
-            <Button variant="outline" onClick={() => feedbackMutation.mutate(false)} disabled={feedbackMutation.isPending}>Disagree</Button>
+            <Button variant="outline" onClick={() => feedbackMutation.mutate(true)} disabled={feedbackMutation.isPending}>{t('applications.feedback.agree')}</Button>
+            <Button variant="outline" onClick={() => feedbackMutation.mutate(false)} disabled={feedbackMutation.isPending}>{t('applications.feedback.disagree')}</Button>
           </div>
           {app.aiScoreFeedback && (
             <Typography tone="muted" variant="bodySm">
-              Last feedback: {app.aiScoreFeedback.agrees ? "Agree" : "Disagree"} · {app.aiScoreFeedback.note ?? "No note"}
+              {t('applications.feedback.last', {
+                verdict: app.aiScoreFeedback.agrees ? t('applications.feedback.agree') : t('applications.feedback.disagree'),
+                note: app.aiScoreFeedback.note ?? t('applications.feedback.noNote'),
+              })}
             </Typography>
           )}
         </CardContent>
@@ -951,16 +970,16 @@ export function ApplicationDetailPage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-3">
           <div className="grid gap-1">
-            <CardTitle>AI interview questions</CardTitle>
-            <CardDescription>Advisory only — recruiter picks what to use.</CardDescription>
+            <CardTitle>{t('applications.questions.title')}</CardTitle>
+            <CardDescription>{t('applications.questions.description')}</CardDescription>
           </div>
           <Button variant="outline" onClick={() => generateQuestionsMutation.mutate()} disabled={generateQuestionsMutation.isPending} data-testid="generate-questions-button">
-            {generateQuestionsMutation.isPending ? "Generating…" : "Generate"}
+            {generateQuestionsMutation.isPending ? t('common.generating') : t('applications.questions.generate')}
           </Button>
         </CardHeader>
         <CardContent className="grid gap-3">
           {aiInterviewQuestions.length === 0 ? (
-            <Typography tone="muted">No generated questions yet.</Typography>
+            <Typography tone="muted">{t('applications.questions.empty')}</Typography>
           ) : (
             <ul className="grid gap-3">
               {aiInterviewQuestions.map((item, idx) => {
@@ -979,8 +998,8 @@ export function ApplicationDetailPage() {
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle>Assessments</CardTitle>
-          <CardDescription>Create a tokenized invite and review trust-score outcomes.</CardDescription>
+          <CardTitle>{t('applications.assessments.title')}</CardTitle>
+          <CardDescription>{t('applications.assessments.description')}</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3">
           <div className="flex flex-wrap items-center gap-2">
@@ -990,7 +1009,7 @@ export function ApplicationDetailPage() {
               onChange={(event) => setSelectedTemplateId(event.target.value)}
               data-testid="assessment-template-select"
             >
-              <option value="">Select template…</option>
+              <option value="">{t('applications.assessments.selectTemplate')}</option>
               {templates.map((template: AssessmentTemplate) => (
                 <option key={template.id} value={template.id}>{template.title}</option>
               ))}
@@ -1001,16 +1020,16 @@ export function ApplicationDetailPage() {
               disabled={!selectedTemplateId || inviteAssessmentMutation.isPending}
               data-testid="assessment-invite-button"
             >
-              {inviteAssessmentMutation.isPending ? "Inviting…" : "Invite candidate"}
+              {inviteAssessmentMutation.isPending ? t('applications.assessments.inviting') : t('applications.assessments.inviteCandidate')}
             </Button>
           </div>
           {latestInviteLink && (
             <Typography variant="bodySm" data-testid="assessment-invite-link">
-              Candidate link: <a className="underline" href={latestInviteLink}>{latestInviteLink}</a>
+              {t('applications.assessments.candidateLink')} <a className="underline" href={latestInviteLink}>{latestInviteLink}</a>
             </Typography>
           )}
           {assessmentSessions.length === 0 ? (
-            <Typography tone="muted">No assessment sessions yet.</Typography>
+            <Typography tone="muted">{t('applications.assessments.empty')}</Typography>
           ) : (
             <ul className="grid gap-2">
               {assessmentSessions.map((session) => {
@@ -1022,12 +1041,16 @@ export function ApplicationDetailPage() {
                   <li key={session.id} className="rounded-md border p-3" data-testid={"assessment-session-" + session.id}>
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge variant={session.trustScore !== null && session.trustScore < 60 ? "destructive" : "outline"}>
-                        Trust Score: {session.trustScore ?? "—"}
+                        {t('applications.assessments.trustScore')} {session.trustScore ?? "—"}
                       </Badge>
                       <Badge variant="secondary">{session.status}</Badge>
                     </div>
                     <Typography variant="bodySm" tone="muted">
-                      paste={String(paste.count ?? 0)} · focus={String(focus.count ?? 0)} · keystroke={String(Number(keys.anomaly_flags ?? 0) + Number(keys.burst_events ?? 0))}
+                      {t('applications.assessments.signals', {
+                        paste: String(paste.count ?? 0),
+                        focus: String(focus.count ?? 0),
+                        keystroke: String(Number(keys.anomaly_flags ?? 0) + Number(keys.burst_events ?? 0)),
+                      })}
                     </Typography>
                   </li>
                 )
@@ -1038,7 +1061,7 @@ export function ApplicationDetailPage() {
       </Card>
       <InterviewPanel applicationId={applicationId} />
       <OfferPanel applicationId={applicationId} />
-      <Button variant="outline" asChild className="w-fit"><Link to="/applications">← Back to kanban</Link></Button>
+      <Button variant="outline" asChild className="w-fit"><Link to="/applications">{t('applications.backToKanban')}</Link></Button>
     </section>
   )
 }
@@ -1063,14 +1086,6 @@ function asStringList(value: unknown): string[] {
 
 // ─── Interview Panel ──────────────────────────────────────────────────────────
 
-const INTERVIEW_STATUS_LABELS: Record<Interview["status"], string> = {
-  created: "Created",
-  transcribing: "Transcribing…",
-  transcribed: "Transcribed",
-  protocol_ready: "Protocol ready",
-  failed: "Failed",
-}
-
 const INTERVIEW_STATUS_VARIANT: Record<Interview["status"], "default" | "outline" | "secondary" | "destructive"> = {
   created: "outline",
   transcribing: "secondary",
@@ -1083,6 +1098,7 @@ const TRANSCRIPTION_POLLING_INTERVAL_MS = 3000 // Poll every 3s while transcript
 
 function InterviewPanel({ applicationId }: { applicationId: string }) {
   const { api } = useAuth()
+  const { t } = useTranslation('recruiting')
   const queryClient = useQueryClient()
   const [selectedInterviewId, setSelectedInterviewId] = useState<string | null>(null)
   const [showSourceForTerm, setShowSourceForTerm] = useState<string | null>(null)
@@ -1109,9 +1125,9 @@ function InterviewPanel({ applicationId }: { applicationId: string }) {
     onSuccess: async (interview) => {
       await queryClient.invalidateQueries({ queryKey: ["interviews", applicationId] })
       setSelectedInterviewId(interview.id)
-      toast.success("Interview created")
+      toast.success(t('interviews.toasts.created'))
     },
-    onError: (error: unknown) => toast.error(error instanceof ApiRequestError ? error.message : "Failed to create interview"),
+    onError: (error: unknown) => toast.error(error instanceof ApiRequestError ? error.message : t('interviews.toasts.createFailed')),
   })
 
   const consentMutation = useMutation({
@@ -1119,9 +1135,9 @@ function InterviewPanel({ applicationId }: { applicationId: string }) {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["interviews", applicationId] })
       await queryClient.invalidateQueries({ queryKey: ["interviews", "detail", selectedInterviewId] })
-      toast.success("Consent updated")
+      toast.success(t('interviews.toasts.consentUpdated'))
     },
-    onError: (error: unknown) => toast.error(error instanceof ApiRequestError ? error.message : "Failed to update consent"),
+    onError: (error: unknown) => toast.error(error instanceof ApiRequestError ? error.message : t('interviews.toasts.consentFailed')),
   })
 
   const uploadMutation = useMutation({
@@ -1129,27 +1145,27 @@ function InterviewPanel({ applicationId }: { applicationId: string }) {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["interviews", applicationId] })
       await queryClient.invalidateQueries({ queryKey: ["interviews", "detail", selectedInterviewId] })
-      toast.success("Recording uploaded — transcription will start if consent is given")
+      toast.success(t('interviews.toasts.uploaded'))
     },
-    onError: (error: unknown) => toast.error(error instanceof ApiRequestError ? error.message : "Upload failed"),
+    onError: (error: unknown) => toast.error(error instanceof ApiRequestError ? error.message : t('interviews.toasts.uploadFailed')),
   })
 
   const transcribeMutation = useMutation({
     mutationFn: (id: string) => api.triggerTranscription(id),
     onSuccess: async (result) => {
       await queryClient.invalidateQueries({ queryKey: ["interviews", "detail", selectedInterviewId] })
-      toast.info(result.queued ? "Transcription queued" : "Transcription not configured (set TRANSCRIPTION_ENABLED + ASR_API_KEY)")
+      toast.info(result.queued ? t('interviews.toasts.transcribeQueued') : t('interviews.toasts.transcribeNotConfigured'))
     },
-    onError: (error: unknown) => toast.error(error instanceof ApiRequestError ? error.message : "Transcription failed"),
+    onError: (error: unknown) => toast.error(error instanceof ApiRequestError ? error.message : t('interviews.toasts.transcribeFailed')),
   })
 
   const protocolMutation = useMutation({
     mutationFn: (id: string) => api.triggerBuildProtocol(id),
     onSuccess: async (result) => {
       await queryClient.invalidateQueries({ queryKey: ["interviews", "detail", selectedInterviewId] })
-      toast.info(result.queued ? "Protocol build queued" : "LLM not configured")
+      toast.info(result.queued ? t('interviews.toasts.protocolQueued') : t('interviews.toasts.protocolNotConfigured'))
     },
-    onError: (error: unknown) => toast.error(error instanceof ApiRequestError ? error.message : "Protocol build failed"),
+    onError: (error: unknown) => toast.error(error instanceof ApiRequestError ? error.message : t('interviews.toasts.protocolFailed')),
   })
 
   const interviews = interviewsQuery.data?.items ?? []
@@ -1164,16 +1180,16 @@ function InterviewPanel({ applicationId }: { applicationId: string }) {
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
           <div className="grid gap-1">
-            <CardTitle>Interviews</CardTitle>
-            <CardDescription>Upload a recording to start transcription & protocol generation.</CardDescription>
+            <CardTitle>{t('interviews.title')}</CardTitle>
+            <CardDescription>{t('interviews.description')}</CardDescription>
           </div>
           <Button size="sm" onClick={() => createMutation.mutate()} disabled={createMutation.isPending} data-testid="create-interview-button">
-            {createMutation.isPending ? "Creating…" : "New interview"}
+            {createMutation.isPending ? t('common.creating') : t('interviews.new')}
           </Button>
         </div>
       </CardHeader>
       <CardContent className="grid gap-4">
-        {interviewsQuery.isPending && <Typography tone="muted">Loading…</Typography>}
+        {interviewsQuery.isPending && <Typography tone="muted">{t('common.loading')}</Typography>}
         {interviews.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {interviews.map((iv) => (
@@ -1186,7 +1202,7 @@ function InterviewPanel({ applicationId }: { applicationId: string }) {
                 )}
                 data-testid={"interview-tab-" + iv.id}
               >
-                <Badge variant={INTERVIEW_STATUS_VARIANT[iv.status]} className="mr-1 text-[10px]">{INTERVIEW_STATUS_LABELS[iv.status]}</Badge>
+                <Badge variant={INTERVIEW_STATUS_VARIANT[iv.status]} className="mr-1 text-[10px]">{t(`interviews.status.${iv.status}`)}</Badge>
                 {new Date(iv.createdAt).toLocaleDateString()}
               </button>
             ))}
@@ -1198,9 +1214,9 @@ function InterviewPanel({ applicationId }: { applicationId: string }) {
             {/* ── Consent + upload ── */}
             <div className="flex flex-wrap items-center gap-4 rounded-md border bg-muted/30 p-4">
               <div className="grid gap-1">
-                <Typography variant="bodySm" className="font-medium">Recording consent (152-ФЗ)</Typography>
+                <Typography variant="bodySm" className="font-medium">{t('interviews.consent.title')}</Typography>
                 <Typography variant="bodySm" tone="muted">
-                  Transcription and protocol generation will only start after the candidate consents to recording.
+                  {t('interviews.consent.description')}
                 </Typography>
               </div>
               <div className="flex items-center gap-2 ml-auto">
@@ -1213,7 +1229,7 @@ function InterviewPanel({ applicationId }: { applicationId: string }) {
                     data-testid="consent-toggle"
                     className="h-4 w-4"
                   />
-                  <Typography variant="bodySm">{interview.consentRecorded ? "Consent recorded" : "Consent not recorded"}</Typography>
+                  <Typography variant="bodySm">{interview.consentRecorded ? t('interviews.consent.recorded') : t('interviews.consent.notRecorded')}</Typography>
                 </label>
               </div>
             </div>
@@ -1238,7 +1254,7 @@ function InterviewPanel({ applicationId }: { applicationId: string }) {
                   disabled={uploadMutation.isPending}
                   data-testid="upload-recording-button"
                 >
-                  {uploadMutation.isPending ? "Uploading…" : interview.recordingUrl ? "Replace recording" : "Upload recording"}
+                  {uploadMutation.isPending ? t('common.uploading') : interview.recordingUrl ? t('interviews.upload.replace') : t('interviews.upload.upload')}
                 </Button>
               </div>
               {interview.recordingUrl && (
@@ -1252,7 +1268,7 @@ function InterviewPanel({ applicationId }: { applicationId: string }) {
                   disabled={transcribeMutation.isPending}
                   data-testid="transcribe-button"
                 >
-                  {transcribeMutation.isPending ? "Queuing…" : "Transcribe"}
+                  {transcribeMutation.isPending ? t('common.queueing') : t('interviews.transcribe.action')}
                 </Button>
               )}
               {interview.status === "transcribed" && (
@@ -1263,29 +1279,29 @@ function InterviewPanel({ applicationId }: { applicationId: string }) {
                   disabled={protocolMutation.isPending}
                   data-testid="build-protocol-button"
                 >
-                  {protocolMutation.isPending ? "Queuing…" : "Build protocol"}
+                  {protocolMutation.isPending ? t('common.queueing') : t('interviews.protocol.build')}
                 </Button>
               )}
             </div>
 
             {/* ── Status ── */}
             <div className="flex items-center gap-2">
-              <Typography variant="bodySm">Status:</Typography>
-              <Badge variant={INTERVIEW_STATUS_VARIANT[interview.status]}>{INTERVIEW_STATUS_LABELS[interview.status]}</Badge>
+              <Typography variant="bodySm">{t('interviews.statusLabel')}</Typography>
+              <Badge variant={INTERVIEW_STATUS_VARIANT[interview.status]}>{t(`interviews.status.${interview.status}`)}</Badge>
               {interview.status === "failed" && (
-                <Typography variant="bodySm" tone="muted">Check backend logs or retry transcription.</Typography>
+                <Typography variant="bodySm" tone="muted">{t('interviews.failedHint')}</Typography>
               )}
               {!interview.consentRecorded && (
-                <Typography variant="bodySm" tone="muted">Transcription blocked: consent required.</Typography>
+                <Typography variant="bodySm" tone="muted">{t('interviews.consent.blocked')}</Typography>
               )}
             </div>
 
             {/* ── Transcript viewer ── */}
             {transcript && (
               <div className="grid gap-2">
-                <Typography variant="h3">Transcript</Typography>
+                <Typography variant="h3">{t('interviews.transcript.title')}</Typography>
                 <Typography variant="bodySm" tone="muted">
-                  Provider: {transcript.asr_provider} · Model: {transcript.asr_model} · Language: {transcript.language}
+                  {t('interviews.transcript.providerLine', { provider: transcript.asr_provider, model: transcript.asr_model, language: transcript.language })}
                 </Typography>
                 <div
                   className="max-h-72 overflow-y-auto rounded-md border bg-muted/20 p-3 space-y-2"
@@ -1309,34 +1325,34 @@ function InterviewPanel({ applicationId }: { applicationId: string }) {
             {/* ── Protocol panel ── */}
             {protocol && (
               <div className="grid gap-3" data-testid="protocol-panel">
-                <Typography variant="h3">Interview Protocol</Typography>
+                <Typography variant="h3">{t('interviews.protocol.title')}</Typography>
                 <Typography variant="bodySm" tone="muted">
-                  Generated by: {protocol.model} · {new Date(protocol.generated_at).toLocaleString()}
+                  {t('interviews.protocol.generatedBy', { model: protocol.model, date: new Date(protocol.generated_at).toLocaleString() })}
                 </Typography>
                 <div className="grid gap-1">
-                  <Typography variant="bodySm" className="font-medium">Summary</Typography>
+                  <Typography variant="bodySm" className="font-medium">{t('interviews.protocol.summary')}</Typography>
                   <Typography variant="bodySm">{protocol.summary}</Typography>
                 </div>
-                <ScoringList title="Strengths" items={protocol.strengths} />
-                <ScoringList title="Concerns" items={protocol.concerns} />
+                <ScoringList title={t('interviews.protocol.strengths')} items={protocol.strengths} />
+                <ScoringList title={t('interviews.protocol.concerns')} items={protocol.concerns} />
                 {protocol.questions_and_answers.length > 0 && (
                   <div className="grid gap-2">
-                    <Typography variant="bodySm" tone="muted" className="font-medium">Questions & Answers</Typography>
+                    <Typography variant="bodySm" tone="muted" className="font-medium">{t('interviews.protocol.qa')}</Typography>
                     {protocol.questions_and_answers.map((qa, idx) => (
                       <div key={idx} className="rounded-md border bg-muted/20 p-3 grid gap-1">
-                        <Typography variant="bodySm" className="font-medium">Q: {qa.question}</Typography>
-                        <Typography variant="bodySm">A: {qa.answer}</Typography>
+                        <Typography variant="bodySm" className="font-medium">{t('interviews.protocol.qPrefix')} {qa.question}</Typography>
+                        <Typography variant="bodySm">{t('interviews.protocol.aPrefix')} {qa.answer}</Typography>
                       </div>
                     ))}
                   </div>
                 )}
                 {/* Agreed terms with quote-links */}
                 <div className="grid gap-2">
-                  <Typography variant="bodySm" className="font-medium">Agreed Terms</Typography>
+                  <Typography variant="bodySm" className="font-medium">{t('interviews.agreedTerm.title')}</Typography>
                   <div className="grid gap-2 rounded-md border p-3 bg-muted/20">
                     {protocol.agreed_terms.salary != null && (
                       <AgreedTermRow
-                        label="Salary"
+                        label={t('interviews.agreedTerm.salary')}
                         value={`${protocol.agreed_terms.salary} ${protocol.agreed_terms.currency ?? ""}`}
                         source={protocol.agreed_terms.salary_source ?? null}
                         isOpen={showSourceForTerm === "salary"}
@@ -1346,7 +1362,7 @@ function InterviewPanel({ applicationId }: { applicationId: string }) {
                     )}
                     {protocol.agreed_terms.start_date && (
                       <AgreedTermRow
-                        label="Start date"
+                        label={t('interviews.agreedTerm.startDate')}
                         value={protocol.agreed_terms.start_date}
                         source={protocol.agreed_terms.start_date_source ?? null}
                         isOpen={showSourceForTerm === "start_date"}
@@ -1357,7 +1373,7 @@ function InterviewPanel({ applicationId }: { applicationId: string }) {
                     {protocol.agreed_terms.special_conditions.map((cond, idx) => (
                       <AgreedTermRow
                         key={idx}
-                        label={`Condition ${idx + 1}`}
+                        label={t('interviews.agreedTerm.condition', { n: idx + 1 })}
                         value={cond}
                         source={protocol.agreed_terms.special_conditions_sources?.[idx] ?? null}
                         isOpen={showSourceForTerm === `cond_${idx}`}
@@ -1366,7 +1382,7 @@ function InterviewPanel({ applicationId }: { applicationId: string }) {
                       />
                     ))}
                     {protocol.agreed_terms.salary == null && !protocol.agreed_terms.start_date && protocol.agreed_terms.special_conditions.length === 0 && (
-                      <Typography variant="bodySm" tone="muted">No agreed terms found in transcript.</Typography>
+                      <Typography variant="bodySm" tone="muted">{t('interviews.agreedTerm.empty')}</Typography>
                     )}
                   </div>
                 </div>
@@ -1377,28 +1393,28 @@ function InterviewPanel({ applicationId }: { applicationId: string }) {
             {offerDraft && (
               <div className="grid gap-3 rounded-md border bg-muted/20 p-4" data-testid="offer-draft-panel">
                 <div className="flex items-center gap-2">
-                  <Typography variant="h3">Offer Draft</Typography>
-                  <Badge variant="outline">draft</Badge>
+                  <Typography variant="h3">{t('interviews.offerDraft.title')}</Typography>
+                  <Badge variant="outline">{t('interviews.offerDraft.draft')}</Badge>
                   <Typography variant="bodySm" tone="muted" className="text-xs ml-auto">
-                    Phase 3 will add full offer + DocuSeal signing
+                    {t('interviews.offerDraft.phaseHint')}
                   </Typography>
                 </div>
                 <div className="grid gap-2 text-sm">
                   {offerDraft.salary != null && (
                     <div className="flex gap-2">
-                      <Typography variant="bodySm" className="font-medium w-28">Salary</Typography>
+                      <Typography variant="bodySm" className="font-medium w-28">{t('interviews.agreedTerm.salary')}</Typography>
                       <Typography variant="bodySm">{offerDraft.salary} {offerDraft.currency ?? ""}</Typography>
                     </div>
                   )}
                   {offerDraft.start_date && (
                     <div className="flex gap-2">
-                      <Typography variant="bodySm" className="font-medium w-28">Start date</Typography>
+                      <Typography variant="bodySm" className="font-medium w-28">{t('interviews.agreedTerm.startDate')}</Typography>
                       <Typography variant="bodySm">{offerDraft.start_date}</Typography>
                     </div>
                   )}
                   {offerDraft.conditions.length > 0 && (
                     <div className="flex gap-2">
-                      <Typography variant="bodySm" className="font-medium w-28">Conditions</Typography>
+                      <Typography variant="bodySm" className="font-medium w-28">{t('interviews.offerDraft.conditions')}</Typography>
                       <ul className="list-disc pl-5">
                         {offerDraft.conditions.map((cond, idx) => (
                           <li key={idx}><Typography variant="bodySm">{cond}</Typography></li>
@@ -1407,7 +1423,7 @@ function InterviewPanel({ applicationId }: { applicationId: string }) {
                     </div>
                   )}
                   {offerDraft.salary == null && !offerDraft.start_date && offerDraft.conditions.length === 0 && (
-                    <Typography variant="bodySm" tone="muted">No terms extracted.</Typography>
+                    <Typography variant="bodySm" tone="muted">{t('interviews.offerDraft.empty')}</Typography>
                   )}
                 </div>
               </div>
@@ -1416,7 +1432,7 @@ function InterviewPanel({ applicationId }: { applicationId: string }) {
         )}
 
         {interviews.length === 0 && !interviewsQuery.isPending && (
-          <Typography tone="muted">No interviews yet. Create one to start the transcription pipeline.</Typography>
+          <Typography tone="muted">{t('interviews.empty')}</Typography>
         )}
       </CardContent>
     </Card>
@@ -1440,6 +1456,7 @@ function AgreedTermRow({
   onToggle: () => void
   transcript: Interview["transcript"]
 }) {
+  const { t } = useTranslation('recruiting')
   const segment = transcript?.segments?.[source?.segment_index ?? -1] ?? null
 
   return (
@@ -1453,17 +1470,17 @@ function AgreedTermRow({
             className="ml-auto text-xs text-primary underline-offset-4 hover:underline"
             data-testid={"source-link-" + label.replace(/\s+/g, "-").toLowerCase()}
           >
-            {isOpen ? "Hide source" : "Show source"}
+            {isOpen ? t('interviews.agreedTerm.hideSource') : t('interviews.agreedTerm.showSource')}
           </button>
         )}
       </div>
       {isOpen && source && (
         <div className="rounded-md border bg-background p-3 text-xs ml-28 grid gap-1">
-          <Typography variant="bodySm" tone="muted">Quote from segment {source.segment_index}:</Typography>
+          <Typography variant="bodySm" tone="muted">{t('interviews.agreedTerm.quoteFromSegment', { idx: source.segment_index })}</Typography>
           <Typography variant="bodySm" className="italic">"{source.quote}"</Typography>
           {segment && (
             <Typography variant="bodySm" tone="muted">
-              Speaker: {segment.speaker} · {msToTimestamp(segment.start_ms)}–{msToTimestamp(segment.end_ms)}
+              {t('interviews.agreedTerm.speakerLine', { speaker: segment.speaker, start: msToTimestamp(segment.start_ms), end: msToTimestamp(segment.end_ms) })}
             </Typography>
           )}
         </div>
@@ -1489,17 +1506,18 @@ export function AdminUsersPage() {
 
 function AdminUsersList() {
   const { api, user } = useAuth()
+  const { t } = useTranslation('recruiting')
   const query = useQuery({ queryKey: ["admin", "users"], queryFn: () => api.listAdminUsers(), enabled: Boolean(user) })
 
   if (query.isPending) return <LoadingCard />
-  if (query.isError) return <ErrorCard message={query.error instanceof ApiRequestError && query.error.status === 403 ? "Access denied." : "Could not load users"} />
+  if (query.isError) return <ErrorCard message={query.error instanceof ApiRequestError && query.error.status === 403 ? t('common.accessDenied') : t('admin.users.loadFailed')} />
 
   return (
     <section className="mx-auto grid w-full max-w-6xl gap-6 px-5 py-12">
-      <div className="grid gap-3"><Badge variant="outline" className="w-fit">Admin</Badge><Typography variant="h1">Users</Typography></div>
+      <div className="grid gap-3"><Badge variant="outline" className="w-fit">{t('admin.badge')}</Badge><Typography variant="h1">{t('admin.users.title')}</Typography></div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
-          <thead><tr className="border-b"><th className="py-2 text-left font-medium">Name</th><th className="py-2 text-left font-medium">Email</th><th className="py-2 text-left font-medium">Roles</th><th className="py-2 text-left font-medium">Joined</th></tr></thead>
+          <thead><tr className="border-b"><th className="py-2 text-left font-medium">{t('admin.users.fields.name')}</th><th className="py-2 text-left font-medium">{t('admin.users.fields.email')}</th><th className="py-2 text-left font-medium">{t('admin.users.fields.roles')}</th><th className="py-2 text-left font-medium">{t('admin.users.fields.joined')}</th></tr></thead>
           <tbody>
             {query.data.items.map((u) => (
               <tr key={u.id} className="border-b">
@@ -1534,6 +1552,7 @@ export function AdminHhIntegrationPage() {
 
 function AdminHhIntegration() {
   const { api, user } = useAuth()
+  const { t } = useTranslation('recruiting')
   const queryClient = useQueryClient()
   const [hhVacancyInputs, setHhVacancyInputs] = useState<Record<string, string>>({})
   const [syncResult, setSyncResult] = useState<string | null>(null)
@@ -1556,37 +1575,37 @@ function AdminHhIntegration() {
       const redirectUri = `${window.location.origin}/admin/integrations/hh`
       const result = await api.getHhAuthorizeUrl({ redirectUri })
       if (!result.authorizeUrl) {
-        throw new Error(result.reason ?? "HH authorize URL is unavailable")
+        throw new Error(result.reason ?? t('admin.hh.toasts.authorizeUnavailable'))
       }
       window.location.href = result.authorizeUrl
     },
     onError: (error: unknown) => {
-      toast.error(error instanceof Error ? error.message : "Failed to prepare HH OAuth")
+      toast.error(error instanceof Error ? error.message : t('admin.hh.toasts.prepareFailed'))
     },
   })
 
   const callbackMutation = useMutation({
     mutationFn: ({ code, redirectUri }: { code: string; redirectUri: string }) => api.completeHhOAuth({ code, redirectUri }),
     onSuccess: async () => {
-      toast.success("HH connected")
+      toast.success(t('admin.hh.toasts.connected'))
       await queryClient.invalidateQueries({ queryKey: ["admin", "hh", "status"] })
     },
     onError: (error: unknown) => {
-      toast.error(error instanceof ApiRequestError ? error.message : "Failed to complete HH OAuth")
+      toast.error(error instanceof ApiRequestError ? error.message : t('admin.hh.toasts.completeFailed'))
     },
   })
 
   const syncMutation = useMutation({
     mutationFn: () => api.syncHhNow(),
     onSuccess: async (result) => {
-      setSyncResult(`Imported ${result.summary.importedCandidates} candidates; upserted ${result.summary.upsertedApplications} applications.`)
-      toast.success("HH sync completed")
+      setSyncResult(t('admin.hh.toasts.syncResult', { candidates: result.summary.importedCandidates, applications: result.summary.upsertedApplications }))
+      toast.success(t('admin.hh.toasts.syncCompleted'))
       await queryClient.invalidateQueries({ queryKey: ["admin", "hh", "status"] })
       await queryClient.invalidateQueries({ queryKey: ["applications"] })
       await queryClient.invalidateQueries({ queryKey: ["candidates"] })
     },
     onError: (error: unknown) => {
-      toast.error(error instanceof ApiRequestError ? error.message : "HH sync failed")
+      toast.error(error instanceof ApiRequestError ? error.message : t('admin.hh.toasts.syncFailed'))
     },
   })
 
@@ -1594,12 +1613,12 @@ function AdminHhIntegration() {
     mutationFn: ({ vacancyId, hhVacancyId }: { vacancyId: string; hhVacancyId: string | null }) =>
       api.linkVacancyToHh(vacancyId, { hhVacancyId }),
     onSuccess: async () => {
-      toast.success("Vacancy mapping updated")
+      toast.success(t('admin.hh.toasts.mappingUpdated'))
       await queryClient.invalidateQueries({ queryKey: ["vacancies"] })
       await queryClient.invalidateQueries({ queryKey: ["admin", "hh", "status"] })
     },
     onError: (error: unknown) => {
-      toast.error(error instanceof ApiRequestError ? error.message : "Failed to save vacancy link")
+      toast.error(error instanceof ApiRequestError ? error.message : t('admin.hh.toasts.mappingFailed'))
     },
   })
 
@@ -1630,10 +1649,10 @@ function AdminHhIntegration() {
 
   if (statusQuery.isPending || vacanciesQuery.isPending) return <LoadingCard />
   if (statusQuery.isError) {
-    return <ErrorCard message={statusQuery.error instanceof ApiRequestError ? statusQuery.error.message : "Could not load HH integration status"} />
+    return <ErrorCard message={statusQuery.error instanceof ApiRequestError ? statusQuery.error.message : t('admin.hh.toasts.statusLoadFailed')} />
   }
   if (vacanciesQuery.isError) {
-    return <ErrorCard message={vacanciesQuery.error instanceof ApiRequestError ? vacanciesQuery.error.message : "Could not load vacancies"} />
+    return <ErrorCard message={vacanciesQuery.error instanceof ApiRequestError ? vacanciesQuery.error.message : t('admin.hh.toasts.vacanciesLoadFailed')} />
   }
 
   const status = statusQuery.data
@@ -1641,14 +1660,14 @@ function AdminHhIntegration() {
   return (
     <section className="mx-auto grid w-full max-w-6xl gap-6 px-5 py-12">
       <div className="grid gap-3">
-        <Badge variant="outline" className="w-fit">Admin · Integrations</Badge>
-        <Typography variant="h1">HH.ru negotiations sync</Typography>
+        <Badge variant="outline" className="w-fit">{t('admin.hh.badge')}</Badge>
+        <Typography variant="h1">{t('admin.hh.title')}</Typography>
       </div>
 
       {!status.enabled && (
         <Alert>
-          <AlertTitle>Not configured</AlertTitle>
-          <AlertDescription>{status.reason ?? "HH integration is disabled or missing credentials."}</AlertDescription>
+          <AlertTitle>{t('admin.hh.notConfiguredTitle')}</AlertTitle>
+          <AlertDescription>{status.reason ?? t('admin.hh.notConfiguredReason')}</AlertDescription>
         </Alert>
       )}
 
@@ -1657,20 +1676,20 @@ function AdminHhIntegration() {
           <CardContent className="grid gap-4 pt-6">
             <Typography tone="muted">
               {status.connected
-                ? `Connected${status.connection?.connectedEmployerId ? ` (employer ${status.connection.connectedEmployerId})` : ""}.`
-                : "Not connected yet."}
+                ? t('admin.hh.connected', { suffix: status.connection?.connectedEmployerId ? t('admin.hh.employerSuffix', { id: status.connection.connectedEmployerId }) : "" })
+                : t('admin.hh.notConnected')}
             </Typography>
             <div className="flex flex-wrap gap-3">
               <Button onClick={() => connectMutation.mutate()} disabled={connectMutation.isPending}>
-                {connectMutation.isPending ? "Preparing..." : status.connected ? "Reconnect HH" : "Connect HH"}
+                {connectMutation.isPending ? t('common.preparing') : status.connected ? t('admin.hh.reconnect') : t('admin.hh.connect')}
               </Button>
               <Button variant="outline" onClick={() => syncMutation.mutate()} disabled={syncMutation.isPending || !status.connected}>
-                {syncMutation.isPending ? "Syncing..." : "Sync now"}
+                {syncMutation.isPending ? t('common.syncing') : t('admin.hh.syncNow')}
               </Button>
             </div>
             {syncResult && <Typography variant="bodySm" tone="muted">{syncResult}</Typography>}
             {status.lastSyncAt && (
-              <Typography variant="bodySm" tone="muted">Last sync: {new Date(status.lastSyncAt).toLocaleString()}</Typography>
+              <Typography variant="bodySm" tone="muted">{t('admin.hh.lastSync', { date: new Date(status.lastSyncAt).toLocaleString() })}</Typography>
             )}
           </CardContent>
         </Card>
@@ -1678,12 +1697,12 @@ function AdminHhIntegration() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Vacancy mapping</CardTitle>
-          <CardDescription>Link each local vacancy with its HH vacancy ID for negotiations polling.</CardDescription>
+          <CardTitle>{t('admin.hh.mapping.title')}</CardTitle>
+          <CardDescription>{t('admin.hh.mapping.description')}</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3">
           {vacancies.length === 0 ? (
-            <Typography tone="muted">No vacancies to map yet.</Typography>
+            <Typography tone="muted">{t('admin.hh.mapping.empty')}</Typography>
           ) : (
             <ul className="grid gap-2">
               {vacancies.map((vacancy) => (
@@ -1697,7 +1716,7 @@ function AdminHhIntegration() {
                         [vacancy.id]: event.target.value,
                       }))
                     }
-                    placeholder="HH vacancy ID"
+                    placeholder={t('admin.hh.mapping.idPlaceholder')}
                     className="w-52"
                   />
                   <Button
@@ -1711,7 +1730,7 @@ function AdminHhIntegration() {
                     }
                     disabled={linkMutation.isPending}
                   >
-                    Save
+                    {t('admin.hh.mapping.save')}
                   </Button>
                 </li>
               ))}
@@ -1725,6 +1744,7 @@ function AdminHhIntegration() {
 
 function AdminAuditLog() {
   const { api, user } = useAuth()
+  const { t } = useTranslation('recruiting')
   const [entityTypeFilter, setEntityTypeFilter] = useState("")
   const [cursor, setCursor] = useState<string | undefined>()
   const entityTypes = ["HiringRequisition", "Vacancy", "Candidate", "Application", "OrgUnit"]
@@ -1736,22 +1756,22 @@ function AdminAuditLog() {
   })
 
   if (query.isPending) return <LoadingCard />
-  if (query.isError) return <ErrorCard message={query.error instanceof ApiRequestError && query.error.status === 403 ? "Access denied." : "Could not load audit log"} />
+  if (query.isError) return <ErrorCard message={query.error instanceof ApiRequestError && query.error.status === 403 ? t('common.accessDenied') : t('admin.audit.loadFailed')} />
 
   return (
     <section className="mx-auto grid w-full max-w-6xl gap-6 px-5 py-12">
-      <div className="grid gap-3"><Badge variant="outline" className="w-fit">Admin</Badge><Typography variant="h1">Audit log</Typography></div>
+      <div className="grid gap-3"><Badge variant="outline" className="w-fit">{t('admin.badge')}</Badge><Typography variant="h1">{t('admin.audit.title')}</Typography></div>
       <div className="flex items-center gap-3">
-        <Typography variant="bodySm" tone="muted">Entity type:</Typography>
+        <Typography variant="bodySm" tone="muted">{t('admin.audit.entityTypeLabel')}</Typography>
         <select value={entityTypeFilter} onChange={(e) => { setEntityTypeFilter(e.target.value); setCursor(undefined) }}
           className="rounded-md border border-input bg-background px-3 py-1.5 text-sm">
-          <option value="">All</option>
-          {entityTypes.map((t) => <option key={t} value={t}>{t}</option>)}
+          <option value="">{t('admin.audit.all')}</option>
+          {entityTypes.map((et) => <option key={et} value={et}>{et}</option>)}
         </select>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
-          <thead><tr className="border-b"><th className="py-2 text-left font-medium">Action</th><th className="py-2 text-left font-medium">Entity</th><th className="py-2 text-left font-medium">Actor</th><th className="py-2 text-left font-medium">When</th></tr></thead>
+          <thead><tr className="border-b"><th className="py-2 text-left font-medium">{t('admin.audit.fields.action')}</th><th className="py-2 text-left font-medium">{t('admin.audit.fields.entity')}</th><th className="py-2 text-left font-medium">{t('admin.audit.fields.actor')}</th><th className="py-2 text-left font-medium">{t('admin.audit.fields.when')}</th></tr></thead>
           <tbody>
             {query.data.items.map((e) => (
               <tr key={e.id} className="border-b">
@@ -1765,7 +1785,7 @@ function AdminAuditLog() {
         </table>
       </div>
       {query.data.nextCursor && (
-        <Button variant="outline" className="w-fit" onClick={() => setCursor(query.data.nextCursor ?? undefined)}>Load more</Button>
+        <Button variant="outline" className="w-fit" onClick={() => setCursor(query.data.nextCursor ?? undefined)}>{t('admin.audit.loadMore')}</Button>
       )}
     </section>
   )

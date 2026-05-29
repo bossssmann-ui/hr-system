@@ -9,6 +9,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { CreateOfferRequest, Offer, RoleName } from '@web-app-demo/contracts'
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -46,25 +47,6 @@ const ACTION_ROLES: Record<Action, RoleName[]> = {
   accept: ['recruiter', 'hr_admin', 'owner'],
 }
 
-const ACTION_LABELS: Record<Action, string> = {
-  submit: 'Отправить на согласование',
-  approve: 'Одобрить',
-  reject: 'Вернуть',
-  send: 'Отправить кандидату',
-  decline: 'Зафиксировать отказ',
-  accept: 'Принят',
-}
-
-const STATUS_LABELS: Record<Offer['status'], string> = {
-  draft: 'Черновик',
-  manager_review: 'На согласовании',
-  approved: 'Одобрен',
-  sent: 'Отправлен',
-  accepted: '✓ Подписан',
-  declined: 'Отклонён',
-  expired: 'Истёк',
-}
-
 function statusBadgeClass(status: Offer['status']): string {
   switch (status) {
     case 'accepted':
@@ -85,6 +67,7 @@ function statusBadgeClass(status: Offer['status']): string {
 
 export function OfferPanel({ applicationId }: { applicationId: string }) {
   const { api, user } = useAuth()
+  const { t } = useTranslation('offers')
   const queryClient = useQueryClient()
 
   const canCreate = hasAnyRole(user, 'recruiter', 'hr_admin', 'owner')
@@ -116,23 +99,23 @@ export function OfferPanel({ applicationId }: { applicationId: string }) {
   const createMutation = useMutation({
     mutationFn: (input: CreateOfferRequest) => api.createOffer(input),
     onSuccess: () => {
-      toast.success('Offer created')
+      toast.success(t('toasts.created'))
       setShowForm(false)
       invalidate()
     },
     onError: (err) =>
-      toast.error(err instanceof ApiRequestError ? err.message : 'Failed to create offer'),
+      toast.error(err instanceof ApiRequestError ? err.message : t('toasts.createFailed')),
   })
 
   const transitionMutation = useMutation({
     mutationFn: ({ id, action, body }: { id: string; action: Action; body?: unknown }) =>
       api.transitionOffer(id, action, body),
     onSuccess: (_data, vars) => {
-      toast.success(`Offer ${vars.action}`)
+      toast.success(t('toasts.transitioned', { action: t(`actions.${vars.action}`) }))
       invalidate()
     },
     onError: (err) =>
-      toast.error(err instanceof ApiRequestError ? err.message : 'Transition failed'),
+      toast.error(err instanceof ApiRequestError ? err.message : t('toasts.transitionFailed')),
   })
 
   const offers = offersQuery.data?.items ?? []
@@ -141,10 +124,10 @@ export function OfferPanel({ applicationId }: { applicationId: string }) {
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>Offers</CardTitle>
+          <CardTitle>{t('title')}</CardTitle>
           {!showForm && canCreate && (
             <Button size="sm" onClick={() => setShowForm(true)}>
-              Создать оффер
+              {t('create')}
             </Button>
           )}
         </div>
@@ -153,11 +136,11 @@ export function OfferPanel({ applicationId }: { applicationId: string }) {
         {offersQuery.isPending && <Spinner />}
         {offersQuery.isError && (
           <Alert variant="destructive">
-            <AlertTitle>Failed to load offers</AlertTitle>
+            <AlertTitle>{t('list.loadFailed')}</AlertTitle>
             <AlertDescription>
               {offersQuery.error instanceof ApiRequestError
                 ? offersQuery.error.message
-                : 'Unknown error'}
+                : t('list.unknownError')}
             </AlertDescription>
           </Alert>
         )}
@@ -173,21 +156,21 @@ export function OfferPanel({ applicationId }: { applicationId: string }) {
         )}
 
         {offers.length === 0 && !offersQuery.isPending && !showForm && (
-          <Typography tone="muted">No offers yet.</Typography>
+          <Typography tone="muted">{t('list.empty')}</Typography>
         )}
 
         {offers.map((offer) => (
           <div key={offer.id} className="grid gap-2 rounded border p-3">
             <div className="flex flex-wrap items-center gap-2">
               <Badge className={cn(statusBadgeClass(offer.status))}>
-                {STATUS_LABELS[offer.status]}
+                {t(`status.${offer.status}`)}
               </Badge>
               <Typography>
                 {offer.salary.toLocaleString()} {offer.currency}
                 {offer.grade && ` · ${offer.grade}`}
               </Typography>
               <Typography tone="muted">
-                start {new Date(offer.startDate).toLocaleDateString()}
+                {t('list.startDate', { date: new Date(offer.startDate).toLocaleDateString() })}
               </Typography>
             </div>
             {offer.conditions && offer.conditions.length > 0 && (
@@ -204,11 +187,11 @@ export function OfferPanel({ applicationId }: { applicationId: string }) {
                 rel="noreferrer"
                 className="text-sm text-blue-600 underline"
               >
-                Open DocuSeal signing page
+                {t('list.openSigning')}
               </a>
             )}
             {offer.status === 'declined' && offer.declinedReason && (
-              <Typography tone="muted">Reason: {offer.declinedReason}</Typography>
+              <Typography tone="muted">{t('list.reason', { reason: offer.declinedReason })}</Typography>
             )}
             <div className="flex flex-wrap gap-2">
               {ACTIONS_BY_STATUS[offer.status]
@@ -221,19 +204,19 @@ export function OfferPanel({ applicationId }: { applicationId: string }) {
                   disabled={transitionMutation.isPending}
                   onClick={() => {
                     if (action === 'reject') {
-                      const reason = window.prompt('Reject reason?') ?? ''
+                      const reason = window.prompt(t('list.rejectPrompt')) ?? ''
                       transitionMutation.mutate({ id: offer.id, action, body: { reason } })
                       return
                     }
                     if (action === 'decline') {
-                      const reason = window.prompt('Decline reason?') ?? ''
+                      const reason = window.prompt(t('list.declinePrompt')) ?? ''
                       transitionMutation.mutate({ id: offer.id, action, body: { reason } })
                       return
                     }
                     transitionMutation.mutate({ id: offer.id, action })
                   }}
                 >
-                  {ACTION_LABELS[action]}
+                  {t(`actions.${action}`)}
                 </Button>
               ))}
             </div>
@@ -257,6 +240,7 @@ function CreateOfferForm({
   onSubmit: (input: CreateOfferRequest) => void
   isPending: boolean
 }) {
+  const { t } = useTranslation('offers')
   const [salary, setSalary] = useState<string>(
     typeof draft?.salary === 'number' ? String(draft.salary) : '',
   )
@@ -279,14 +263,14 @@ function CreateOfferForm({
 
   return (
     <div className="grid gap-3 rounded border p-4">
-      <Typography variant="h4">New offer</Typography>
+      <Typography variant="h4">{t('newOffer')}</Typography>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <div>
-          <label className="text-sm font-medium">Salary</label>
+          <label className="text-sm font-medium">{t('fields.salary')}</label>
           <Input type="number" value={salary} onChange={(e) => setSalary(e.target.value)} />
         </div>
         <div>
-          <label className="text-sm font-medium">Currency</label>
+          <label className="text-sm font-medium">{t('fields.currency')}</label>
           <select
             className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
             value={currency}
@@ -296,16 +280,16 @@ function CreateOfferForm({
           </select>
         </div>
         <div>
-          <label className="text-sm font-medium">Grade</label>
+          <label className="text-sm font-medium">{t('fields.grade')}</label>
           <Input value={grade} onChange={(e) => setGrade(e.target.value)} />
         </div>
         <div>
-          <label className="text-sm font-medium">Start date</label>
+          <label className="text-sm font-medium">{t('fields.startDate')}</label>
           <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
         </div>
       </div>
       <div>
-        <label className="text-sm font-medium">Conditions (one per line)</label>
+        <label className="text-sm font-medium">{t('fields.conditions')}</label>
         <textarea
           className="min-h-24 w-full rounded-md border border-input bg-transparent p-2 text-sm"
           value={conditions}
@@ -328,12 +312,13 @@ function CreateOfferForm({
             onSubmit(input)
           }}
         >
-          Create offer
+          {t('form.create')}
         </Button>
         <Button variant="outline" onClick={onCancel} disabled={isPending}>
-          Cancel
+          {t('form.cancel')}
         </Button>
       </div>
     </div>
   )
 }
+

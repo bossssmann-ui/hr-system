@@ -8,6 +8,8 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
@@ -50,22 +52,16 @@ function verdictBadgeVariant(verdict: string): 'default' | 'outline' | 'secondar
   return 'secondary' // НА РУЧНУЮ ПРОВЕРКУ HR
 }
 
-function statusBadge(status: string) {
-  const map: Record<string, string> = {
-    pending: 'В ожидании',
-    stage_1: 'Этап 1',
-    stage_2: 'Этап 2',
-    stage_3: 'Этап 3',
-    stage_4: 'Этап 4',
-    completed: 'Завершён',
-    rejected: 'Отклонён',
-    expired: 'Истёк',
-  }
-  return map[status] ?? status
+function statusBadge(t: TFunction, status: string) {
+  const key = `dashboard.status.${status}`
+  const translated = t(key)
+  return translated === key ? status : translated
 }
 
-function roleName(role: string) {
-  return role === 'logist' ? 'Логист' : role === 'sales_manager' ? 'Менеджер продаж' : role
+function roleName(t: TFunction, role: string) {
+  if (role === 'logist') return t('dashboard.roles.logistShort')
+  if (role === 'sales_manager') return t('dashboard.roles.salesManagerShort')
+  return role
 }
 
 function parseCrossCheckFlags(raw: unknown): CrossCheckFlag[] {
@@ -90,6 +86,7 @@ function VerdictDetail({
   onReject: (applicationId: string) => void
 }) {
   const { api } = useAuth()
+  const { t } = useTranslation('selection')
   const verdictQuery = useQuery({
     queryKey: ['selection-verdict', session.id],
     queryFn: () => api.getSelectionVerdict(session.id),
@@ -107,16 +104,16 @@ function VerdictDetail({
       <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg border bg-background shadow-xl">
         <div className="grid gap-4 p-6">
           <div className="flex items-center justify-between">
-            <Typography variant="h2">Детали отбора</Typography>
+            <Typography variant="h2">{t('dashboard.detail.title')}</Typography>
             <Button variant="ghost" size="sm" onClick={onClose}>✕</Button>
           </div>
 
           <div className="grid gap-1">
-            <Typography variant="bodySm" tone="muted">Роль: {roleName(session.role)}</Typography>
-            <Typography variant="bodySm" tone="muted">Статус: {statusBadge(session.status)}</Typography>
+            <Typography variant="bodySm" tone="muted">{t('dashboard.detail.role', { name: roleName(t, session.role) })}</Typography>
+            <Typography variant="bodySm" tone="muted">{t('dashboard.detail.status', { name: statusBadge(t, session.status) })}</Typography>
             {session.completedAt && (
               <Typography variant="bodySm" tone="muted">
-                Завершён: {new Date(session.completedAt).toLocaleString('ru-RU')}
+                {t('dashboard.detail.completed', { date: new Date(session.completedAt).toLocaleString('ru-RU') })}
               </Typography>
             )}
           </div>
@@ -129,7 +126,7 @@ function VerdictDetail({
                 </Badge>
                 {session.verdict.totalWeightedScore && (
                   <Typography variant="bodySm">
-                    Балл: {Number(session.verdict.totalWeightedScore).toFixed(1)} / 100
+                    {t('dashboard.detail.score', { score: Number(session.verdict.totalWeightedScore).toFixed(1) })}
                   </Typography>
                 )}
               </div>
@@ -138,7 +135,7 @@ function VerdictDetail({
               {flags.length > 0 && (
                 <div className="grid gap-2">
                   <Typography className="text-sm font-medium">
-                    Флаги ({redCount} RED, {orangeCount} ORANGE)
+                    {t('dashboard.detail.flags', { red: redCount, orange: orangeCount })}
                   </Typography>
                   <ul className="grid gap-1">
                     {flags.map((flag, i) => (
@@ -158,19 +155,19 @@ function VerdictDetail({
                 <>
                   {fullVerdict.verdictReason && (
                     <div className="grid gap-1">
-                      <Typography className="text-sm font-medium">Обоснование вердикта</Typography>
+                      <Typography className="text-sm font-medium">{t('dashboard.detail.verdictReason')}</Typography>
                       <Typography variant="bodySm" tone="muted">{fullVerdict.verdictReason}</Typography>
                     </div>
                   )}
                   {fullVerdict.hrNotes && (
                     <div className="grid gap-1">
-                      <Typography className="text-sm font-medium">Заметки для HR</Typography>
+                      <Typography className="text-sm font-medium">{t('dashboard.detail.hrNotes')}</Typography>
                       <Typography variant="bodySm" tone="muted">{fullVerdict.hrNotes}</Typography>
                     </div>
                   )}
                   {fullVerdict.stageScores && typeof fullVerdict.stageScores === 'object' && (
                     <div className="grid gap-1">
-                      <Typography className="text-sm font-medium">Баллы по этапам</Typography>
+                      <Typography className="text-sm font-medium">{t('dashboard.detail.stageScores')}</Typography>
                       <pre className="rounded-md bg-muted px-3 py-2 text-xs">
                         {JSON.stringify(fullVerdict.stageScores, null, 2)}
                       </pre>
@@ -180,7 +177,7 @@ function VerdictDetail({
               )}
             </div>
           ) : (
-            <Typography tone="muted">Вердикт ещё не готов.</Typography>
+            <Typography tone="muted">{t('dashboard.detail.verdictNotReady')}</Typography>
           )}
 
           {/* Action buttons */}
@@ -193,7 +190,7 @@ function VerdictDetail({
                   onClose()
                 }}
               >
-                → Пригласить на интервью
+                {t('dashboard.detail.moveToInterview')}
               </Button>
               <Button
                 size="sm"
@@ -203,7 +200,7 @@ function VerdictDetail({
                   onClose()
                 }}
               >
-                Отклонить
+                {t('dashboard.detail.reject')}
               </Button>
             </div>
           )}
@@ -217,6 +214,7 @@ function VerdictDetail({
 
 export function SelectionDashboardPage() {
   const { api, user } = useAuth()
+  const { t } = useTranslation('selection')
   const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
   const [roleFilter, setRoleFilter] = useState<'logist' | 'sales_manager' | ''>('')
@@ -237,28 +235,28 @@ export function SelectionDashboardPage() {
     mutationFn: (applicationId: string) =>
       api.moveApplicationStage(applicationId, { to: 'tech' }),
     onSuccess: () => {
-      toast.success('Кандидат переведён на этап интервью')
+      toast.success(t('dashboard.toasts.movedToInterview'))
       void queryClient.invalidateQueries({ queryKey: ['selection-sessions'] })
     },
     onError: (error: unknown) =>
-      toast.error(error instanceof ApiRequestError ? error.message : 'Ошибка перевода'),
+      toast.error(error instanceof ApiRequestError ? error.message : t('dashboard.toasts.moveFailed')),
   })
 
   const rejectMutation = useMutation({
     mutationFn: (applicationId: string) =>
       api.moveApplicationStage(applicationId, { to: 'rejected' }),
     onSuccess: () => {
-      toast.success('Кандидат отклонён')
+      toast.success(t('dashboard.toasts.rejected'))
       void queryClient.invalidateQueries({ queryKey: ['selection-sessions'] })
     },
     onError: (error: unknown) =>
-      toast.error(error instanceof ApiRequestError ? error.message : 'Ошибка отклонения'),
+      toast.error(error instanceof ApiRequestError ? error.message : t('dashboard.toasts.rejectFailed')),
   })
 
   if (!user) {
     return (
       <section className="mx-auto grid w-full max-w-6xl gap-4 px-5 py-16">
-        <Typography variant="h2">Требуется авторизация</Typography>
+        <Typography variant="h2">{t('dashboard.authRequired')}</Typography>
       </section>
     )
   }
@@ -266,7 +264,7 @@ export function SelectionDashboardPage() {
   if (sessionsQuery.isPending) {
     return (
       <section className="mx-auto w-full max-w-6xl px-5 py-12">
-        <Typography>Загрузка…</Typography>
+        <Typography>{t('dashboard.loading')}</Typography>
       </section>
     )
   }
@@ -276,8 +274,8 @@ export function SelectionDashboardPage() {
       <section className="mx-auto w-full max-w-6xl px-5 py-12">
         <Card>
           <CardHeader>
-            <CardTitle>Ошибка загрузки</CardTitle>
-            <CardDescription>Не удалось загрузить список сессий отбора.</CardDescription>
+            <CardTitle>{t('dashboard.loadFailedTitle')}</CardTitle>
+            <CardDescription>{t('dashboard.loadFailedHint')}</CardDescription>
           </CardHeader>
         </Card>
       </section>
@@ -290,16 +288,16 @@ export function SelectionDashboardPage() {
   return (
     <section className="mx-auto grid w-full max-w-6xl gap-6 px-5 py-12">
       <div className="grid gap-2">
-        <Badge variant="outline" className="w-fit">HR-панель</Badge>
-        <Typography variant="h1">Система отбора кандидатов</Typography>
+        <Badge variant="outline" className="w-fit">{t('dashboard.badge')}</Badge>
+        <Typography variant="h1">{t('dashboard.title')}</Typography>
         <Typography tone="muted">
-          Автоматический 4-этапный скрининг. Всего: {data.total}
+          {t('dashboard.subtitle', { total: data.total })}
         </Typography>
       </div>
 
       {/* Filters */}
       <div className="flex items-center gap-3">
-        <Typography variant="bodySm" tone="muted">Роль:</Typography>
+        <Typography variant="bodySm" tone="muted">{t('dashboard.filterRole')}</Typography>
         <select
           className="rounded-md border border-input bg-background px-3 py-1.5 text-sm"
           value={roleFilter}
@@ -308,9 +306,9 @@ export function SelectionDashboardPage() {
             setPage(1)
           }}
         >
-          <option value="">Все</option>
-          <option value="logist">Логист-экспедитор</option>
-          <option value="sales_manager">Менеджер по продажам ТЭУ</option>
+          <option value="">{t('dashboard.allRoles')}</option>
+          <option value="logist">{t('dashboard.roles.logist')}</option>
+          <option value="sales_manager">{t('dashboard.roles.sales_manager')}</option>
         </select>
       </div>
 
@@ -319,20 +317,20 @@ export function SelectionDashboardPage() {
         <table className="w-full text-sm">
           <thead className="border-b bg-muted/40">
             <tr>
-              <th className="px-4 py-3 text-left font-medium">Кандидат / Сессия</th>
-              <th className="px-4 py-3 text-left font-medium">Роль</th>
-              <th className="px-4 py-3 text-left font-medium">Статус</th>
-              <th className="px-4 py-3 text-left font-medium">Вердикт</th>
-              <th className="px-4 py-3 text-left font-medium">Балл</th>
-              <th className="px-4 py-3 text-left font-medium">Флаги</th>
-              <th className="px-4 py-3 text-left font-medium">Дата</th>
+              <th className="px-4 py-3 text-left font-medium">{t('dashboard.columns.candidate')}</th>
+              <th className="px-4 py-3 text-left font-medium">{t('dashboard.columns.role')}</th>
+              <th className="px-4 py-3 text-left font-medium">{t('dashboard.columns.status')}</th>
+              <th className="px-4 py-3 text-left font-medium">{t('dashboard.columns.verdict')}</th>
+              <th className="px-4 py-3 text-left font-medium">{t('dashboard.columns.score')}</th>
+              <th className="px-4 py-3 text-left font-medium">{t('dashboard.columns.flags')}</th>
+              <th className="px-4 py-3 text-left font-medium">{t('dashboard.columns.date')}</th>
             </tr>
           </thead>
           <tbody>
             {items.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
-                  Нет сессий отбора
+                  {t('dashboard.empty')}
                 </td>
               </tr>
             )}
@@ -357,9 +355,9 @@ export function SelectionDashboardPage() {
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3">{roleName(item.role)}</td>
+                  <td className="px-4 py-3">{roleName(t, item.role)}</td>
                   <td className="px-4 py-3">
-                    <Badge variant="outline">{statusBadge(item.status)}</Badge>
+                    <Badge variant="outline">{statusBadge(t, item.status)}</Badge>
                   </td>
                   <td className="px-4 py-3">
                     {item.verdict ? (
@@ -412,10 +410,10 @@ export function SelectionDashboardPage() {
             disabled={page === 1}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
-            ← Назад
+            {t('dashboard.pagination.prev')}
           </Button>
           <Typography variant="bodySm" tone="muted">
-            Страница {page} из {Math.ceil(data.total / data.pageSize)}
+            {t('dashboard.pagination.pageOf', { current: page, total: Math.ceil(data.total / data.pageSize) })}
           </Typography>
           <Button
             variant="outline"
@@ -423,7 +421,7 @@ export function SelectionDashboardPage() {
             disabled={page * data.pageSize >= data.total}
             onClick={() => setPage((p) => p + 1)}
           >
-            Далее →
+            {t('dashboard.pagination.next')}
           </Button>
         </div>
       )}
