@@ -14,7 +14,6 @@ import type { Role } from './requisitions/requisitions.fsm'
 import {
   canTransition as empCanTransition,
   canTransitionWithInvariants,
-  canTransitionWithOffboardingGate,
   satisfiesProbationTransitionInvariant,
   satisfiesOnboardingExitInvariant,
 } from './employees/employees.fsm'
@@ -55,17 +54,12 @@ describe('employees FSM — edge cases', () => {
     expect(satisfiesProbationTransitionInvariant('probation', 'active', undefined)).toBe(false)
   })
 
-  // GAP 3: canTransitionWithOffboardingGate без offboarding-аргумента
-  test('canTransitionWithOffboardingGate returns false when offboarding arg is missing', () => {
-    // notice → terminated без данных об offboarding → нельзя
-    expect(
-      canTransitionWithOffboardingGate('notice', 'terminated', ['hr_admin'], undefined),
-    ).toBe(false)
-
-    // Для других переходов отсутствие offboarding не блокирует
-    expect(
-      canTransitionWithOffboardingGate('active', 'notice', ['hr_admin'], undefined),
-    ).toBe(true)
+  // GAP 3: notice → terminated — только hr_admin и owner, не recruiter/hiring_manager
+  test('only hr_admin/owner can terminate employee from notice', () => {
+    expect(empCanTransition('notice', 'terminated', ['hr_admin'])).toBe(true)
+    expect(empCanTransition('notice', 'terminated', ['owner'])).toBe(true)
+    expect(empCanTransition('notice', 'terminated', ['hiring_manager'])).toBe(false)
+    expect(empCanTransition('notice', 'terminated', ['recruiter'])).toBe(false)
   })
 
   // GAP 4: hiring_manager явно НЕ может переводить active → notice
@@ -93,8 +87,8 @@ describe('employees FSM — edge cases', () => {
     expect(empCanTransition('pre_onboarding', 'terminated', ['recruiter'])).toBe(false)
   })
 
-  // Дополнительно: recruiter не может никуда перевести сотрудника кроме pre_onboarding → onboarding
-  test('recruiter cannot drive employee lifecycle except initial onboarding', () => {
+  // Дополнительно: recruiter не может никуда перевести сотрудника
+  test('recruiter cannot drive any employee lifecycle transition', () => {
     expect(empCanTransition('pre_onboarding', 'onboarding', ['recruiter'])).toBe(false)
     expect(empCanTransition('onboarding', 'probation', ['recruiter'])).toBe(false)
     expect(empCanTransition('active', 'notice', ['recruiter'])).toBe(false)
