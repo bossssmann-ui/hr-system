@@ -64,17 +64,25 @@ export function computeCrossCheckFlags(
       }
     }
 
-    // RED-1: Trap question — candidate claimed to know a non-existent TMS/methodology
-    // For logist: LogiTrack PRO X7; for sales_manager: LogiSales Framework 4.0
+    // RED-1: Trap question — candidate claimed to know a non-existent TMS/CRM.
+    // The candidate sees a randomly chosen trap value from the pool (see
+    // `stage-content.ts::pickRandomTrapKey`). They answer with one of three
+    // radio options; anything other than "Не работал" is a positive hit.
     const trapAnswer1 = answers['trap_answer_1'] ?? answers['trap_answer']
-    if (trapAnswer1 === true || trapAnswer1 === 'active' || trapAnswer1 === 'partial') {
+    const trapAnswer1IsHit =
+      trapAnswer1 === true ||
+      trapAnswer1 === 'active' ||
+      trapAnswer1 === 'partial' ||
+      trapAnswer1 === 'Активно использовал' ||
+      trapAnswer1 === 'Частично использовал'
+    if (trapAnswer1IsHit) {
       flags.push({
         id: 1,
         type: 'RED',
         description:
           role === 'logist'
-            ? 'Кандидат подтвердил знание несуществующей TMS LogiTrack PRO X7 (ловушка №1)'
-            : 'Кандидат подтвердил знание несуществующей методологии LogiSales Framework 4.0 (ловушка №1)',
+            ? 'Кандидат подтвердил знание несуществующей TMS (ловушка №1)'
+            : 'Кандидат подтвердил знание несуществующей CRM/системы (ловушка №1)',
         triggeredAt: 1,
       })
     }

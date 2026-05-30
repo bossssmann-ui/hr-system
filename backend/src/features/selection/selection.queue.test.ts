@@ -32,7 +32,7 @@ describe('computeCrossCheckFlags', () => {
     )
     expect(flags.map((f) => f.id).sort()).toEqual([1, 2])
     expect(flags.every((f) => f.type === 'RED')).toBe(true)
-    expect(flags[0]?.description).toContain('LogiTrack PRO X7')
+    expect(flags[0]?.description).toContain('несуществующей TMS')
   })
 
   test('uses sales-manager wording for traps when role=sales_manager', () => {
@@ -43,7 +43,28 @@ describe('computeCrossCheckFlags', () => {
       [],
     )
     expect(flags).toHaveLength(1)
-    expect(flags[0]?.description).toContain('LogiSales Framework 4.0')
+    expect(flags[0]?.description).toContain('несуществующей CRM')
+  })
+
+  test('flags the Russian-labelled trap answer when the candidate selected the trap', () => {
+    const flags = computeCrossCheckFlags(
+      1,
+      { trap_answer_1: 'Активно использовал' },
+      'logist',
+      [],
+    )
+    expect(flags).toHaveLength(1)
+    expect(flags[0]).toMatchObject({ id: 1, type: 'RED' })
+  })
+
+  test('does not flag the trap when the candidate selected "Не работал"', () => {
+    const flags = computeCrossCheckFlags(
+      1,
+      { trap_answer_1: 'Не работал' },
+      'logist',
+      [],
+    )
+    expect(flags).toEqual([])
   })
 
   test('L-scale ORANGE on stage 3 fires only when 3+ fives are present', () => {

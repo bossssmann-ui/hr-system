@@ -26,6 +26,15 @@ import {
   shouldAutoRejectAfterStage1,
   type CrossCheckFlag,
 } from './selection.queue'
+import {
+  applyChosenTrap,
+  getAllStagesContent,
+  pickRandomTrapKey,
+  scoreStage2,
+  type QuestionnaireStageContent,
+  type Role,
+  type StageContent,
+} from './stage-content'
 
 type RouteBindings = RoleGuardBindings & {
   Variables: {
@@ -54,37 +63,12 @@ const adminQuerySchema = z.object({
 })
 
 /**
- * Build the stages content for a given role. The actual question content is
- * static and defined in docs/assessment-system-design.md. At runtime we store
- * the stage metadata here; answers are stored per SelectionStageResult.
+ * Build the stages content for a given role. Full question content lives in
+ * `stage-content.ts` (single source of truth). The Stage 1 trap pool is kept
+ * in the template; the per-session chosen trap key is injected at GET time.
  */
-function buildStages(role: 'logist' | 'sales_manager') {
-  return [
-    {
-      stage: 1,
-      title: role === 'logist' ? 'Анкета-скрининг (Логист-экспедитор)' : 'Анкета-скрининг (Менеджер по продажам ТЭУ)',
-      type: 'questionnaire',
-      timeLimitMin: null,
-    },
-    {
-      stage: 2,
-      title: role === 'logist' ? 'Профессиональный тест (Логист-экспедитор)' : 'Профессиональный тест (Менеджер по продажам ТЭУ)',
-      type: 'test',
-      timeLimitMin: 30,
-    },
-    {
-      stage: 3,
-      title: role === 'logist' ? 'Психологический тест (Логист-экспедитор)' : 'Психологический тест (Менеджер по продажам ТЭУ)',
-      type: 'psychology',
-      timeLimitMin: null,
-    },
-    {
-      stage: 4,
-      title: role === 'logist' ? 'Тестовое задание (Логист-экспедитор)' : 'Тестовое задание (Менеджер по продажам ТЭУ)',
-      type: 'assignment',
-      timeLimitMin: 45,
-    },
-  ]
+function buildStages(role: Role): StageContent[] {
+  return getAllStagesContent(role)
 }
 
 function stageNumberForStatus(status: string): number | null {
@@ -139,7 +123,11 @@ export function createSelectionRoutes() {
         })
       }
 
-      // Create session
+      // Create session with a per-session randomly chosen Stage-1 trap. The
+      // chosen trap value is stored in `flags.chosen_trap_key` so cross-check
+      // (RED-1) can verify the answer matches the trap and so we never leak
+      // the other trap pool members to the candidate.
+      const chosenTrapKey = pickRandomTrapKey(body.role)
       const session = await prisma.selectionSession.create({
         data: {
           tenantId,
@@ -147,6 +135,7 @@ export function createSelectionRoutes() {
           applicationId: body.applicationId ?? null,
           status: 'pending',
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+          flags: { chosen_trap_key: chosenTrapKey } as Prisma.InputJsonValue,
         },
       })
 
@@ -206,8 +195,26 @@ export function createSelectionRoutes() {
     }
 
     const stageNum = stageNumberForStatus(status)
-    const stages = Array.isArray(session.template.stages) ? session.template.stages : []
-    const currentStage = stageNum !== null ? stages[stageNum - 1] ?? null : null
+    const stages = Array.isArray(session.template.stages)
+      ? (session.template.stages as unknown as StageContent[])
+      : []
+    let currentStage: StageContent | null =
+      stageNum !== null ? stages[stageNum - 1] ?? null : null
+
+    // Stage 1: apply the per-session chosen trap so the candidate sees only
+    // the trap question they were randomly assigned (other trap pool members
+    // must never be revealed to avoid trivial workarounds).
+    if (currentStage && currentStage.stage === 1 && currentStage.type === 'questionnaire') {
+      const flags = (session.flags ?? {}) as Record<string, unknown>
+      const rawChosen = flags['chosen_trap_key']
+      const chosen = typeof rawChosen === 'string' ? rawChosen : null
+      if (chosen) {
+        currentStage = applyChosenTrap(
+          currentStage as QuestionnaireStageContent,
+          chosen,
+        )
+      }
+    }
 
     return c.json({
       sessionId: session.id,
@@ -282,13 +289,31 @@ export function createSelectionRoutes() {
         })),
       )
 
-      // Save stage result
+      // Save stage result. For Stage 2 we auto-score radio questions
+      // server-side so the AI evaluator and HR dashboard always have a
+      // deterministic baseline score for the test (open questions are
+      // scored by the AI downstream).
+      let scoresJson: Prisma.InputJsonValue | undefined
+      if (n === 2) {
+        const result = scoreStage2(
+          session.template.role as Role,
+          body.answers as Record<string, unknown>,
+        )
+        scoresJson = {
+          autoScore: result.autoScore,
+          autoMax: result.autoMax,
+          stageMax: result.stageMax,
+          perQuestion: result.perQuestion,
+        } as Prisma.InputJsonValue
+      }
+
       await prisma.selectionStageResult.create({
         data: {
           sessionId: session.id,
           stageNumber: n,
           answers: body.answers as Prisma.InputJsonValue,
           flags: flags as unknown as Prisma.InputJsonValue,
+          ...(scoresJson !== undefined ? { scores: scoresJson } : {}),
         },
       })
 
