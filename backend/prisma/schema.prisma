@@ -708,6 +708,7 @@ model SelectionSession {
   startedAt     DateTime? @map("started_at")
   completedAt   DateTime? @map("completed_at")
   expiresAt     DateTime? @map("expires_at")
+  flags         Json?
   createdAt     DateTime  @default(now()) @map("created_at")
 
   template     SelectionTemplate      @relation(fields: [templateId], references: [id])
