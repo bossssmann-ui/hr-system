@@ -23,6 +23,7 @@ import { AppError } from '../../http/errors'
 import {
   enqueueSelectionEvaluate,
   computeCrossCheckFlags,
+  shouldAutoRejectAfterStage1,
   type CrossCheckFlag,
 } from './selection.queue'
 
@@ -290,6 +291,43 @@ export function createSelectionRoutes() {
           flags: flags as unknown as Prisma.InputJsonValue,
         },
       })
+
+      // Stage 1 auto-rejection (Phase 14 §6 / §11): 2+ RED flags or any
+      // stop-criterion cause an immediate rejection WITHOUT calling the AI
+      // evaluator. We persist a deterministic verdict so HR still sees why.
+      if (n === 1 && shouldAutoRejectAfterStage1(flags)) {
+        const verdictReason =
+          'Автоматический отказ на Этапе 1: сработал стоп-критерий или 2+ КРАСНЫХ флага cross-check. AI-оценщик не вызывался.'
+        const hrNotes = 'Решение вынесено детерминированно без обращения к AI-оценщику.'
+        const stageScores = { stage_2_score: 0, stage_3_score: 0, stage_4_score: 0 } as Prisma.InputJsonValue
+        await prisma.selectionSession.update({
+          where: { id: session.id },
+          data: { status: 'rejected', completedAt: new Date() },
+        })
+        await prisma.selectionVerdict.upsert({
+          where: { sessionId: session.id },
+          update: {
+            verdict: 'ОТКЛОНИТЬ',
+            totalWeightedScore: new Prisma.Decimal(0),
+            stageScores,
+            crossCheckFlags: flags as unknown as Prisma.InputJsonValue,
+            lieScaleResult: Prisma.JsonNull,
+            verdictReason,
+            hrNotes,
+          },
+          create: {
+            sessionId: session.id,
+            verdict: 'ОТКЛОНИТЬ',
+            totalWeightedScore: new Prisma.Decimal(0),
+            stageScores,
+            crossCheckFlags: flags as unknown as Prisma.InputJsonValue,
+            lieScaleResult: Prisma.JsonNull,
+            verdictReason,
+            hrNotes,
+          },
+        })
+        return c.json({ submitted: true, nextStatus: 'rejected', autoRejected: true })
+      }
 
       // Determine next status
       const nextSt = n < 4 ? `stage_${n + 1}` : 'completed'
