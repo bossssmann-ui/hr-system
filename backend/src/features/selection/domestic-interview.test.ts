@@ -17,12 +17,12 @@ const withRemote: SpecializationAssignment[] = [
 ]
 
 function mockClassifyFetch(result: { specializations: SpecializationAssignment[], riskFlags: string[] }) {
-  return async (_url: string, _init?: RequestInit) => ({
+  return (async (_url: string, _init?: RequestInit) => ({
     ok: true, status: 200,
     json: async () => ({
       candidates: [{ content: { parts: [{ text: JSON.stringify(result) }] } }]
     })
-  }) as unknown as Response
+  })) as unknown as typeof fetch
 }
 
 describe('buildInterviewQuestions', () => {
@@ -59,16 +59,16 @@ describe('classifyInterviewAnswers', () => {
     expect(result.riskFlags).toBeDefined()
   })
   it('при ошибке Gemini возвращает исходные specializations', async () => {
-    const errorFetch = async () => ({ ok: false, status: 500, json: async () => ({}) }) as unknown as Response
+    const errorFetch = (async () => ({ ok: false, status: 500, json: async () => ({}) })) as unknown as typeof fetch
     const result = await classifyInterviewAnswers(coreOnly, {}, 'key', errorFetch)
     expect(result.specializations).toEqual(coreOnly)
     expect(result.riskFlags).toEqual([])
   })
   it('если Gemini вернул невалидный JSON — graceful fallback', async () => {
-    const badFetch = async () => ({
+    const badFetch = (async () => ({
       ok: true, status: 200,
       json: async () => ({ candidates: [{ content: { parts: [{ text: 'не json' }] } }] })
-    }) as unknown as Response
+    })) as unknown as typeof fetch
     const result = await classifyInterviewAnswers(coreOnly, {}, 'key', badFetch)
     expect(result.specializations).toEqual(coreOnly)
   })

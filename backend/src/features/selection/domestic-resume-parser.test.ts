@@ -3,7 +3,7 @@ import { parseResume } from './domestic-resume-parser'
 
 // Mock fetch factory
 function mockFetch(signals: string[]) {
-  return async (_url: string, _init?: RequestInit) => ({
+  return (async (_url: string, _init?: RequestInit) => ({
     ok: true,
     status: 200,
     json: async () => ({
@@ -11,11 +11,11 @@ function mockFetch(signals: string[]) {
         content: { parts: [{ text: JSON.stringify(signals) }] }
       }]
     })
-  }) as unknown as Response
+  })) as unknown as typeof fetch
 }
 
 function errorFetch() {
-  return async () => ({ ok: false, status: 429, json: async () => ({}) }) as unknown as Response
+  return (async () => ({ ok: false, status: 429, json: async () => ({}) })) as unknown as typeof fetch
 }
 
 describe('parseResume', () => {
@@ -39,10 +39,10 @@ describe('parseResume', () => {
     await expect(parseResume('текст', 'key', errorFetch())).rejects.toThrow()
   })
   it('если Gemini вернул не массив — возвращает пустой signals', async () => {
-    const badFetch = async () => ({
+    const badFetch = (async () => ({
       ok: true, status: 200,
       json: async () => ({ candidates: [{ content: { parts: [{ text: 'не массив' }] } }] })
-    }) as unknown as Response
+    })) as unknown as typeof fetch
     const result = await parseResume('текст', 'key', badFetch)
     expect(result.signals).toEqual([])
   })
