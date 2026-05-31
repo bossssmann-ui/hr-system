@@ -476,6 +476,8 @@ export function createSelectionRoutes() {
                 createdAt: s.verdict.createdAt.toISOString(),
               }
             : null,
+          specializations: s.specializations ?? null,
+          assessmentProfile: s.assessmentProfile ?? null,
         })),
       })
     },

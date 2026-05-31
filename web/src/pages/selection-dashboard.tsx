@@ -149,6 +149,29 @@ function generateRecruiterQuestions(riskFlags: string[], _specializations: Speci
   return questions
 }
 
+function parseSpecializations(raw: unknown): SpecializationAssignment[] | undefined {
+  if (!Array.isArray(raw)) return undefined
+  return raw.filter(
+    (item): item is SpecializationAssignment =>
+      typeof item === 'object' &&
+      item !== null &&
+      'packageId' in item &&
+      'level' in item &&
+      typeof (item as { packageId: unknown }).packageId === 'string',
+  )
+}
+
+function parseAssessmentProfile(raw: unknown): { signals?: string[]; riskFlags?: string[] } | undefined {
+  if (typeof raw !== 'object' || raw === null) return undefined
+  const obj = raw as Record<string, unknown>
+  const signals = Array.isArray(obj.signals) ? obj.signals.filter((x): x is string => typeof x === 'string') : undefined
+  const riskFlags = Array.isArray(obj.riskFlags)
+    ? obj.riskFlags.filter((x): x is string => typeof x === 'string')
+    : undefined
+  if (signals === undefined && riskFlags === undefined) return undefined
+  return { signals, riskFlags }
+}
+
 function parseCrossCheckFlags(raw: unknown): CrossCheckFlag[] {
   if (!Array.isArray(raw)) return []
   return raw.filter(
@@ -490,7 +513,13 @@ export function SelectionDashboardPage() {
                 <tr
                   key={item.id}
                   className="cursor-pointer border-b transition-colors hover:bg-muted/30"
-                  onClick={() => setSelected(item)}
+                  onClick={() =>
+                    setSelected({
+                      ...item,
+                      specializations: parseSpecializations(item.specializations),
+                      assessmentProfile: parseAssessmentProfile(item.assessmentProfile),
+                    })
+                  }
                 >
                   <td className="px-4 py-3">
                     <span className="font-mono text-xs text-muted-foreground">
