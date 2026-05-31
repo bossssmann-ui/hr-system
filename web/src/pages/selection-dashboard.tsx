@@ -1,5 +1,6 @@
 /**
  * Phase 2 — Selection System HR dashboard.
+ * Phase 16 — Extended for logist_domestic role.
  *
  * Protected route: /selection/dashboard
  * Lists all selection sessions with verdict, score, and cross-check flags.
@@ -28,6 +29,20 @@ type CrossCheckFlag = {
   triggeredAt?: number
 }
 
+type SpecializationAssignment = {
+  packageId: string
+  level: 'primary' | 'secondary' | 'mentioned_only' | 'contradicted'
+}
+
+type DomesticStageScores = {
+  resumeAndInterviewScore?: number
+  coreOperationsScore?: number
+  primarySpecScore?: number
+  secondarySpecScore?: number
+  practicalAssignmentScore?: number
+  communicationScore?: number
+}
+
 type SelectionItem = {
   id: string
   token: string
@@ -44,6 +59,11 @@ type SelectionItem = {
     crossCheckFlags: unknown
     createdAt: string
   } | null
+  specializations?: SpecializationAssignment[]
+  assessmentProfile?: {
+    signals?: string[]
+    riskFlags?: string[]
+  }
 }
 
 function verdictBadgeVariant(verdict: string): 'default' | 'outline' | 'secondary' | 'destructive' {
@@ -61,7 +81,72 @@ function statusBadge(t: TFunction<'selection'>, status: string) {
 function roleName(t: TFunction<'selection'>, role: string) {
   if (role === 'logist') return t('dashboard.roles.logistShort')
   if (role === 'sales_manager') return t('dashboard.roles.salesManagerShort')
+  if (role === 'logist_domestic') return 'Логист (РФ)'
   return role
+}
+
+// ─── Domestic helpers ─────────────────────────────────────────────────────────
+
+function packageName(packageId: string): string {
+  const names: Record<string, string> = {
+    domestic_core_operations: 'Базовые операции',
+    domestic_road_ftl_ltl: 'Авто FTL/LTL',
+    domestic_distribution: 'Развозка',
+    domestic_rail_container: 'ЖД и контейнеры',
+    domestic_oversized_heavy: 'Негабарит',
+    domestic_remote_regions: 'Труднодоступные регионы',
+    domestic_cabotage: 'Каботаж',
+  }
+  return names[packageId] ?? packageId
+}
+
+function levelName(level: string): string {
+  const levels: Record<string, string> = {
+    primary: 'Основной',
+    secondary: 'Дополнительный',
+    mentioned_only: 'Упомянут',
+    contradicted: '⚠ Противоречие',
+  }
+  return levels[level] ?? level
+}
+
+function domesticVerdictVariant(verdict: string): 'default' | 'outline' | 'secondary' | 'destructive' {
+  if (verdict === 'STRONG_CANDIDATE' || verdict === 'ADMIT_TO_INTERVIEW') return 'default'
+  if (verdict === 'REJECT' || verdict === 'AUTO_REJECT') return 'destructive'
+  if (verdict === 'MANUAL_REVIEW_HR' || verdict === 'MANUAL_EXCEPTION_ONLY') return 'secondary'
+  return 'outline'
+}
+
+function domesticVerdictLabel(verdict: string): string {
+  const labels: Record<string, string> = {
+    STRONG_CANDIDATE: '⭐ Сильный кандидат',
+    ADMIT_TO_INTERVIEW: '✓ Допустить',
+    MANUAL_EXCEPTION_ONLY: '⚡ Ручное исключение',
+    REJECT: '✕ Отклонить',
+    MANUAL_REVIEW_HR: '🔍 Ручная проверка',
+    AUTO_REJECT: '✕ Авто-отказ',
+  }
+  return labels[verdict] ?? verdict
+}
+
+function generateRecruiterQuestions(riskFlags: string[], _specializations: SpecializationAssignment[]): string[] {
+  const questions: string[] = [
+    'Назовите последний рейс который вы вели от заявки до закрывающих документов.',
+    'Что именно было вашей зоной ответственности?',
+  ]
+  if (riskFlags.includes('oversized_depth_risk')) {
+    questions.push('Назовите реальные габариты и вес негабаритного груза который вы перевозили.')
+    questions.push('Кто оформлял разрешения и как вы контролировали готовность?')
+  }
+  if (riskFlags.includes('remote_region_depth_risk')) {
+    questions.push('Какие труднодоступные направления вы реально вели?')
+    questions.push('Как проверяли сезонность и доступность маршрута?')
+  }
+  if (riskFlags.includes('cabotage_depth_risk')) {
+    questions.push('С какими портами и линиями вы реально работали?')
+    questions.push('Как организовывали вывоз из порта?')
+  }
+  return questions
 }
 
 function parseCrossCheckFlags(raw: unknown): CrossCheckFlag[] {
@@ -98,6 +183,7 @@ function VerdictDetail({
   const orangeCount = flags.filter((f) => f.type === 'ORANGE').length
 
   const fullVerdict = verdictQuery.data
+  const isDomestic = session.role === 'logist_domestic'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
@@ -151,7 +237,7 @@ function VerdictDetail({
               )}
 
               {/* Full verdict detail */}
-              {fullVerdict && (
+              {fullVerdict != null && (
                 <>
                   {fullVerdict.verdictReason && (
                     <div className="grid gap-1">
@@ -165,7 +251,7 @@ function VerdictDetail({
                       <Typography variant="bodySm" tone="muted">{fullVerdict.hrNotes}</Typography>
                     </div>
                   )}
-                  {fullVerdict.stageScores && typeof fullVerdict.stageScores === 'object' && (
+                  {!isDomestic && Boolean(fullVerdict.stageScores) && typeof fullVerdict.stageScores === 'object' && (
                     <div className="grid gap-1">
                       <Typography className="text-sm font-medium">{t('dashboard.detail.stageScores')}</Typography>
                       <pre className="rounded-md bg-muted px-3 py-2 text-xs">
@@ -174,6 +260,66 @@ function VerdictDetail({
                     </div>
                   )}
                 </>
+              )}
+
+              {/* Domestic: Specializations */}
+              {isDomestic && session.specializations && session.specializations.length > 0 && (
+                <div className="grid gap-2">
+                  <Typography className="text-sm font-medium">Специализации</Typography>
+                  <ul className="grid gap-1">
+                    {session.specializations.map((spec) => (
+                      <li key={spec.packageId} className="flex items-center justify-between text-sm">
+                        <span>{packageName(spec.packageId)}</span>
+                        <Badge variant={spec.level === 'contradicted' ? 'destructive' : 'outline'} className="text-xs">
+                          {levelName(spec.level)}
+                        </Badge>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Domestic: Module scores */}
+              {isDomestic && Boolean(fullVerdict?.stageScores) && typeof fullVerdict?.stageScores === 'object' &&
+                fullVerdict?.stageScores != null && 'resumeAndInterviewScore' in (fullVerdict.stageScores as object) && (
+                <div className="grid gap-2">
+                  <Typography className="text-sm font-medium">Баллы по модулям</Typography>
+                  <div className="grid gap-1 text-sm">
+                    {Object.entries(fullVerdict.stageScores as DomesticStageScores).map(([key, val]) =>
+                      val !== undefined ? (
+                        <div key={key} className="flex justify-between">
+                          <span className="text-muted-foreground">{key}</span>
+                          <span className="font-medium">{typeof val === 'number' ? val.toFixed(1) : String(val)}</span>
+                        </div>
+                      ) : null
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Domestic: Verdict badge */}
+              {isDomestic && session.verdict && (
+                <div className="flex items-center gap-2">
+                  <Typography className="text-sm font-medium">Domestic вердикт:</Typography>
+                  <Badge variant={domesticVerdictVariant(session.verdict.verdict)}>
+                    {domesticVerdictLabel(session.verdict.verdict)}
+                  </Badge>
+                </div>
+              )}
+
+              {/* Domestic: Recruiter questions */}
+              {isDomestic && (
+                <div className="grid gap-2 rounded-md border border-dashed p-3">
+                  <Typography className="text-sm font-medium">📋 Вопросы для рекрутера</Typography>
+                  <ol className="grid gap-1 pl-4">
+                    {generateRecruiterQuestions(
+                      session.assessmentProfile?.riskFlags ?? [],
+                      session.specializations ?? []
+                    ).map((q, i) => (
+                      <li key={i} className="text-sm text-muted-foreground">{i + 1}. {q}</li>
+                    ))}
+                  </ol>
+                </div>
               )}
             </div>
           ) : (
@@ -217,7 +363,7 @@ export function SelectionDashboardPage() {
   const { t } = useTranslation('selection')
   const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
-  const [roleFilter, setRoleFilter] = useState<'logist' | 'sales_manager' | ''>('')
+  const [roleFilter, setRoleFilter] = useState<'logist' | 'sales_manager' | 'logist_domestic' | ''>('')
   const [selected, setSelected] = useState<SelectionItem | null>(null)
 
   const sessionsQuery = useQuery({
@@ -309,6 +455,7 @@ export function SelectionDashboardPage() {
           <option value="">{t('dashboard.allRoles')}</option>
           <option value="logist">{t('dashboard.roles.logist')}</option>
           <option value="sales_manager">{t('dashboard.roles.sales_manager')}</option>
+          <option value="logist_domestic">Логист (РФ)</option>
         </select>
       </div>
 

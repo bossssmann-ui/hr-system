@@ -496,7 +496,7 @@ export class ApiClient {
     page?: number
     pageSize?: number
     vacancyId?: string
-    role?: 'logist' | 'sales_manager'
+    role?: 'logist' | 'sales_manager' | 'logist_domestic'
   }): Promise<{
     total: number
     page: number
