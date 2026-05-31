@@ -151,24 +151,29 @@ function generateRecruiterQuestions(riskFlags: string[], _specializations: Speci
 
 function parseSpecializations(raw: unknown): SpecializationAssignment[] | undefined {
   if (!Array.isArray(raw)) return undefined
+  const validLevels: ReadonlyArray<SpecializationAssignment['level']> = [
+    'primary',
+    'secondary',
+    'mentioned_only',
+    'contradicted',
+  ]
   return raw.filter(
     (item): item is SpecializationAssignment =>
       typeof item === 'object' &&
       item !== null &&
-      'packageId' in item &&
-      'level' in item &&
-      typeof (item as { packageId: unknown }).packageId === 'string',
+      typeof (item as { packageId?: unknown }).packageId === 'string' &&
+      validLevels.includes((item as { level?: unknown }).level as SpecializationAssignment['level']),
   )
 }
 
-function parseAssessmentProfile(raw: unknown): { signals?: string[]; riskFlags?: string[] } | undefined {
+function parseAssessmentProfile(raw: unknown): { signals: string[]; riskFlags: string[] } | undefined {
   if (typeof raw !== 'object' || raw === null) return undefined
   const obj = raw as Record<string, unknown>
-  const signals = Array.isArray(obj.signals) ? obj.signals.filter((x): x is string => typeof x === 'string') : undefined
+  const signals = Array.isArray(obj.signals) ? obj.signals.filter((x): x is string => typeof x === 'string') : []
   const riskFlags = Array.isArray(obj.riskFlags)
     ? obj.riskFlags.filter((x): x is string => typeof x === 'string')
-    : undefined
-  if (signals === undefined && riskFlags === undefined) return undefined
+    : []
+  if (signals.length === 0 && riskFlags.length === 0) return undefined
   return { signals, riskFlags }
 }
 
