@@ -481,5 +481,141 @@ export function createSelectionRoutes() {
     },
   )
 
+
+  // ─── POST /api/selection/sessions/:token/resume — parse resume (domestic only) ──
+  app.post('/sessions/:token/resume', async (c) => {
+    const env = c.env as AppEnv
+    if (!env.ASSESSMENT_SYSTEM_ENABLED) return c.json({ error: 'Not found' }, 404)
+
+    const prisma = c.get('prisma')
+    const { token } = c.req.param()
+    const body = await c.req.json().catch(() => null)
+    if (!body?.resumeText || typeof body.resumeText !== 'string') {
+      return c.json({ error: 'resumeText required' }, 400)
+    }
+
+    const session = await prisma.selectionSession.findUnique({
+      where: { token },
+      include: { template: true },
+    })
+    if (!session) return c.json({ error: 'Not found' }, 404)
+    if (session.template?.role !== 'logist_domestic') {
+      return c.json({ error: 'Not applicable for this role' }, 400)
+    }
+    if (session.status !== 'pending') {
+      return c.json({ error: 'Resume already submitted' }, 400)
+    }
+
+    if (!env.GEMINI_API_KEY) return c.json({ error: 'AI unavailable' }, 503)
+
+    const { parseResume } = await import('./domestic-resume-parser')
+    const { selectSpecializations } = await import('./domestic-specializations')
+
+    const parsed = await parseResume(body.resumeText, env.GEMINI_API_KEY)
+    const specializations = selectSpecializations(parsed.signals)
+
+    await prisma.selectionSession.update({
+      where: { id: session.id },
+      data: {
+        status: 'resume_parsed',
+        specializations: specializations as unknown as Prisma.InputJsonValue,
+        assessmentProfile: {
+          signals: parsed.signals,
+        } as unknown as Prisma.InputJsonValue,
+      },
+    })
+
+    return c.json({ signals: parsed.signals, specializations })
+  })
+
+  // ─── GET /api/selection/sessions/:token/interview — get interview questions ──
+  app.get('/sessions/:token/interview', async (c) => {
+    const env = c.env as AppEnv
+    if (!env.ASSESSMENT_SYSTEM_ENABLED) return c.json({ error: 'Not found' }, 404)
+
+    const prisma = c.get('prisma')
+    const { token } = c.req.param()
+    const session = await prisma.selectionSession.findUnique({ where: { token }, include: { template: true } })
+    if (!session) return c.json({ error: 'Not found' }, 404)
+    if (session.template?.role !== 'logist_domestic') {
+      return c.json({ error: 'Not applicable for this role' }, 400)
+    }
+    if (session.status !== 'resume_parsed') {
+      return c.json({ error: 'Resume must be submitted first' }, 400)
+    }
+
+    const { buildInterviewQuestions } = await import('./domestic-interview')
+    const specs = Array.isArray(session.specializations)
+      ? (session.specializations as unknown as import('./domestic-specializations').SpecializationAssignment[])
+      : []
+
+    const questions = buildInterviewQuestions(specs)
+    return c.json({ questions })
+  })
+
+  // ─── POST /api/selection/sessions/:token/interview — submit interview answers ──
+  app.post('/sessions/:token/interview', async (c) => {
+    const env = c.env as AppEnv
+    if (!env.ASSESSMENT_SYSTEM_ENABLED) return c.json({ error: 'Not found' }, 404)
+
+    const prisma = c.get('prisma')
+    const { token } = c.req.param()
+    const body = await c.req.json().catch(() => null)
+    if (!body?.answers || typeof body.answers !== 'object') {
+      return c.json({ error: 'answers required' }, 400)
+    }
+
+    const session = await prisma.selectionSession.findUnique({ where: { token }, include: { template: true } })
+    if (!session) return c.json({ error: 'Not found' }, 404)
+    if (session.template?.role !== 'logist_domestic') {
+      return c.json({ error: 'Not applicable for this role' }, 400)
+    }
+    if (session.status !== 'resume_parsed') {
+      return c.json({ error: 'Resume must be submitted first' }, 400)
+    }
+
+    if (!env.GEMINI_API_KEY) return c.json({ error: 'AI unavailable' }, 503)
+
+    const { classifyInterviewAnswers } = await import('./domestic-interview')
+    const { createCapacityGuard } = await import('./capacity-guard')
+    const guard = createCapacityGuard()
+
+    if (!guard.canStart()) {
+      return c.json({
+        error: 'AI interview capacity reached',
+        retryAfterMinutes: guard.getNextSlotMinutes(),
+      }, 503)
+    }
+
+    const specs = Array.isArray(session.specializations)
+      ? (session.specializations as unknown as import('./domestic-specializations').SpecializationAssignment[])
+      : []
+
+    guard.register(session.id)
+    let classification
+    try {
+      classification = await classifyInterviewAnswers(specs, body.answers, env.GEMINI_API_KEY)
+    } finally {
+      guard.release(session.id)
+    }
+
+    await prisma.selectionSession.update({
+      where: { id: session.id },
+      data: {
+        status: 'packages_assigned',
+        specializations: classification.specializations as unknown as Prisma.InputJsonValue,
+        assessmentProfile: {
+          ...(session.assessmentProfile as object ?? {}),
+          riskFlags: classification.riskFlags,
+        } as unknown as Prisma.InputJsonValue,
+      },
+    })
+
+    return c.json({
+      specializations: classification.specializations,
+      riskFlags: classification.riskFlags,
+    })
+  })
+
   return app
 }
