@@ -517,6 +517,8 @@ export class ApiClient {
         crossCheckFlags: unknown
         createdAt: string
       } | null
+      specializations: unknown
+      assessmentProfile: unknown
     }>
   }> {
     const qs = new URLSearchParams()
@@ -550,6 +552,8 @@ export class ApiClient {
                 createdAt: z.string(),
               })
               .nullable(),
+            specializations: z.unknown(),
+            assessmentProfile: z.unknown(),
           }),
         ),
       }),
