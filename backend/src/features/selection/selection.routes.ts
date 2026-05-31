@@ -195,10 +195,31 @@ export function createSelectionRoutes() {
       })
     }
 
+    // Auto-transition packages_assigned → stage_1 (domestic logist: specializations assigned)
+    if (status === 'packages_assigned' && isDomesticRole(session.template.role ?? '')) {
+      status = 'stage_1'
+      startedAt = startedAt ?? new Date()
+      await prisma.selectionSession.update({
+        where: { id: session.id },
+        data: { status, startedAt },
+      })
+    }
+
     const stageNum = stageNumberForStatus(status)
-    const stages = Array.isArray(session.template.stages)
-      ? (session.template.stages as unknown as StageContent[])
-      : []
+
+    // For domestic role: build stages dynamically from assigned specializations
+    // instead of the static template stages.
+    let stages: StageContent[]
+    if (isDomesticRole(session.template.role ?? '') && Array.isArray(session.specializations) && (session.specializations as unknown[]).length > 0) {
+      const { buildDomesticStages } = await import('./domestic-stage-content')
+      stages = buildDomesticStages(
+        session.specializations as unknown as import('./domestic-specializations').SpecializationAssignment[],
+      )
+    } else {
+      stages = Array.isArray(session.template.stages)
+        ? (session.template.stages as unknown as StageContent[])
+        : []
+    }
     let currentStage: StageContent | null =
       stageNum !== null ? stages[stageNum - 1] ?? null : null
 

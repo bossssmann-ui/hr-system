@@ -32,7 +32,9 @@ const backendEnv = normalizeEnv({
   CORS_ORIGINS: [frontendUrl, 'http://localhost:5173'].join(','),
   COOKIE_SECURE: 'false',
   ASSESSMENTS_ENABLED: 'true',
+  ASSESSMENT_SYSTEM_ENABLED: 'true',
   PROCTORING_WEBCAM_ENABLED: 'false',
+  MAX_ACTIVE_AI_INTERVIEWS: '5',
 })
 
 export default defineConfig({
