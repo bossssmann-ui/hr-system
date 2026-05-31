@@ -7,13 +7,14 @@
  * POST /api/selection/sessions/:token/stage/:n
  */
 
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
+import { Spinner } from '@/components/ui/spinner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Typography } from '@/components/ui/typography'
@@ -329,6 +330,174 @@ function GenericStageForm({
   )
 }
 
+// ─── Domestic-only: Resume step ─────────────────────────────────────────────
+
+function ResumeStep({
+  token,
+  onDone,
+}: {
+  token: string
+  onDone: () => void
+}) {
+  const { t } = useTranslation('selection')
+  const [text, setText] = useState('')
+
+  const submit = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/selection/sessions/${token}/resume`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resumeText: text }),
+      })
+      if (!res.ok) throw new ApiRequestError(res.status, 'REQUEST_FAILED', await res.text())
+      return res.json()
+    },
+    onSuccess: onDone,
+    onError: () => toast.error(t('candidate.errorSubmit')),
+  })
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t('candidate.resumeStep.title')}</CardTitle>
+        <CardDescription>{t('candidate.resumeStep.description')}</CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-4">
+        <textarea
+          className="min-h-[200px] w-full rounded-md border bg-background px-3 py-2 text-sm"
+          placeholder={t('candidate.resumeStep.placeholder')}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        />
+        <Button
+          onClick={() => submit.mutate()}
+          disabled={!text.trim() || submit.isPending}
+        >
+          {submit.isPending ? t('candidate.submitting') : t('candidate.resumeStep.submit')}
+        </Button>
+      </CardContent>
+    </Card>
+  )
+}
+
+// ─── Domestic-only: AI-interview step ───────────────────────────────────────
+
+function InterviewStep({
+  token,
+  onDone,
+}: {
+  token: string
+  onDone: () => void
+}) {
+  const { t } = useTranslation('selection')
+  const [answers, setAnswers] = useState<Record<string, string>>({})
+
+  const questionsQuery = useQuery({
+    queryKey: ['interview-questions', token],
+    queryFn: async () => {
+      const res = await fetch(`/api/selection/sessions/${token}/interview`)
+      if (!res.ok) throw new ApiRequestError(res.status, 'REQUEST_FAILED', await res.text())
+      return res.json() as Promise<{ questions: Array<{ key: string; text: string; hint?: string }> }>
+    },
+  })
+
+  const submit = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/selection/sessions/${token}/interview`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answers }),
+      })
+      if (!res.ok) throw new ApiRequestError(res.status, 'REQUEST_FAILED', await res.text())
+      return res.json()
+    },
+    onSuccess: onDone,
+    onError: () => toast.error(t('candidate.errorSubmit')),
+  })
+
+  if (questionsQuery.isPending) {
+    return (
+      <Card>
+        <CardContent className="flex items-center gap-3 py-6">
+          <Spinner />
+          <Typography variant="bodySm" tone="muted">{t('candidate.loading')}</Typography>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (questionsQuery.isError) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('candidate.unavailableTitle')}</CardTitle>
+          <CardDescription>{t('candidate.errorLoad')}</CardDescription>
+        </CardHeader>
+      </Card>
+    )
+  }
+
+  const questions = questionsQuery.data?.questions ?? []
+  const allAnswered = questions.every((q) => (answers[q.key] ?? '').trim().length > 0)
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t('candidate.interviewStep.title')}</CardTitle>
+        <CardDescription>{t('candidate.interviewStep.description')}</CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-6">
+        {questions.map((q, i) => (
+          <div key={q.key} className="grid gap-2">
+            <Typography variant="bodySm" className="font-medium">
+              {i + 1}. {q.text}
+            </Typography>
+            {q.hint && (
+              <Typography variant="bodySm" tone="muted">{q.hint}</Typography>
+            )}
+            <textarea
+              className="min-h-[80px] w-full rounded-md border bg-background px-3 py-2 text-sm"
+              placeholder={t('candidate.interviewStep.answerPlaceholder')}
+              value={answers[q.key] ?? ''}
+              onChange={(e) => setAnswers((prev) => ({ ...prev, [q.key]: e.target.value }))}
+            />
+          </div>
+        ))}
+        <Button
+          onClick={() => submit.mutate()}
+          disabled={!allAnswered || submit.isPending}
+        >
+          {submit.isPending ? t('candidate.submitting') : t('candidate.interviewStep.submit')}
+        </Button>
+      </CardContent>
+    </Card>
+  )
+}
+
+// ─── Domestic-only: progress bar ────────────────────────────────────────────
+
+function DomesticProgressBar({ status }: { status: string }) {
+  const { t } = useTranslation('selection')
+  const steps = ['pending', 'resume_parsed', 'packages_assigned', 'stage_1', 'stage_2', 'stage_3', 'stage_4']
+  const currentIdx = steps.indexOf(status)
+
+  return (
+    <div className="flex items-center gap-1.5">
+      {steps.map((step, i) => (
+        <div
+          key={step}
+          className={`h-2.5 w-2.5 rounded-full ${
+            i <= currentIdx ? 'bg-primary' : 'bg-muted-foreground/30'
+          }`}
+        />
+      ))}
+      <Typography variant="bodySm" tone="muted" className="ml-1">
+        {t(`candidate.domesticStatus.${status}`, { defaultValue: status })}
+      </Typography>
+    </div>
+  )
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export function PublicSelectionPage() {
@@ -336,13 +505,18 @@ export function PublicSelectionPage() {
   const token = params.token ?? ''
   const { api } = useAuth()
   const { t } = useTranslation('selection')
+  const queryClient = useQueryClient()
   const [locallyCompleted, setLocallyCompleted] = useState(false)
 
   const sessionQuery = useQuery({
     queryKey: ['selection-public', token],
     queryFn: () => api.getSelectionSession(token),
     enabled: Boolean(token),
-    refetchInterval: 3000,
+    refetchInterval: (query) => {
+      const data = query.state.data as { status?: string } | undefined
+      if (data?.status === 'packages_assigned') return 3000
+      return false
+    },
   })
 
   const submitStageMutation = useMutation({
@@ -429,6 +603,61 @@ export function PublicSelectionPage() {
   }
 
   const currentStage = session.currentStage
+  const isDomestic = session.role === 'logist_domestic'
+  const status = session.status as string | undefined
+
+  // Domestic-specific pre-stage flows
+  if (isDomestic && (!status || status === 'pending')) {
+    return (
+      <section className="mx-auto grid w-full max-w-2xl gap-6 px-5 py-12">
+        <div className="grid gap-2">
+          <Badge variant="outline" className="w-fit">{t('candidate.badge')}</Badge>
+          <Typography variant="h1">{t('candidate.roles.logist_domestic')}</Typography>
+        </div>
+        <DomesticProgressBar status={status ?? 'pending'} />
+        <ResumeStep
+          token={token}
+          onDone={() => void queryClient.invalidateQueries({ queryKey: ['selection-public', token] })}
+        />
+      </section>
+    )
+  }
+
+  if (isDomestic && status === 'resume_parsed') {
+    return (
+      <section className="mx-auto grid w-full max-w-2xl gap-6 px-5 py-12">
+        <div className="grid gap-2">
+          <Badge variant="outline" className="w-fit">{t('candidate.badge')}</Badge>
+          <Typography variant="h1">{t('candidate.roles.logist_domestic')}</Typography>
+        </div>
+        <DomesticProgressBar status="resume_parsed" />
+        <InterviewStep
+          token={token}
+          onDone={() => void queryClient.invalidateQueries({ queryKey: ['selection-public', token] })}
+        />
+      </section>
+    )
+  }
+
+  if (isDomestic && status === 'packages_assigned') {
+    return (
+      <section className="mx-auto grid w-full max-w-2xl gap-6 px-5 py-12">
+        <div className="grid gap-2">
+          <Badge variant="outline" className="w-fit">{t('candidate.badge')}</Badge>
+          <Typography variant="h1">{t('candidate.roles.logist_domestic')}</Typography>
+        </div>
+        <DomesticProgressBar status="packages_assigned" />
+        <Card>
+          <CardContent className="flex items-center gap-3 py-6">
+            <Spinner />
+            <Typography variant="bodySm" tone="muted">
+              {t('candidate.preparingTest')}
+            </Typography>
+          </CardContent>
+        </Card>
+      </section>
+    )
+  }
 
   return (
     <section className="mx-auto grid w-full max-w-2xl gap-6 px-5 py-12">
@@ -444,7 +673,7 @@ export function PublicSelectionPage() {
       </div>
 
       {/* Progress */}
-      <StageProgress current={currentStage} />
+      {isDomestic ? <DomesticProgressBar status={status ?? ''} /> : <StageProgress current={currentStage} />}
 
       {/* Stage content */}
       {currentStage === null && (

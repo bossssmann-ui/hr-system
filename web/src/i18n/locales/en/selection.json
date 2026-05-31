@@ -46,7 +46,32 @@
     },
     "roles": {
       "logist": "Logistics specialist",
-      "sales_manager": "Sales manager (forwarding)"
+      "sales_manager": "Sales manager (forwarding)",
+      "logist_domestic": "Domestic logistics specialist"
+    },
+    "errorSubmit": "Submission failed. Please try again.",
+    "errorLoad": "Failed to load questions.",
+    "preparingTest": "Building your personalised test based on your experience...",
+    "resumeStep": {
+      "title": "Step 1. Tell us about your experience",
+      "description": "Paste your CV text or describe your logistics work experience.",
+      "placeholder": "Work history, transport modes, regions, cargo types...",
+      "submit": "Continue"
+    },
+    "interviewStep": {
+      "title": "Step 2. Questions about your experience",
+      "description": "Answer in detail — the system will select appropriate assignments.",
+      "answerPlaceholder": "Your answer...",
+      "submit": "Submit answers"
+    },
+    "domesticStatus": {
+      "pending": "Step 1 of 6",
+      "resume_parsed": "Step 2 of 6",
+      "packages_assigned": "Building test...",
+      "stage_1": "Stage 1 of 4",
+      "stage_2": "Stage 2 of 4",
+      "stage_3": "Stage 3 of 4",
+      "stage_4": "Stage 4 of 4"
     }
   },
   "dashboard": {
