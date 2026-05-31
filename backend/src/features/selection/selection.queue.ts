@@ -10,6 +10,8 @@ import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
 import { callGeminiGenerateContent, GeminiApiError } from '../../integrations/llm/gemini'
 import { createInMemoryQueue } from '../../queues'
+import { computeDomesticCrossCheckFlags } from './domestic-cross-check'
+import type { DomesticAssessmentProfile } from './domestic-scoring'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -35,7 +37,7 @@ interface StageSnapshot {
 export function computeCrossCheckFlags(
   stageNumber: number,
   answers: Record<string, unknown>,
-  role: 'logist' | 'sales_manager',
+  role: 'logist' | 'sales_manager' | 'logist_domestic',
   previousStages: StageSnapshot[],
 ): CrossCheckFlag[] {
   const flags: CrossCheckFlag[] = []
@@ -114,6 +116,25 @@ export function computeCrossCheckFlags(
         type: 'ORANGE',
         description: `L-шкала психотеста: ${lScoreFivesCount} ответа «5» из 4 — высокий риск социально-желательных ответов`,
         triggeredAt: 3,
+      })
+    }
+  }
+
+  // domestic role: run additional domestic cross-check flags
+  if (role === 'logist_domestic') {
+    const profile: DomesticAssessmentProfile = {
+      candidateId: '',
+      signals: [],
+      specializations: [],
+      riskFlags: Array.isArray(answers['risk_flags']) ? (answers['risk_flags'] as string[]) : [],
+    }
+    const domesticFlags = computeDomesticCrossCheckFlags(profile, answers as Record<string, unknown>)
+    for (const df of domesticFlags) {
+      flags.push({
+        id: df.id + 200,
+        type: df.type,
+        description: df.description,
+        triggeredAt: stageNumber,
       })
     }
   }

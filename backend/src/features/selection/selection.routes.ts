@@ -35,6 +35,7 @@ import {
   type Role,
   type StageContent,
 } from './stage-content'
+import { buildStagesForRole, isDomesticRole, type SupportedRole } from './selection-role-adapter'
 
 type RouteBindings = RoleGuardBindings & {
   Variables: {
@@ -48,7 +49,7 @@ type RouteBindings = RoleGuardBindings & {
 const createSessionSchema = z.object({
   vacancyId: z.string().uuid(),
   applicationId: z.string().uuid().optional(),
-  role: z.enum(['logist', 'sales_manager']),
+  role: z.enum(['logist', 'sales_manager', 'logist_domestic']),
 })
 
 const submitStageSchema = z.object({
@@ -59,7 +60,7 @@ const adminQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().positive().max(100).default(20),
   vacancyId: z.string().uuid().optional(),
-  role: z.enum(['logist', 'sales_manager']).optional(),
+  role: z.enum(['logist', 'sales_manager', 'logist_domestic']).optional(),
 })
 
 /**
@@ -67,8 +68,8 @@ const adminQuerySchema = z.object({
  * `stage-content.ts` (single source of truth). The Stage 1 trap pool is kept
  * in the template; the per-session chosen trap key is injected at GET time.
  */
-function buildStages(role: Role): StageContent[] {
-  return getAllStagesContent(role)
+function buildStages(role: SupportedRole): StageContent[] {
+  return buildStagesForRole(role)
 }
 
 function stageNumberForStatus(status: string): number | null {
@@ -118,7 +119,7 @@ export function createSelectionRoutes() {
             tenantId,
             vacancyId: body.vacancyId,
             role: body.role,
-            stages: buildStages(body.role) as unknown as Prisma.InputJsonValue,
+            stages: buildStages(body.role as SupportedRole) as unknown as Prisma.InputJsonValue,
           },
         })
       }
@@ -127,7 +128,7 @@ export function createSelectionRoutes() {
       // chosen trap value is stored in `flags.chosen_trap_key` so cross-check
       // (RED-1) can verify the answer matches the trap and so we never leak
       // the other trap pool members to the candidate.
-      const chosenTrapKey = pickRandomTrapKey(body.role)
+      const chosenTrapKey = isDomesticRole(body.role) ? null : pickRandomTrapKey(body.role as Role)
       const session = await prisma.selectionSession.create({
         data: {
           tenantId,
@@ -281,7 +282,7 @@ export function createSelectionRoutes() {
       const flags: CrossCheckFlag[] = computeCrossCheckFlags(
         n,
         body.answers as Record<string, unknown>,
-        session.template.role as 'logist' | 'sales_manager',
+        session.template.role as 'logist' | 'sales_manager' | 'logist_domestic',
         previousResults.map((r) => ({
           stageNumber: r.stageNumber,
           answers: r.answers as Record<string, unknown>,
