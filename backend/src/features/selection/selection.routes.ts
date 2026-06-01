@@ -36,6 +36,8 @@ import {
   type StageContent,
 } from './stage-content'
 import { buildStagesForRole, isDomesticRole, type SupportedRole } from './selection-role-adapter'
+import { finalizeDomesticStage4, scoreDomesticStage2 } from './domestic-stage-scoring'
+import type { SpecializationAssignment } from './domestic-specializations'
 
 type RouteBindings = RoleGuardBindings & {
   Variables: {
@@ -317,16 +319,27 @@ export function createSelectionRoutes() {
       // scored by the AI downstream).
       let scoresJson: Prisma.InputJsonValue | undefined
       if (n === 2) {
-        const result = scoreStage2(
-          session.template.role as Role,
-          body.answers as Record<string, unknown>,
-        )
-        scoresJson = {
-          autoScore: result.autoScore,
-          autoMax: result.autoMax,
-          stageMax: result.stageMax,
-          perQuestion: result.perQuestion,
-        } as Prisma.InputJsonValue
+        if (isDomesticRole(session.template.role ?? '')) {
+          const specs = Array.isArray(session.specializations)
+            ? (session.specializations as unknown as SpecializationAssignment[])
+            : []
+          const moduleResults = scoreDomesticStage2(
+            specs,
+            body.answers as Record<string, unknown>,
+          )
+          scoresJson = { moduleResults } as unknown as Prisma.InputJsonValue
+        } else {
+          const result = scoreStage2(
+            session.template.role as Role,
+            body.answers as Record<string, unknown>,
+          )
+          scoresJson = {
+            autoScore: result.autoScore,
+            autoMax: result.autoMax,
+            stageMax: result.stageMax,
+            perQuestion: result.perQuestion,
+          } as Prisma.InputJsonValue
+        }
       }
 
       await prisma.selectionStageResult.create({
@@ -377,7 +390,7 @@ export function createSelectionRoutes() {
       }
 
       // Determine next status
-      const nextSt = n < 4 ? `stage_${n + 1}` : 'completed'
+      let nextSt = n < 4 ? `stage_${n + 1}` : 'completed'
       const updateData: Prisma.SelectionSessionUpdateInput = { status: nextSt }
       if (n === 4) {
         updateData.completedAt = new Date()
@@ -392,13 +405,34 @@ export function createSelectionRoutes() {
         data: updateData,
       })
 
+      // After Stage 4 for `logist_domestic`: deterministic auto-scoring &
+      // verdict (Phase 17). The AI evaluator still runs afterwards but only
+      // appends a second opinion; it does not overwrite the deterministic
+      // numbers/verdict.
+      let autoScored = false
+      if (n === 4 && isDomesticRole(session.template.role ?? '')) {
+        const computation = await finalizeDomesticStage4(prisma, session.id)
+        if (computation) {
+          autoScored = true
+          nextSt = computation.status
+          await prisma.selectionSession.update({
+            where: { id: session.id },
+            data: { status: nextSt },
+          })
+        }
+      }
+
       // After stage 4: enqueue AI evaluation
       if (n === 4) {
         const env = c.get('env')
         void enqueueSelectionEvaluate({ prisma, env, sessionId: session.id })
       }
 
-      return c.json({ submitted: true, nextStatus: nextSt })
+      return c.json({
+        submitted: true,
+        nextStatus: nextSt,
+        ...(autoScored ? { autoScored: true } : {}),
+      })
     },
   )
 

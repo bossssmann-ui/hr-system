@@ -346,22 +346,57 @@ async function runEvaluation({ prisma, env, sessionId }: EvaluateJob): Promise<v
 
   if (!parsed) return
 
-  // 6. Write verdict to database
+  // 6. Write verdict to database. For domestic sessions, a deterministic
+  // verdict has already been written in `finalizeDomesticStage4` and must NOT
+  // be overwritten — we only append the AI's second opinion to the textual
+  // notes. For other roles, upsert to keep the worker idempotent on retries.
   try {
-    await prisma.selectionVerdict.create({
-      data: {
-        sessionId,
-        verdict: String(parsed['verdict'] ?? 'НА РУЧНУЮ ПРОВЕРКУ HR'),
+    const aiVerdict = String(parsed['verdict'] ?? 'НА РУЧНУЮ ПРОВЕРКУ HR')
+    const aiReason = parsed['verdict_reason'] != null ? String(parsed['verdict_reason']) : null
+    const aiNotes = parsed['hr_notes'] != null ? String(parsed['hr_notes']) : null
+
+    const isDomestic = session.template.role === 'logist_domestic'
+    const existing = isDomestic
+      ? await prisma.selectionVerdict.findUnique({ where: { sessionId } })
+      : null
+
+    if (isDomestic && existing) {
+      // Preserve deterministic numbers/verdict; append AI second opinion to
+      // free-text fields only.
+      const aiOpinion = `AI второе мнение: ${aiVerdict}` + (aiReason ? `\n${aiReason}` : '')
+      await prisma.selectionVerdict.update({
+        where: { sessionId },
+        data: {
+          verdictReason: existing.verdictReason
+            ? `${existing.verdictReason}\n\n${aiOpinion}`
+            : aiOpinion,
+          hrNotes: aiNotes
+            ? existing.hrNotes
+              ? `${existing.hrNotes}\n\n${aiNotes}`
+              : aiNotes
+            : existing.hrNotes,
+          lieScaleResult: existing.lieScaleResult ??
+            ((parsed['lie_scale_result'] ?? null) as Prisma.InputJsonValue),
+        },
+      })
+    } else {
+      const baseData = {
+        verdict: aiVerdict,
         totalWeightedScore: parsed['total_weighted_score'] != null
           ? new Prisma.Decimal(String(parsed['total_weighted_score']))
           : null,
         stageScores: (parsed['stage_scores'] ?? null) as Prisma.InputJsonValue,
         crossCheckFlags: (parsed['cross_check_flags'] ?? allFlags) as Prisma.InputJsonValue,
         lieScaleResult: (parsed['lie_scale_result'] ?? null) as Prisma.InputJsonValue,
-        verdictReason: parsed['verdict_reason'] != null ? String(parsed['verdict_reason']) : null,
-        hrNotes: parsed['hr_notes'] != null ? String(parsed['hr_notes']) : null,
-      },
-    })
+        verdictReason: aiReason,
+        hrNotes: aiNotes,
+      }
+      await prisma.selectionVerdict.upsert({
+        where: { sessionId },
+        create: { sessionId, ...baseData },
+        update: baseData,
+      })
+    }
   } catch (err) {
     console.error(JSON.stringify({ level: 'error', msg: 'selection.evaluator.db_error', sessionId, err: String(err) }))
   }
