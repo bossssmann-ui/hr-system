@@ -3,5 +3,5 @@
 -- Adds per-session specializations (chosen package mix) and assessment profile
 -- (resume signals + interview risk flags) JSONB columns to selection_sessions.
 ALTER TABLE "selection_sessions"
-    ADD COLUMN "specializations" JSONB,
-    ADD COLUMN "assessment_profile" JSONB;
+    ADD COLUMN IF NOT EXISTS "specializations" JSONB,
+    ADD COLUMN IF NOT EXISTS "assessment_profile" JSONB;
