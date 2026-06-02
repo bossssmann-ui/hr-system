@@ -18,6 +18,9 @@ const FAKE_DOMESTIC_TMS_POOL = [
   'SalesBoost TMS',
 ]
 
+// Below ~55/100 the rubric answer is usually too generic for confident
+// confirmation, and <35 words often means the candidate listed only slogans
+// instead of a concrete sequence of checks/actions.
 const MIN_ACCEPTABLE_OPEN_SCORE = 55
 const MIN_OPEN_ANSWER_WORD_COUNT = 35
 
@@ -172,8 +175,7 @@ export function computeDomesticCrossCheckFlags(
     (averageOpenScore != null && averageOpenScore < MIN_ACCEPTABLE_OPEN_SCORE) ||
     (openAnswerCorpus.length > 0 &&
       openAnswerCorpus.split(/\s+/).filter(Boolean).length < MIN_OPEN_ANSWER_WORD_COUNT) ||
-    !mentionsCarrierChecks ||
-    !mentionsDocuments
+    (!mentionsCarrierChecks && !mentionsDocuments)
 
   if ((hasHighDeclaredVolume || hasWideCargoBreadth) && seemsShallow) {
     flags.push({

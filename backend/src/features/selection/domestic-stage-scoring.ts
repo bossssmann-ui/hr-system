@@ -138,6 +138,8 @@ const HEURISTIC_MAX_KEYWORD_BONUS = 40
 
 function getOpenAnswerText(answers: Record<string, unknown>, key: string): string | null {
   if (key === 'q_breakdown_500km') {
+    // Keep reading the legacy `road_q4` key so in-flight sessions created
+    // before the shared breakdown question was introduced still grade cleanly.
     return asNonEmptyString(answers['q_breakdown_500km']) ?? asNonEmptyString(answers['road_q4'])
   }
   return asNonEmptyString(answers[key])
@@ -148,7 +150,9 @@ function getOpenAnswerText(answers: Record<string, unknown>, key: string): strin
  * configured. It rewards answer length plus domain-specific keywords so the
  * deterministic verdict still reacts to obviously shallow vs. concrete
  * responses, but `gradeOpenAnswer` remains the primary path whenever AI
- * scoring is enabled.
+ * scoring is enabled. The current tuning lets ~67 words saturate the length
+ * portion (67 × 1.5 ≈ 100) while keyword hits add up to 40 bonus points to
+ * reward logistics-specific specificity instead of generic prose.
  */
 function estimateDomesticOpenAnswerScore(answer: string, key: string) {
   const normalized = answer.toLowerCase()
@@ -231,15 +235,15 @@ export async function gradeDomesticOpenAnswers(input: {
   provider?: OpenAnswerGradingProvider
 }) {
   const { answers, env, provider } = input
-  const explicitProvider =
+  const gradingProvider =
     provider ?? (env && isAiScoringConfigured(env) ? createAssessmentProvider(env) : null)
 
   const grades: OpenAnswerGrade[] = []
   for (const item of DOMESTIC_OPEN_QUESTION_CONFIG) {
     const answer = getOpenAnswerText(answers, item.key)
     if (!answer) continue
-    if (explicitProvider) {
-      const grade = await explicitProvider.gradeOpenAnswer({
+    if (gradingProvider) {
+      const grade = await gradingProvider.gradeOpenAnswer({
         question: item.question,
         rubric: item.rubric,
         answer,

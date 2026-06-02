@@ -91,6 +91,7 @@ const DOCUMENT_FLOW_OPTIONS = [
   'поручение экспедитору',
   'отчёт экспедитора',
 ] as const
+const DOCUMENT_FLOW_OPTION_SET = new Set<string>(DOCUMENT_FLOW_OPTIONS)
 
 const CARGO_TYPE_OPTIONS = [
   'тент',
@@ -101,6 +102,7 @@ const CARGO_TYPE_OPTIONS = [
   'опасные/ADR',
   'ценные',
 ] as const
+const CARGO_TYPE_OPTION_SET = new Set<string>(CARGO_TYPE_OPTIONS)
 
 export interface DomesticHardSkillFactologyResult {
   rawScore: number
@@ -135,13 +137,13 @@ export function scoreDomesticHardSkillFactology(
   const documentCoverage = Math.min(
     4,
     asNonEmptyStringArray(answers['q_document_flow']).filter((item) =>
-      DOCUMENT_FLOW_OPTIONS.includes(item as (typeof DOCUMENT_FLOW_OPTIONS)[number]),
+      DOCUMENT_FLOW_OPTION_SET.has(item),
     ).length,
   )
   const cargoCoverage = Math.min(
     4,
     asNonEmptyStringArray(answers['q_cargo_types']).filter((item) =>
-      CARGO_TYPE_OPTIONS.includes(item as (typeof CARGO_TYPE_OPTIONS)[number]),
+      CARGO_TYPE_OPTION_SET.has(item),
     ).length,
   )
 

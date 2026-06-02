@@ -21,6 +21,13 @@ import type { SpecializationPackageId, SpecializationAssignment } from './domest
 
 // ─── domestic_core_operations ─────────────────────────────────────────────────
 
+const BREAKDOWN_500KM_QUESTION = {
+  key: 'q_breakdown_500km',
+  text: 'Машина с грузом сломалась в пути в 500 км, водитель недоступен 2 часа — ваши действия?',
+  type: 'textarea' as const,
+  weight: 5,
+}
+
 const CORE_STAGE_1: QuestionnaireStageContent = {
   stage: 1,
   type: 'questionnaire',
@@ -187,12 +194,7 @@ const CORE_STAGE_2: TestStageContent = {
       correct: 'Устная договорённость о доплате без фиксации.',
       weight: 2,
     },
-    {
-      key: 'q_breakdown_500km',
-      text: 'Машина с грузом сломалась в пути в 500 км, водитель недоступен 2 часа — ваши действия?',
-      type: 'textarea',
-      weight: 5,
-    },
+    BREAKDOWN_500KM_QUESTION,
     {
       key: 'core_q4',
       text: 'Машина прибыла на выгрузку, получатель не принимает груз из-за ошибки в документах. Опишите действия.',
@@ -257,12 +259,7 @@ const ROAD_STAGE_2: TestStageContent = {
       correct: 'Вес, объём, габариты, тип загрузки, условия перевозки.',
       weight: 2,
     },
-    {
-      key: 'q_breakdown_500km',
-      text: 'Машина с грузом сломалась в пути в 500 км, водитель недоступен 2 часа — ваши действия?',
-      type: 'textarea',
-      weight: 5,
-    },
+    BREAKDOWN_500KM_QUESTION,
     {
       key: 'road_q5',
       text: 'Клиент хочет отправить сборный груз, но требует доставку как FTL. Как объясните варианты?',
