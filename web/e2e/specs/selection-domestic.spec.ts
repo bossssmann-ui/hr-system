@@ -22,10 +22,41 @@
  *   → (async worker) → stage_1 → ... → stage_4 → completed
  */
 
-import { expect, test, uniqueEmail } from '../helpers/test'
+import type { APIRequestContext } from '@playwright/test'
+import { expect, test } from '../helpers/test'
 
 const ownerEmail = process.env.BOOTSTRAP_OWNER_EMAIL ?? 'e2e-owner@example.com'
 const ownerPassword = process.env.BOOTSTRAP_OWNER_PASSWORD ?? 'E2eOwnerPass1!'
+
+/**
+ * Create a fresh domestic selection session and return its identifiers.
+ * Each test that needs pending state should call this so tests are isolated
+ * from one another (no shared session state, no strict-mode collisions on
+ * dashboard prefixes across retries).
+ */
+async function createDomesticSession(
+  request: APIRequestContext,
+  accessToken: string,
+  vacancyId: string,
+): Promise<{ sessionId: string; token: string }> {
+  const sessRes = await request.post('/api/selection/sessions', {
+    data: { vacancyId, role: 'logist_domestic' },
+    headers: authHeaders(accessToken),
+  })
+  expect(
+    sessRes.ok(),
+    `selection session create failed: status=${sessRes.status()} body=${await sessRes.text()}`,
+  ).toBeTruthy()
+  const sess = (await sessRes.json()) as { sessionId: string; token: string }
+  return sess
+}
+
+function authHeaders(accessToken: string): Record<string, string> {
+  return {
+    Authorization: ['Bearer', accessToken].join(' '),
+    'Content-Type': 'application/json',
+  }
+}
 
 /**
  * Minimal resume text containing keywords that trigger domestic specialisations.
