@@ -3,8 +3,13 @@
  */
 
 import type { SpecializationPackageId, SpecializationLevel } from './domestic-specializations'
+import {
+  DEFAULT_DOMESTIC_SCORING_WEIGHT_CAPS,
+  type DomesticScoringWeightCaps,
+} from './retention-calibration'
 
 export type { SpecializationPackageId, SpecializationLevel }
+export type { DomesticScoringWeightCaps }
 
 export interface SpecializationAssignment {
   packageId: SpecializationPackageId
@@ -74,16 +79,22 @@ function hasSecondary(profile: DomesticAssessmentProfile): boolean {
 export function scoreDomesticAssessment(
   profile: DomesticAssessmentProfile,
   moduleResults: RawModuleResult[],
+  weightCaps: DomesticScoringWeightCaps = DEFAULT_DOMESTIC_SCORING_WEIGHT_CAPS,
 ): DomesticScoringResult {
   const withSecondary = hasSecondary(profile)
 
   // Weight caps per component
-  const primarySpecMax = withSecondary ? 25 : 35
-  const secondarySpecMax = withSecondary ? 15 : 0
-  const practicalMax = withSecondary ? 20 : 25
-  const resumeMax = 15
-  const coreMax = 20
-  const commMax = 5
+  const redistributedSecondary = withSecondary ? 0 : weightCaps.secondarySpec
+  const primarySpecMax = withSecondary
+    ? weightCaps.primarySpec
+    : weightCaps.primarySpec + (redistributedSecondary * 2) / 3
+  const secondarySpecMax = withSecondary ? weightCaps.secondarySpec : 0
+  const practicalMax = withSecondary
+    ? weightCaps.practicalAssignment
+    : weightCaps.practicalAssignment + redistributedSecondary / 3
+  const resumeMax = weightCaps.resumeAndInterview
+  const coreMax = weightCaps.coreOperations
+  const commMax = weightCaps.communication
 
   // Gather module result maps
   const moduleMap = new Map<string, RawModuleResult>()

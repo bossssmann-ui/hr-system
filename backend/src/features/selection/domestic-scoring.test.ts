@@ -108,6 +108,42 @@ describe('scoreDomesticAssessment', () => {
     expect(result.totalScore).toBe(0)
   })
 
+  test('без калибровки использует дефолтные веса', () => {
+    const profile = makeProfile({
+      resumeAndInterviewScore: 15,
+      communicationScore: 5,
+      practicalScore: 25,
+    })
+    const moduleResults: RawModuleResult[] = [
+      { packageId: 'domestic_core_operations', rawScore: 20, maxScore: 20 },
+      { packageId: 'domestic_road_ftl_ltl', rawScore: 35, maxScore: 35 },
+    ]
+    const result = scoreDomesticAssessment(profile, moduleResults)
+    expect(result.totalScore).toBe(100)
+  })
+
+  test('калиброванные веса влияют на компонентные капы', () => {
+    const profile = makeProfile({
+      resumeAndInterviewScore: 15,
+      communicationScore: 5,
+      practicalScore: 25,
+    })
+    const moduleResults: RawModuleResult[] = [
+      { packageId: 'domestic_core_operations', rawScore: 20, maxScore: 20 },
+      { packageId: 'domestic_road_ftl_ltl', rawScore: 35, maxScore: 35 },
+    ]
+    const result = scoreDomesticAssessment(profile, moduleResults, {
+      resumeAndInterview: 10,
+      coreOperations: 30,
+      primarySpec: 20,
+      secondarySpec: 10,
+      practicalAssignment: 25,
+      communication: 5,
+    })
+    expect(result.coreOperationsScore).toBe(30)
+    expect(result.totalScore).toBeCloseTo(96.6667, 3)
+  })
+
   test('totalScore 85+ без RED ≤1 ORANGE → STRONG_CANDIDATE', () => {
     const profile = makeProfile()
     const flags: DomesticCrossCheckFlag[] = []

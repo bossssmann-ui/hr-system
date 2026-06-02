@@ -110,6 +110,8 @@ model Tenant {
 
   settings          TenantSettings?
   retentionPolicies DataRetentionPolicy[]
+  selectionRetentionOutcomes SelectionRetentionOutcome[]
+  selectionScoringWeights    SelectionScoringWeights[]
   subscription      Subscription?
 
   @@map("tenants")
@@ -716,6 +718,7 @@ model SelectionSession {
   template     SelectionTemplate      @relation(fields: [templateId], references: [id])
   stageResults SelectionStageResult[]
   verdict      SelectionVerdict?
+  retentionOutcome SelectionRetentionOutcome?
 
   @@index([tenantId], map: "selection_sessions_tenant_id_idx")
   @@index([applicationId], map: "selection_sessions_application_id_idx")
@@ -745,6 +748,7 @@ model SelectionVerdict {
   totalWeightedScore Decimal? @map("total_weighted_score")
   stageScores        Json?    @map("stage_scores")
   crossCheckFlags    Json?    @map("cross_check_flags")
+  retentionPrediction Json?   @map("retention_prediction")
   lieScaleResult     Json?    @map("lie_scale_result")
   verdictReason      String?  @map("verdict_reason")
   hrNotes            String?  @map("hr_notes")
@@ -753,6 +757,51 @@ model SelectionVerdict {
   session SelectionSession @relation(fields: [sessionId], references: [id])
 
   @@map("selection_verdicts")
+}
+
+enum SelectionRetentionOutcomeStatus {
+  in_progress
+  resolved_survived_90
+  resolved_terminated
+
+  @@map("selection_retention_outcome_status")
+}
+
+model SelectionRetentionOutcome {
+  id               String                          @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId         String                          @map("tenant_id") @db.Uuid
+  sessionId        String                          @unique @map("session_id") @db.Uuid
+  hireDate         DateTime                        @map("hire_date") @db.Date
+  observedDays     Int                             @map("observed_days")
+  survived30       Boolean                         @map("survived_30")
+  survived60       Boolean                         @map("survived_60")
+  survived90       Boolean                         @map("survived_90")
+  terminationGround TerminationGround?             @map("termination_ground")
+  outcomeStatus    SelectionRetentionOutcomeStatus @map("outcome_status")
+  computedAt       DateTime                        @default(now()) @map("computed_at")
+
+  tenant  Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade, map: "selection_retention_outcomes_tenant_id_fkey")
+  session SelectionSession @relation(fields: [sessionId], references: [id], onDelete: Cascade, map: "selection_retention_outcomes_session_id_fkey")
+
+  @@index([tenantId], map: "selection_retention_outcomes_tenant_id_idx")
+  @@index([tenantId, outcomeStatus], map: "selection_retention_outcomes_tenant_status_idx")
+  @@map("selection_retention_outcomes")
+}
+
+model SelectionScoringWeights {
+  id          String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  modelVersion String  @map("model_version")
+  weights     Json
+  sampleSize  Int      @map("sample_size")
+  computedAt  DateTime @default(now()) @map("computed_at")
+  active      Boolean  @default(false)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade, map: "selection_scoring_weights_tenant_id_fkey")
+
+  @@unique([tenantId, modelVersion], map: "selection_scoring_weights_tenant_model_uk")
+  @@index([tenantId, active], map: "selection_scoring_weights_tenant_active_idx")
+  @@map("selection_scoring_weights")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

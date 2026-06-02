@@ -468,6 +468,7 @@ export class ApiClient {
     totalWeightedScore: string | null
     stageScores: unknown
     crossCheckFlags: unknown
+    retentionPrediction: unknown
     lieScaleResult: unknown
     verdictReason: string | null
     hrNotes: string | null
@@ -483,6 +484,7 @@ export class ApiClient {
         totalWeightedScore: z.string().nullable(),
         stageScores: z.unknown(),
         crossCheckFlags: z.unknown(),
+        retentionPrediction: z.unknown(),
         lieScaleResult: z.unknown(),
         verdictReason: z.string().nullable(),
         hrNotes: z.string().nullable(),
@@ -515,6 +517,7 @@ export class ApiClient {
         verdict: string
         totalWeightedScore: string | null
         crossCheckFlags: unknown
+        retentionPrediction: unknown
         createdAt: string
       } | null
       specializations: unknown
@@ -549,6 +552,7 @@ export class ApiClient {
                 verdict: z.string(),
                 totalWeightedScore: z.string().nullable(),
                 crossCheckFlags: z.unknown(),
+                retentionPrediction: z.unknown(),
                 createdAt: z.string(),
               })
               .nullable(),

@@ -9,6 +9,8 @@ import {
 import { computeHrSnapshot } from './features/analytics/analytics.service'
 import { computeSignalsForTenant } from './features/signals/signals.service'
 import { runDataRetention } from './features/tenant/tenant.service'
+import { collectSelectionRetentionOutcomes } from './features/selection/retention-outcomes'
+import { runSelectionScoringCalibration } from './features/selection/retention-calibration'
 
 type CronTask = (runtime: BackendRuntime) => Promise<void>
 
@@ -87,6 +89,18 @@ const cronTasks = {
     }
     console.log(
       `Cron data.retention completed. tenants=${tenants.length} candidates=${totalCandidates} employees=${totalEmployees}`,
+    )
+  },
+  'selection.retention_outcomes': async ({ prisma }) => {
+    const result = await collectSelectionRetentionOutcomes({ prisma })
+    console.log(
+      `Cron selection.retention_outcomes completed. employees=${result.employeesMatched} upserted=${result.outcomesUpserted}`,
+    )
+  },
+  'selection.retention_calibration': async ({ prisma }) => {
+    const result = await runSelectionScoringCalibration({ prisma })
+    console.log(
+      `Cron selection.retention_calibration completed. tenants=${result.totalTenants} calibrated=${result.calibratedTenants}`,
     )
   },
 } satisfies Record<string, CronTask>

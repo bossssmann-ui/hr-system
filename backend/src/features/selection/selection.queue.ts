@@ -387,6 +387,7 @@ async function runEvaluation({ prisma, env, sessionId }: EvaluateJob): Promise<v
           : null,
         stageScores: (parsed['stage_scores'] ?? null) as Prisma.InputJsonValue,
         crossCheckFlags: (parsed['cross_check_flags'] ?? allFlags) as Prisma.InputJsonValue,
+        retentionPrediction: (parsed['retention_prediction'] ?? null) as Prisma.InputJsonValue,
         lieScaleResult: (parsed['lie_scale_result'] ?? null) as Prisma.InputJsonValue,
         verdictReason: aiReason,
         hrNotes: aiNotes,

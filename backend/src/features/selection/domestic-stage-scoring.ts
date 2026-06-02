@@ -18,6 +18,7 @@ import {
 import {
   scoreDomesticAssessment,
   shouldAdmitToLiveInterview,
+  type DomesticScoringWeightCaps,
   type DomesticAdmissionVerdict,
   type DomesticAssessmentProfile,
   type DomesticCrossCheckFlag,
@@ -27,6 +28,8 @@ import {
 } from './domestic-scoring'
 import { getDomesticStageContent } from './domestic-stage-content'
 import type { TestStageContent } from './stage-content'
+import { buildRetentionPrediction, type RetentionPrediction } from './retention-prediction'
+import { getActiveSelectionScoringWeights } from './retention-calibration'
 
 // ─── Stage 2 auto-scoring ─────────────────────────────────────────────────────
 
@@ -149,6 +152,7 @@ export interface DomesticVerdictInputs {
   moduleResults: RawModuleResult[]
   /** Merged answers across stages (used for cross-check trap detection). */
   mergedAnswers: Record<string, unknown>
+  scoringWeightCaps?: DomesticScoringWeightCaps
 }
 
 export interface DomesticVerdictComputation {
@@ -159,12 +163,13 @@ export interface DomesticVerdictComputation {
   flags: DomesticCrossCheckFlag[]
   moduleResults: RawModuleResult[]
   stageScores: DomesticScoringResult
+  retentionPrediction: RetentionPrediction
 }
 
 export function computeDomesticVerdict(
   inputs: DomesticVerdictInputs,
 ): DomesticVerdictComputation {
-  const { specializations, riskFlags, moduleResults, mergedAnswers } = inputs
+  const { specializations, riskFlags, moduleResults, mergedAnswers, scoringWeightCaps } = inputs
   const hasSecondary = specializations.some((s) => s.level === 'secondary')
 
   const components = deriveProvisionalComponents(moduleResults, riskFlags, hasSecondary)
@@ -190,10 +195,15 @@ export function computeDomesticVerdict(
   }
 
   const flags = computeDomesticCrossCheckFlags(profile, crossCheckAnswers)
-  const scoring = scoreDomesticAssessment(profile, moduleResults)
+  const scoring = scoreDomesticAssessment(profile, moduleResults, scoringWeightCaps)
   const admission = shouldAdmitToLiveInterview(scoring.totalScore, flags)
   const status = admissionToStatus(admission)
   const verdictLabel = admissionToVerdictLabel(admission)
+  const retentionPrediction = buildRetentionPrediction({
+    stageScores: scoring,
+    crossCheckFlags: flags,
+    riskFlags,
+  })
 
   return {
     totalScore: scoring.totalScore,
@@ -203,6 +213,7 @@ export function computeDomesticVerdict(
     flags,
     moduleResults,
     stageScores: scoring,
+    retentionPrediction,
   }
 }
 
@@ -281,12 +292,15 @@ export async function finalizeDomesticStage4(
     readModuleResultsFromScores(stage2Scores) ??
     scoreDomesticStage2(specializations, stage2Answers)
 
+  const activeWeightCaps = await getActiveSelectionScoringWeights(prisma, session.tenantId)
+
   const computation = computeDomesticVerdict({
     candidateId: session.applicationId ?? session.id,
     specializations,
     riskFlags,
     moduleResults,
     mergedAnswers,
+    scoringWeightCaps: activeWeightCaps ?? undefined,
   })
 
   const stageScoresJson = {
@@ -308,6 +322,7 @@ export async function finalizeDomesticStage4(
       totalWeightedScore: new Prisma.Decimal(computation.totalScore.toFixed(4)),
       stageScores: stageScoresJson,
       crossCheckFlags: computation.flags as unknown as Prisma.InputJsonValue,
+      retentionPrediction: computation.retentionPrediction as unknown as Prisma.InputJsonValue,
     },
     create: {
       sessionId: session.id,
@@ -315,6 +330,7 @@ export async function finalizeDomesticStage4(
       totalWeightedScore: new Prisma.Decimal(computation.totalScore.toFixed(4)),
       stageScores: stageScoresJson,
       crossCheckFlags: computation.flags as unknown as Prisma.InputJsonValue,
+      retentionPrediction: computation.retentionPrediction as unknown as Prisma.InputJsonValue,
       lieScaleResult: Prisma.JsonNull,
     },
   })
