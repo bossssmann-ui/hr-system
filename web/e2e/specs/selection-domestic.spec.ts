@@ -70,6 +70,12 @@ test.describe('Phase 15–16 domestic selection flow', () => {
   // Serial mode: a failed setup test should not run dependent tests with stale state.
   test.describe.configure({ mode: 'serial' })
 
+  // Force Russian UI: the candidate page uses i18next-browser-languagedetector,
+  // which falls back to navigator.language when localStorage is empty. Without
+  // an explicit locale Playwright's Desktop Chrome reports en-US and the page
+  // renders English copy, so all Russian text assertions in this spec fail.
+  test.use({ locale: 'ru-RU' })
+
   let accessToken: string
   let vacancyId: string
 
