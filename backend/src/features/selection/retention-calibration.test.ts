@@ -9,6 +9,7 @@ import {
 describe('retention calibration', () => {
   test('fallback to defaults when sample is below threshold', () => {
     const rows = Array.from({ length: 10 }, () => ({
+      hardSkillFactology: 7,
       resumeAndInterview: 10,
       coreOperations: 10,
       primarySpec: 10,
@@ -25,6 +26,7 @@ describe('retention calibration', () => {
       const survived90 = index % 2
       const primarySignal = survived90 ? 24 : 8
       return {
+        hardSkillFactology: survived90 ? 9 : 4,
         resumeAndInterview: 10,
         coreOperations: 12,
         primarySpec: primarySignal,
@@ -36,6 +38,7 @@ describe('retention calibration', () => {
     })
     const out = calibrateWeightCaps(rows)
     const total =
+      out.hardSkillFactology +
       out.resumeAndInterview +
       out.coreOperations +
       out.primarySpec +
@@ -48,7 +51,8 @@ describe('retention calibration', () => {
 
   test('parses stored weight json', () => {
     const parsed = parseDomesticScoringWeightCaps({
-      resumeAndInterview: 14,
+      hardSkillFactology: 10,
+      resumeAndInterview: 4,
       coreOperations: 21,
       primarySpec: 24,
       secondarySpec: 15,

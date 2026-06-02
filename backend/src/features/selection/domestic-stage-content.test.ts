@@ -80,6 +80,9 @@ describe('getDomesticStageContent', () => {
     expect(result.type).toBe('questionnaire')
     expect(result.stage).toBe(1)
     expect(result.questions.length).toBeGreaterThan(0)
+    expect(result.questions.some((q) => q.key === 'q_1c_experience')).toBe(true)
+    expect(result.questions.some((q) => q.key === 'q_counterparty_checks')).toBe(true)
+    expect(result.questions.some((q) => q.key === 'q_hardest_shipment')).toBe(true)
   })
 
   it('domestic_road_ftl_ltl: stage=1 возвращает null (нет анкеты)', () => {
@@ -139,6 +142,7 @@ describe('buildDomesticStages', () => {
     const coreOnly = buildDomesticStages([{ packageId: 'domestic_core_operations', level: 'primary' }])
     const coreS2 = coreOnly.find((s) => s.stage === 2) as TestStageContent
     expect(s2.questions.length).toBeGreaterThan(coreS2.questions.length)
+    expect(s2.questions.filter((q) => q.key === 'q_breakdown_500km')).toHaveLength(1)
   })
 
   it('нет дублирования вопросов в Stage 2', () => {

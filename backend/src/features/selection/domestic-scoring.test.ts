@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
+  scoreDomesticHardSkillFactology,
   scoreDomesticAssessment,
   shouldAdmitToLiveInterview,
 } from './domestic-scoring'
@@ -33,6 +34,34 @@ function makeModuleResults(overrides: Partial<RawModuleResult>[] = []): RawModul
 }
 
 describe('scoreDomesticAssessment', () => {
+  test('scoreDomesticHardSkillFactology: 1С threshold requires уверенно+ / администрирование', () => {
+    expect(scoreDomesticHardSkillFactology({ q_1c_experience: 'базово (просмотр)' }).passed1CThreshold).toBe(false)
+    expect(
+      scoreDomesticHardSkillFactology({
+        q_1c_experience: 'уверенно (ТТН, ТрН, путевые листы)',
+      }).passed1CThreshold,
+    ).toBe(true)
+    expect(scoreDomesticHardSkillFactology({ q_1c_experience: 'администрирование' }).passed1CThreshold).toBe(true)
+  })
+
+  test('scoreDomesticHardSkillFactology: контрагент проходит порог только с risk-check инструментом', () => {
+    expect(
+      scoreDomesticHardSkillFactology({
+        q_counterparty_checks: ['ati.su (поиск грузов/машин)'],
+      }).passedCounterpartyThreshold,
+    ).toBe(false)
+    expect(
+      scoreDomesticHardSkillFactology({
+        q_counterparty_checks: ['АТИ Светофор (рейтинг/риски)'],
+      }).passedCounterpartyThreshold,
+    ).toBe(true)
+    expect(
+      scoreDomesticHardSkillFactology({
+        q_counterparty_checks: ['Контур.Фокус / СБИС / аналоги (проверка юрлица)'],
+      }).passedCounterpartyThreshold,
+    ).toBe(true)
+  })
+
   test('без вторичных: primarySpec макс=35, practicalAssignment макс=25', () => {
     const profile = makeProfile({
       specializations: [
@@ -41,6 +70,7 @@ describe('scoreDomesticAssessment', () => {
       ],
     })
     const result = scoreDomesticAssessment(profile, [])
+    expect(result.hardSkillFactologyScore).toBeLessThanOrEqual(10)
     // No secondary specializations → maxes should be 35/25
     expect(result.primarySpecScore).toBeLessThanOrEqual(35)
     expect(result.practicalAssignmentScore).toBeLessThanOrEqual(25)
@@ -56,6 +86,7 @@ describe('scoreDomesticAssessment', () => {
       ],
     })
     const result = scoreDomesticAssessment(profile, [])
+    expect(result.hardSkillFactologyScore).toBeLessThanOrEqual(10)
     expect(result.primarySpecScore).toBeLessThanOrEqual(25)
     expect(result.practicalAssignmentScore).toBeLessThanOrEqual(20)
     // secondary slot exists
@@ -66,6 +97,7 @@ describe('scoreDomesticAssessment', () => {
     const profile = makeProfile()
     const result = scoreDomesticAssessment(profile, [])
     const sum =
+      result.hardSkillFactologyScore +
       result.resumeAndInterviewScore +
       result.coreOperationsScore +
       result.primarySpecScore +
@@ -89,7 +121,13 @@ describe('scoreDomesticAssessment', () => {
       { packageId: 'domestic_road_ftl_ltl', rawScore: 35, maxScore: 35 },
     ]
     const result = scoreDomesticAssessment(
-      { ...profile, resumeAndInterviewScore: 15, communicationScore: 5, practicalScore: 25 },
+      {
+        ...profile,
+        hardSkillFactologyScore: 10,
+        resumeAndInterviewScore: 5,
+        communicationScore: 5,
+        practicalScore: 25,
+      },
       moduleResults,
     )
     expect(result.totalScore).toBe(100)
@@ -102,7 +140,13 @@ describe('scoreDomesticAssessment', () => {
       { packageId: 'domestic_road_ftl_ltl', rawScore: 0, maxScore: 35 },
     ]
     const result = scoreDomesticAssessment(
-      { ...profile, resumeAndInterviewScore: 0, communicationScore: 0, practicalScore: 0 },
+      {
+        ...profile,
+        hardSkillFactologyScore: 0,
+        resumeAndInterviewScore: 0,
+        communicationScore: 0,
+        practicalScore: 0,
+      },
       moduleResults,
     )
     expect(result.totalScore).toBe(0)
@@ -110,7 +154,8 @@ describe('scoreDomesticAssessment', () => {
 
   test('без калибровки использует дефолтные веса', () => {
     const profile = makeProfile({
-      resumeAndInterviewScore: 15,
+      hardSkillFactologyScore: 10,
+      resumeAndInterviewScore: 5,
       communicationScore: 5,
       practicalScore: 25,
     })
@@ -124,7 +169,8 @@ describe('scoreDomesticAssessment', () => {
 
   test('калиброванные веса влияют на компонентные капы', () => {
     const profile = makeProfile({
-      resumeAndInterviewScore: 15,
+      hardSkillFactologyScore: 10,
+      resumeAndInterviewScore: 5,
       communicationScore: 5,
       practicalScore: 25,
     })
@@ -133,15 +179,17 @@ describe('scoreDomesticAssessment', () => {
       { packageId: 'domestic_road_ftl_ltl', rawScore: 35, maxScore: 35 },
     ]
     const result = scoreDomesticAssessment(profile, moduleResults, {
-      resumeAndInterview: 10,
+      hardSkillFactology: 8,
+      resumeAndInterview: 7,
       coreOperations: 30,
       primarySpec: 20,
       secondarySpec: 10,
       practicalAssignment: 25,
       communication: 5,
     })
+    expect(result.hardSkillFactologyScore).toBe(8)
     expect(result.coreOperationsScore).toBe(30)
-    expect(result.totalScore).toBeCloseTo(96.6667, 3)
+    expect(result.totalScore).toBeCloseTo(99.6667, 3)
   })
 
   test('totalScore 85+ без RED ≤1 ORANGE → STRONG_CANDIDATE', () => {

@@ -21,6 +21,8 @@ export interface DomesticAssessmentProfile {
   signals: string[]
   specializations: SpecializationAssignment[]
   riskFlags: string[]
+  /** Deterministic Stage-1 hard-skill factology score (0-cap) */
+  hardSkillFactologyScore?: number
   /** Pre-computed scores fed in from outside (0-15 max) */
   resumeAndInterviewScore?: number
   /** Pre-computed communication score (0-5 max) */
@@ -60,7 +62,8 @@ export interface DomesticCrossCheckFlag {
 }
 
 export interface DomesticScoringResult {
-  resumeAndInterviewScore: number   // max 15
+  hardSkillFactologyScore: number // max 10
+  resumeAndInterviewScore: number   // max 5
   coreOperationsScore: number       // max 20
   primarySpecScore: number          // max 25 (or 35 without secondaries)
   secondarySpecScore: number        // max 15 (or 0, redistributed)
@@ -76,6 +79,86 @@ function hasSecondary(profile: DomesticAssessmentProfile): boolean {
   return profile.specializations.some((s) => s.level === 'secondary')
 }
 
+function asStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+}
+
+const DOCUMENT_FLOW_OPTIONS = [
+  'ТТН/ТрН',
+  'договор-заявка',
+  'ЭДО',
+  'доверенности',
+  'акты',
+  'счета-фактуры',
+  'экспедиторская расписка',
+  'поручение экспедитору',
+  'отчёт экспедитора',
+] as const
+
+const CARGO_TYPE_OPTIONS = [
+  'тент',
+  'рефрижератор/изотерм',
+  'негабарит',
+  'сборные/догруз',
+  'наливные',
+  'опасные/ADR',
+  'ценные',
+] as const
+
+export interface DomesticHardSkillFactologyResult {
+  rawScore: number
+  maxScore: number
+  passed1CThreshold: boolean
+  passedCounterpartyThreshold: boolean
+}
+
+export function scoreDomesticHardSkillFactology(
+  answers: Record<string, unknown>,
+): DomesticHardSkillFactologyResult {
+  const oneCExperience = answers['q_1c_experience']
+  let oneCScore = 0
+  if (oneCExperience === 'базово (просмотр)') oneCScore = 1
+  if (oneCExperience === 'уверенно (ТТН, ТрН, путевые листы)') oneCScore = 3
+  if (oneCExperience === 'администрирование') oneCScore = 4
+
+  const counterpartyChecks = new Set(asStringArray(answers['q_counterparty_checks']))
+  const usesAtiSearch = counterpartyChecks.has('ati.su (поиск грузов/машин)')
+  const usesRiskTool =
+    counterpartyChecks.has('АТИ Светофор (рейтинг/риски)') ||
+    counterpartyChecks.has('Контур.Фокус / СБИС / аналоги (проверка юрлица)')
+  const usesRegistryCheck = counterpartyChecks.has('проверка по ЕГРЮЛ/ФНС')
+  const skipsChecks = counterpartyChecks.has('не проверяю')
+  let counterpartyScore = 0
+  if (!skipsChecks) {
+    if (usesAtiSearch) counterpartyScore += 1
+    if (usesRiskTool) counterpartyScore += 3
+    if (usesRegistryCheck) counterpartyScore += 1
+  }
+
+  const documentCoverage = Math.min(
+    4,
+    asStringArray(answers['q_document_flow']).filter((item) =>
+      DOCUMENT_FLOW_OPTIONS.includes(item as (typeof DOCUMENT_FLOW_OPTIONS)[number]),
+    ).length,
+  )
+  const cargoCoverage = Math.min(
+    4,
+    asStringArray(answers['q_cargo_types']).filter((item) =>
+      CARGO_TYPE_OPTIONS.includes(item as (typeof CARGO_TYPE_OPTIONS)[number]),
+    ).length,
+  )
+
+  return {
+    rawScore: oneCScore + counterpartyScore + documentCoverage + cargoCoverage,
+    maxScore: 17,
+    passed1CThreshold:
+      oneCExperience === 'уверенно (ТТН, ТрН, путевые листы)' ||
+      oneCExperience === 'администрирование',
+    passedCounterpartyThreshold: usesRiskTool && !skipsChecks,
+  }
+}
+
 export function scoreDomesticAssessment(
   profile: DomesticAssessmentProfile,
   moduleResults: RawModuleResult[],
@@ -84,6 +167,7 @@ export function scoreDomesticAssessment(
   const withSecondary = hasSecondary(profile)
 
   // Weight caps per component
+  const hardSkillFactologyMax = weightCaps.hardSkillFactology
   const redistributedSecondary = withSecondary ? 0 : weightCaps.secondarySpec
   const primarySpecMax = withSecondary
     ? weightCaps.primarySpec
@@ -138,6 +222,10 @@ export function scoreDomesticAssessment(
   const secondarySpecScore = Math.min(secondarySpecMax, secondaryRatio * secondarySpecMax)
 
   // External component scores (passed in or 0)
+  const hardSkillFactologyScore = Math.min(
+    hardSkillFactologyMax,
+    profile.hardSkillFactologyScore ?? 0,
+  )
   const resumeAndInterviewScore = Math.min(
     resumeMax,
     profile.resumeAndInterviewScore ?? 0,
@@ -149,6 +237,7 @@ export function scoreDomesticAssessment(
   const practicalAssignmentScore = Math.min(practicalMax, practicalRaw)
 
   const totalScore =
+    hardSkillFactologyScore +
     resumeAndInterviewScore +
     coreOperationsScore +
     primarySpecScore +
@@ -183,6 +272,7 @@ export function scoreDomesticAssessment(
   const admission = shouldAdmitToLiveInterview(totalScore, [])
 
   return {
+    hardSkillFactologyScore,
     resumeAndInterviewScore,
     coreOperationsScore,
     primarySpecScore,

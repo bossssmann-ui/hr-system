@@ -17,6 +17,41 @@ const FAKE_DOMESTIC_TMS_POOL = [
   'SalesBoost TMS',
 ]
 
+function asString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
+}
+
+function asStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+}
+
+function getOpenAnswerCorpus(stageAnswers: Record<string, unknown>) {
+  return [
+    asString(stageAnswers['q_new_carrier_check']),
+    asString(stageAnswers['q_contract_risk_signs']),
+    asString(stageAnswers['q_hardest_shipment']),
+    asString(stageAnswers['q_breakdown_500km']) ?? asString(stageAnswers['road_q4']),
+  ]
+    .filter((item): item is string => Boolean(item))
+    .join(' ')
+    .toLowerCase()
+}
+
+function readAverageOpenScore(stageAnswers: Record<string, unknown>) {
+  const maybeScores = stageAnswers['open_answer_grades']
+  if (!Array.isArray(maybeScores) || maybeScores.length === 0) return null
+  const numeric = maybeScores
+    .map((item) =>
+      item && typeof item === 'object' && 'score' in item && typeof item.score === 'number'
+        ? item.score
+        : null,
+    )
+    .filter((item): item is number => item != null)
+  if (numeric.length === 0) return null
+  return numeric.reduce((sum, value) => sum + value, 0) / numeric.length
+}
+
 export function computeDomesticCrossCheckFlags(
   profile: DomesticAssessmentProfile,
   stageAnswers: Record<string, unknown>,
@@ -114,6 +149,60 @@ export function computeDomesticCrossCheckFlags(
       packageId: 'domestic_cabotage',
       description:
         'Кандидат заявил опыт каботажа, но не назвал ни порт, ни процесс',
+      impact: 'MANUAL_REVIEW_HR',
+    })
+  }
+
+  const peakShipments = stageAnswers['q_peak_shipments_per_day']
+  const cargoTypes = asStringArray(stageAnswers['q_cargo_types'])
+  const openAnswerCorpus = getOpenAnswerCorpus(stageAnswers)
+  const averageOpenScore = readAverageOpenScore(stageAnswers)
+  const hasHighDeclaredVolume = peakShipments === '6–10' || peakShipments === '10+'
+  const hasWideCargoBreadth = cargoTypes.length >= 4
+  const mentionsCarrierChecks =
+    openAnswerCorpus.includes('ати') ||
+    openAnswerCorpus.includes('светофор') ||
+    openAnswerCorpus.includes('контур') ||
+    openAnswerCorpus.includes('сбис') ||
+    openAnswerCorpus.includes('егрюл') ||
+    openAnswerCorpus.includes('фнс')
+  const mentionsDocuments =
+    openAnswerCorpus.includes('ттн') ||
+    openAnswerCorpus.includes('трн') ||
+    openAnswerCorpus.includes('договор') ||
+    openAnswerCorpus.includes('заявк') ||
+    openAnswerCorpus.includes('эдо') ||
+    openAnswerCorpus.includes('доверен')
+  const seemsShallow =
+    (averageOpenScore != null && averageOpenScore < 55) ||
+    (openAnswerCorpus.length > 0 &&
+      openAnswerCorpus.split(/\s+/).filter(Boolean).length < 35) ||
+    !mentionsCarrierChecks ||
+    !mentionsDocuments
+
+  if ((hasHighDeclaredVolume || hasWideCargoBreadth) && seemsShallow) {
+    flags.push({
+      id: 104,
+      type: 'ORANGE',
+      description: 'Заявленный объём или широта опыта не подтверждены глубиной открытых ответов',
+      impact: 'MANUAL_REVIEW_HR',
+    })
+  }
+
+  const claimsSpecialCargo =
+    cargoTypes.includes('опасные/ADR') || cargoTypes.includes('негабарит')
+  const mentionsSpecialRequirements =
+    openAnswerCorpus.includes('разреш') ||
+    openAnswerCorpus.includes('маршрут') ||
+    openAnswerCorpus.includes('согласован') ||
+    openAnswerCorpus.includes('сопровожд') ||
+    openAnswerCorpus.includes('доопог') ||
+    openAnswerCorpus.includes('adr')
+  if (claimsSpecialCargo && !mentionsSpecialRequirements) {
+    flags.push({
+      id: 105,
+      type: 'ORANGE',
+      description: 'Заявлены ADR/негабарит, но в ответах нет признаков знания спецтребований',
       impact: 'MANUAL_REVIEW_HR',
     })
   }

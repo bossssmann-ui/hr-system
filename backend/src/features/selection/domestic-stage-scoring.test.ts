@@ -6,6 +6,7 @@ import {
   computeDomesticVerdict,
   deriveProvisionalComponents,
   finalizeDomesticStage4,
+  gradeDomesticOpenAnswers,
   scoreDomesticStage2,
 } from './domestic-stage-scoring'
 import { getDomesticStageContent } from './domestic-stage-content'
@@ -116,6 +117,26 @@ describe('deriveProvisionalComponents', () => {
   test('пустые модули → practicalScore=0', () => {
     const c = deriveProvisionalComponents([], [], false)
     expect(c.practicalScore).toBe(0)
+  })
+})
+
+describe('gradeDomesticOpenAnswers', () => {
+  test('uses provider.gradeOpenAnswer when provider is supplied', async () => {
+    const calls: Array<{ question: string; rubric: string; answer: string }> = []
+    const grades = await gradeDomesticOpenAnswers({
+      answers: {
+        q_new_carrier_check: 'Проверяю через АТИ Светофор и документы.',
+        q_contract_risk_signs: 'Смотрю окна, договор-заявку и штрафы.',
+      },
+      provider: {
+        async gradeOpenAnswer(input) {
+          calls.push(input)
+          return { score: 77, rationale: 'ok' }
+        },
+      },
+    })
+    expect(calls).toHaveLength(2)
+    expect(grades.map((item) => item.score)).toEqual([77, 77])
   })
 })
 

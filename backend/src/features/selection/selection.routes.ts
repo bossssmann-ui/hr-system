@@ -417,7 +417,7 @@ export function createSelectionRoutes() {
       // numbers/verdict.
       let autoScored = false
       if (n === 4 && isDomesticRole(session.template.role ?? '')) {
-        const computation = await finalizeDomesticStage4(prisma, session.id)
+        const computation = await finalizeDomesticStage4(prisma, session.id, c.get('env'))
         if (computation) {
           autoScored = true
           nextSt = computation.status
