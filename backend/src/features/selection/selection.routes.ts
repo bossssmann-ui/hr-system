@@ -185,14 +185,10 @@ export function createSelectionRoutes() {
       return c.json({ status: session.status, message: 'Session is no longer active' })
     }
 
-    // Auto-transition pending → stage_1 (non-domestic only).
-    // Domestic logist flow is pending → (POST /resume) → resume_parsed → … ,
-    // so the candidate page can render ResumeStep while status is still
-    // 'pending'. Auto-promoting domestic sessions here would skip ResumeStep
-    // entirely (no specializations yet → empty stages → "Selection complete").
+    // Auto-transition pending → stage_1
     let status = session.status
     let startedAt = session.startedAt
-    if (status === 'pending' && !isDomesticRole(session.template.role ?? '')) {
+    if (status === 'pending') {
       status = 'stage_1'
       startedAt = new Date()
       await prisma.selectionSession.update({

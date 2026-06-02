@@ -147,7 +147,7 @@ test.describe('Phase 15–16 domestic selection flow', () => {
     // ResumeStep card title from ru/selection.json:
     // "candidate.resumeStep.title" = "Шаг 1. Расскажите о своём опыте"
     await expect(
-      page.getByRole('heading', { name: 'Шаг 1. Расскажите о своём опыте' }),
+      page.locator('[data-slot="card-title"]', { hasText: 'Шаг 1. Расскажите о своём опыте' }),
     ).toBeVisible({ timeout: 15_000 })
 
     await expect(page.locator('textarea').first()).toBeVisible()
@@ -166,7 +166,7 @@ test.describe('Phase 15–16 domestic selection flow', () => {
     await sessionLoaded
 
     await expect(
-      page.getByRole('heading', { name: 'Шаг 1. Расскажите о своём опыте' }),
+      page.locator('[data-slot="card-title"]', { hasText: 'Шаг 1. Расскажите о своём опыте' }),
     ).toBeVisible({ timeout: 15_000 })
 
     await page.locator('textarea').first().fill(RESUME_TEXT)
@@ -195,7 +195,7 @@ test.describe('Phase 15–16 domestic selection flow', () => {
     }
 
     await expect(
-      page.getByRole('heading', { name: 'Шаг 2. Вопросы о вашем опыте' }),
+      page.locator('[data-slot="card-title"]', { hasText: 'Шаг 2. Вопросы о вашем опыте' }),
     ).toBeVisible({ timeout: 15_000 })
   })
 
@@ -235,7 +235,7 @@ test.describe('Phase 15–16 domestic selection flow', () => {
     await sessionLoaded
 
     await expect(
-      page.getByRole('heading', { name: 'Шаг 2. Вопросы о вашем опыте' }),
+      page.locator('[data-slot="card-title"]', { hasText: 'Шаг 2. Вопросы о вашем опыте' }),
     ).toBeVisible({ timeout: 15_000 })
 
     const textareas = page.locator('textarea')
