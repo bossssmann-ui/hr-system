@@ -214,12 +214,12 @@ function VerdictDetail({
   const isDomestic = session.role === 'logist_domestic'
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" data-testid="selection-detail-modal">
       <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg border bg-background shadow-xl">
         <div className="grid gap-4 p-6">
           <div className="flex items-center justify-between">
             <Typography variant="h2">{t('dashboard.detail.title')}</Typography>
-            <Button variant="ghost" size="sm" onClick={onClose}>✕</Button>
+            <Button variant="ghost" size="sm" onClick={onClose} aria-label="close-detail">✕</Button>
           </div>
 
           <div className="grid gap-1">
@@ -517,6 +517,7 @@ export function SelectionDashboardPage() {
               return (
                 <tr
                   key={item.id}
+                  data-testid={`selection-row-${item.id}`}
                   className="cursor-pointer border-b transition-colors hover:bg-muted/30"
                   onClick={() =>
                     setSelected({
