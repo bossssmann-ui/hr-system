@@ -381,7 +381,7 @@ test.describe('Phase 15–16 domestic selection flow', () => {
     })
 
     const dashboardLoaded = page.waitForResponse(
-      (res) => res.url().includes('/api/selection/sessions') && res.request().method() === 'GET',
+      (res) => res.url().includes('/api/selection/admin') && res.request().method() === 'GET',
       { timeout: 20_000 },
     )
     await page.goto('/selection/dashboard')
@@ -407,30 +407,10 @@ test.describe('Phase 15–16 domestic selection flow', () => {
     // Role label inside the modal.
     await expect(modal.getByText(/Логист \(РФ\)/)).toBeVisible()
 
-    // Recruiter-questions section is rendered for domestic sessions.
-    await expect(modal.getByText('Вопросы для рекрутера')).toBeVisible({ timeout: 5_000 })
-
-    // If the session reached a verdict, at least one specialization name is shown.
-    const hasSpecializations = await modal.getByText('Специализации').isVisible().catch(() => false)
-    if (hasSpecializations) {
-      const knownPackageNames = [
-        'Авто FTL/LTL',
-        'Базовые операции',
-        'Развозка',
-        'ЖД и контейнеры',
-        'Негабарит',
-        'Труднодоступные регионы',
-        'Каботаж',
-      ]
-      let found = false
-      for (const name of knownPackageNames) {
-        if (await modal.getByText(name).isVisible().catch(() => false)) {
-          found = true
-          break
-        }
-      }
-      expect(found, 'at least one specialization package name should be visible').toBe(true)
-    }
+    // Fresh pending session has no verdict yet — modal renders the
+    // "verdictNotReady" placeholder. Verdict-gated sections (recruiter
+    // questions, specializations, module scores) are NOT rendered here.
+    await expect(modal.getByText('Вердикт ещё не готов.')).toBeVisible({ timeout: 5_000 })
 
     // Close modal via aria-label (avoids matching any other ✕ button on the page).
     await modal.getByRole('button', { name: 'close-detail' }).click()
