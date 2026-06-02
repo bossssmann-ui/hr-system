@@ -3,6 +3,7 @@
  */
 
 import type { DomesticAssessmentProfile, DomesticCrossCheckFlag } from './domestic-scoring'
+import { asNonEmptyString, asNonEmptyStringArray } from './domestic-answer-helpers'
 
 export type { DomesticCrossCheckFlag }
 
@@ -17,21 +18,15 @@ const FAKE_DOMESTIC_TMS_POOL = [
   'SalesBoost TMS',
 ]
 
-function asString(value: unknown): string | null {
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
-}
-
-function asStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return []
-  return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
-}
+const MIN_ACCEPTABLE_OPEN_SCORE = 55
+const MIN_OPEN_ANSWER_WORD_COUNT = 35
 
 function getOpenAnswerCorpus(stageAnswers: Record<string, unknown>) {
   return [
-    asString(stageAnswers['q_new_carrier_check']),
-    asString(stageAnswers['q_contract_risk_signs']),
-    asString(stageAnswers['q_hardest_shipment']),
-    asString(stageAnswers['q_breakdown_500km']) ?? asString(stageAnswers['road_q4']),
+    asNonEmptyString(stageAnswers['q_new_carrier_check']),
+    asNonEmptyString(stageAnswers['q_contract_risk_signs']),
+    asNonEmptyString(stageAnswers['q_hardest_shipment']),
+    asNonEmptyString(stageAnswers['q_breakdown_500km']) ?? asNonEmptyString(stageAnswers['road_q4']),
   ]
     .filter((item): item is string => Boolean(item))
     .join(' ')
@@ -154,7 +149,7 @@ export function computeDomesticCrossCheckFlags(
   }
 
   const peakShipments = stageAnswers['q_peak_shipments_per_day']
-  const cargoTypes = asStringArray(stageAnswers['q_cargo_types'])
+  const cargoTypes = asNonEmptyStringArray(stageAnswers['q_cargo_types'])
   const openAnswerCorpus = getOpenAnswerCorpus(stageAnswers)
   const averageOpenScore = readAverageOpenScore(stageAnswers)
   const hasHighDeclaredVolume = peakShipments === '6–10' || peakShipments === '10+'
@@ -174,9 +169,9 @@ export function computeDomesticCrossCheckFlags(
     openAnswerCorpus.includes('эдо') ||
     openAnswerCorpus.includes('доверен')
   const seemsShallow =
-    (averageOpenScore != null && averageOpenScore < 55) ||
+    (averageOpenScore != null && averageOpenScore < MIN_ACCEPTABLE_OPEN_SCORE) ||
     (openAnswerCorpus.length > 0 &&
-      openAnswerCorpus.split(/\s+/).filter(Boolean).length < 35) ||
+      openAnswerCorpus.split(/\s+/).filter(Boolean).length < MIN_OPEN_ANSWER_WORD_COUNT) ||
     !mentionsCarrierChecks ||
     !mentionsDocuments
 

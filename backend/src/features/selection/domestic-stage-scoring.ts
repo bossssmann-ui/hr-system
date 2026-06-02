@@ -14,6 +14,7 @@ import { Prisma } from '../../generated/prisma/client'
 import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
 import { createAssessmentProvider, isAiScoringConfigured } from '../../integrations/llm'
+import { asNonEmptyString } from './domestic-answer-helpers'
 import {
   computeDomesticCrossCheckFlags,
 } from './domestic-cross-check'
@@ -131,18 +132,24 @@ const DOMESTIC_OPEN_QUESTION_CONFIG = [
       'Оцени ответ по шкале 0-100. Сильный ответ включает контроль статуса груза и связи, уведомление клиента/склада, поиск резервного перевозчика или перегруза, фиксацию инцидента, проверку документов и SLA, оценку рисков срока/сохранности и дальнейший мониторинг. Слабый ответ — только общие слова без конкретного плана действий.',
   },
 ] as const
-
-function asString(value: unknown): string | null {
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
-}
+const HEURISTIC_WORD_COUNT_MULTIPLIER = 1.5
+const HEURISTIC_KEYWORD_HIT_POINTS = 8
+const HEURISTIC_MAX_KEYWORD_BONUS = 40
 
 function getOpenAnswerText(answers: Record<string, unknown>, key: string): string | null {
   if (key === 'q_breakdown_500km') {
-    return asString(answers['q_breakdown_500km']) ?? asString(answers['road_q4'])
+    return asNonEmptyString(answers['q_breakdown_500km']) ?? asNonEmptyString(answers['road_q4'])
   }
-  return asString(answers[key])
+  return asNonEmptyString(answers[key])
 }
 
+/**
+ * Fallback scoring for domestic open answers when Anthropic grading is not
+ * configured. It rewards answer length plus domain-specific keywords so the
+ * deterministic verdict still reacts to obviously shallow vs. concrete
+ * responses, but `gradeOpenAnswer` remains the primary path whenever AI
+ * scoring is enabled.
+ */
 function estimateDomesticOpenAnswerScore(answer: string, key: string) {
   const normalized = answer.toLowerCase()
   const wordCount = normalized.split(/\s+/).filter(Boolean).length
@@ -210,8 +217,11 @@ function estimateDomesticOpenAnswerScore(answer: string, key: string) {
   }
   const keywords = keywordMap[key] ?? []
   const keywordHits = keywords.filter((token) => normalized.includes(token)).length
-  const base = Math.min(100, wordCount * 1.5)
-  const keywordBonus = Math.min(40, keywordHits * 8)
+  const base = Math.min(100, wordCount * HEURISTIC_WORD_COUNT_MULTIPLIER)
+  const keywordBonus = Math.min(
+    HEURISTIC_MAX_KEYWORD_BONUS,
+    keywordHits * HEURISTIC_KEYWORD_HIT_POINTS,
+  )
   return Math.max(0, Math.min(100, base + keywordBonus))
 }
 

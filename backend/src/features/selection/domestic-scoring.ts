@@ -3,6 +3,7 @@
  */
 
 import type { SpecializationPackageId, SpecializationLevel } from './domestic-specializations'
+import { asNonEmptyStringArray } from './domestic-answer-helpers'
 import {
   DEFAULT_DOMESTIC_SCORING_WEIGHT_CAPS,
   type DomesticScoringWeightCaps,
@@ -79,11 +80,6 @@ function hasSecondary(profile: DomesticAssessmentProfile): boolean {
   return profile.specializations.some((s) => s.level === 'secondary')
 }
 
-function asStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return []
-  return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
-}
-
 const DOCUMENT_FLOW_OPTIONS = [
   'ТТН/ТрН',
   'договор-заявка',
@@ -122,7 +118,7 @@ export function scoreDomesticHardSkillFactology(
   if (oneCExperience === 'уверенно (ТТН, ТрН, путевые листы)') oneCScore = 3
   if (oneCExperience === 'администрирование') oneCScore = 4
 
-  const counterpartyChecks = new Set(asStringArray(answers['q_counterparty_checks']))
+  const counterpartyChecks = new Set(asNonEmptyStringArray(answers['q_counterparty_checks']))
   const usesAtiSearch = counterpartyChecks.has('ati.su (поиск грузов/машин)')
   const usesRiskTool =
     counterpartyChecks.has('АТИ Светофор (рейтинг/риски)') ||
@@ -138,13 +134,13 @@ export function scoreDomesticHardSkillFactology(
 
   const documentCoverage = Math.min(
     4,
-    asStringArray(answers['q_document_flow']).filter((item) =>
+    asNonEmptyStringArray(answers['q_document_flow']).filter((item) =>
       DOCUMENT_FLOW_OPTIONS.includes(item as (typeof DOCUMENT_FLOW_OPTIONS)[number]),
     ).length,
   )
   const cargoCoverage = Math.min(
     4,
-    asStringArray(answers['q_cargo_types']).filter((item) =>
+    asNonEmptyStringArray(answers['q_cargo_types']).filter((item) =>
       CARGO_TYPE_OPTIONS.includes(item as (typeof CARGO_TYPE_OPTIONS)[number]),
     ).length,
   )
