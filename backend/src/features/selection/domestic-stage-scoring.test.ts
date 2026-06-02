@@ -202,6 +202,19 @@ describe('computeDomesticVerdict', () => {
     expect(c.status).toBe('rejected')
     expect(c.verdictLabel).toBe('ОТКЛОНИТЬ')
   })
+
+  test('строит retention prediction с монотонными вероятностями 30/60/90', () => {
+    const moduleResults = scoreDomesticStage2(specs, allCorrectAnswersFor(specs))
+    const c = computeDomesticVerdict({
+      specializations: specs,
+      riskFlags: [],
+      moduleResults,
+      mergedAnswers: {},
+    })
+    expect(c.retentionPrediction.survival30).toBeGreaterThanOrEqual(c.retentionPrediction.survival60)
+    expect(c.retentionPrediction.survival60).toBeGreaterThanOrEqual(c.retentionPrediction.survival90)
+    expect(c.retentionPrediction.modelVersion).toBe('retention-v1')
+  })
 })
 
 describe('finalizeDomesticStage4', () => {
@@ -210,6 +223,9 @@ describe('finalizeDomesticStage4', () => {
     const prisma = {
       selectionSession: {
         findUnique: async () => session,
+      },
+      selectionScoringWeights: {
+        findFirst: async () => null,
       },
       selectionVerdict: {
         upsert: async (args: Record<string, unknown>) => {
@@ -268,6 +284,7 @@ describe('finalizeDomesticStage4', () => {
     const call = upsertCalls[0] as { create: { verdict: string }; where: { sessionId: string } }
     expect(call.where.sessionId).toBe('sess-2')
     expect(call.create.verdict).toBe('ДОПУСТИТЬ')
+    expect(call.create).toHaveProperty('retentionPrediction')
   })
 
   test('domestic, использует уже сохранённые scores.moduleResults Stage-2', async () => {

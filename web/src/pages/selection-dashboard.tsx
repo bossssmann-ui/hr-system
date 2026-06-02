@@ -43,6 +43,14 @@ type DomesticStageScores = {
   communicationScore?: number
 }
 
+type RetentionPrediction = {
+  survival30: number
+  survival60: number
+  survival90: number
+  confidence: number
+  modelVersion: string
+}
+
 type SelectionItem = {
   id: string
   token: string
@@ -57,6 +65,7 @@ type SelectionItem = {
     verdict: string
     totalWeightedScore: string | null
     crossCheckFlags: unknown
+    retentionPrediction: unknown
     createdAt: string
   } | null
   specializations?: SpecializationAssignment[]
@@ -185,6 +194,27 @@ function parseCrossCheckFlags(raw: unknown): CrossCheckFlag[] {
   )
 }
 
+function parseRetentionPrediction(raw: unknown): RetentionPrediction | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const candidate = raw as Record<string, unknown>
+  if (
+    typeof candidate['survival30'] !== 'number' ||
+    typeof candidate['survival60'] !== 'number' ||
+    typeof candidate['survival90'] !== 'number' ||
+    typeof candidate['confidence'] !== 'number' ||
+    typeof candidate['modelVersion'] !== 'string'
+  ) {
+    return null
+  }
+  return {
+    survival30: candidate['survival30'],
+    survival60: candidate['survival60'],
+    survival90: candidate['survival90'],
+    confidence: candidate['confidence'],
+    modelVersion: candidate['modelVersion'],
+  }
+}
+
 // ─── Detail modal ─────────────────────────────────────────────────────────────
 
 function VerdictDetail({
@@ -212,6 +242,9 @@ function VerdictDetail({
 
   const fullVerdict = verdictQuery.data
   const isDomestic = session.role === 'logist_domestic'
+  const retentionPrediction = parseRetentionPrediction(
+    fullVerdict?.retentionPrediction ?? session.verdict?.retentionPrediction ?? null,
+  )
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" data-testid="selection-detail-modal">
@@ -347,6 +380,30 @@ function VerdictDetail({
                       <li key={i} className="text-sm text-muted-foreground">{i + 1}. {q}</li>
                     ))}
                   </ol>
+                </div>
+              )}
+
+              {retentionPrediction && (
+                <div className="grid gap-2 rounded-md border p-3">
+                  <Typography className="text-sm font-medium">Retention прогноз</Typography>
+                  <div className="grid gap-1 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">30 дней</span>
+                      <span className="font-medium">{(retentionPrediction.survival30 * 100).toFixed(1)}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">60 дней</span>
+                      <span className="font-medium">{(retentionPrediction.survival60 * 100).toFixed(1)}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">90 дней</span>
+                      <span className="font-medium">{(retentionPrediction.survival90 * 100).toFixed(1)}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Confidence</span>
+                      <span className="font-medium">{(retentionPrediction.confidence * 100).toFixed(1)}%</span>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -511,6 +568,7 @@ export function SelectionDashboardPage() {
             )}
             {items.map((item) => {
               const flags = parseCrossCheckFlags(item.verdict?.crossCheckFlags)
+              const rowPrediction = parseRetentionPrediction(item.verdict?.retentionPrediction ?? null)
               const redCount = flags.filter((f) => f.type === 'RED').length
               const orangeCount = flags.filter((f) => f.type === 'ORANGE').length
 
@@ -543,9 +601,16 @@ export function SelectionDashboardPage() {
                   </td>
                   <td className="px-4 py-3">
                     {item.verdict ? (
-                      <Badge variant={verdictBadgeVariant(item.verdict.verdict)}>
-                        {item.verdict.verdict}
-                      </Badge>
+                      <div className="grid gap-1">
+                        <Badge variant={verdictBadgeVariant(item.verdict.verdict)}>
+                          {item.verdict.verdict}
+                        </Badge>
+                        {rowPrediction && (
+                          <span className="text-xs text-muted-foreground">
+                            90д: {(rowPrediction.survival90 * 100).toFixed(0)}%
+                          </span>
+                        )}
+                      </div>
                     ) : (
                       <span className="text-muted-foreground">—</span>
                     )}
