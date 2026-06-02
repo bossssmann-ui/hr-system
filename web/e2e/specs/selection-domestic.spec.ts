@@ -372,11 +372,11 @@ test.describe('Phase 15–16 domestic selection flow', () => {
     const { sessionId } = await createDomesticSession(request, accessToken, vacancyId)
 
     await page.goto('/')
-    await page.getByRole('tab', { name: 'Login' }).click()
+    await page.getByRole('tab', { name: 'Вход' }).click()
     await page.getByLabel('Email').fill(ownerEmail)
-    await page.getByLabel('Password').fill(ownerPassword)
-    await page.getByRole('button', { name: 'Login' }).click()
-    await expect(page.getByRole('heading', { name: 'Session is active' })).toBeVisible({
+    await page.getByLabel('Пароль').fill(ownerPassword)
+    await page.getByRole('button', { name: 'Войти' }).click()
+    await expect(page.getByRole('heading', { name: 'Сессия активна' })).toBeVisible({
       timeout: 15_000,
     })
 
