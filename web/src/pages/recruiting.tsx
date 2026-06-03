@@ -21,6 +21,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { Typography } from "@/components/ui/typography"
 import { OfferPanel } from "@/components/OfferPanel"
 import { ApiRequestError } from "@/lib/api"
+import { isAdmin } from "@/lib/roles"
 import { useAuth } from "@/lib/use-auth"
 import { cn } from "@/lib/utils"
 
@@ -1497,6 +1498,237 @@ function msToTimestamp(ms: number): string {
 }
 
 // ─── Admin Users ──────────────────────────────────────────────────────────────
+
+export function AdminOrgUnitsPage() {
+  const auth = useAuth()
+  const { t } = useTranslation('recruiting')
+  if (!auth.user) return <LoginRequired />
+  if (!isAdmin(auth.user)) return <ErrorCard message={t('common.accessDenied')} />
+  return <AdminOrgUnits />
+}
+
+function AdminOrgUnits() {
+  const { api, user } = useAuth()
+  const { t } = useTranslation('recruiting')
+  const queryClient = useQueryClient()
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editName, setEditName] = useState("")
+  const [editParentId, setEditParentId] = useState("")
+
+  const query = useQuery({
+    queryKey: ["admin", "org-units"],
+    queryFn: () => api.listOrgUnits(),
+    enabled: Boolean(user && isAdmin(user)),
+  })
+
+  const createForm = useForm({
+    defaultValues: {
+      name: "",
+      parentId: "",
+    },
+    onSubmit: async ({ value }) => {
+      try {
+        await api.createOrgUnit({
+          name: value.name.trim(),
+          parentId: value.parentId ? value.parentId : undefined,
+        })
+        toast.success(t('admin.orgUnits.toasts.created'))
+        await queryClient.invalidateQueries({ queryKey: ["admin", "org-units"] })
+        createForm.reset()
+      } catch (error) {
+        toast.error(error instanceof ApiRequestError ? error.message : t('admin.orgUnits.toasts.createFailed'))
+      }
+    },
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, name, parentId }: { id: string; name: string; parentId: string }) =>
+      api.updateOrgUnit(id, {
+        name: name.trim(),
+        parentId: parentId || null,
+      }),
+    onSuccess: async () => {
+      toast.success(t('admin.orgUnits.toasts.updated'))
+      setEditingId(null)
+      await queryClient.invalidateQueries({ queryKey: ["admin", "org-units"] })
+    },
+    onError: (error: unknown) => {
+      toast.error(error instanceof ApiRequestError ? error.message : t('admin.orgUnits.toasts.updateFailed'))
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.deleteOrgUnit(id),
+    onSuccess: async () => {
+      toast.success(t('admin.orgUnits.toasts.deleted'))
+      await queryClient.invalidateQueries({ queryKey: ["admin", "org-units"] })
+    },
+    onError: (error: unknown) => {
+      toast.error(error instanceof ApiRequestError ? error.message : t('admin.orgUnits.toasts.deleteFailed'))
+    },
+  })
+
+  if (query.isPending) return <LoadingCard />
+  if (query.isError) return <ErrorCard message={query.error instanceof ApiRequestError && query.error.status === 403 ? t('common.accessDenied') : t('admin.orgUnits.loadFailed')} />
+
+  const items = query.data.items
+  const byId = new Map(items.map((item) => [item.id, item]))
+
+  return (
+    <section className="mx-auto grid w-full max-w-6xl gap-6 px-5 py-12">
+      <div className="grid gap-3">
+        <Badge variant="outline" className="w-fit">{t('admin.badge')}</Badge>
+        <Typography variant="h1">{t('admin.orgUnits.title')}</Typography>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('admin.orgUnits.create.title')}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form
+            className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
+            onSubmit={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              void createForm.handleSubmit()
+            }}
+          >
+            <createForm.Field
+              name="name"
+              validators={{
+                onChange: ({ value }) =>
+                  value.trim().length >= 1 && value.trim().length <= 200
+                    ? undefined
+                    : t('admin.orgUnits.validation.name'),
+              }}
+              children={(field) => (
+                <Field data-invalid={field.state.meta.errors.length > 0}>
+                  <FieldLabel>{t('admin.orgUnits.fields.name')}</FieldLabel>
+                  <Input
+                    value={field.state.value}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                    placeholder={t('admin.orgUnits.create.namePlaceholder')}
+                  />
+                </Field>
+              )}
+            />
+
+            <createForm.Field
+              name="parentId"
+              children={(field) => (
+                <Field>
+                  <FieldLabel>{t('admin.orgUnits.fields.parent')}</FieldLabel>
+                  <select
+                    value={field.state.value}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  >
+                    <option value="">{t('admin.orgUnits.parentNone')}</option>
+                    {items.map((unit) => (
+                      <option key={unit.id} value={unit.id}>{unit.name}</option>
+                    ))}
+                  </select>
+                </Field>
+              )}
+            />
+
+            <div className="flex items-end">
+              <Button type="submit">{t('admin.orgUnits.create.submit')}</Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b">
+              <th className="py-2 text-left font-medium">{t('admin.orgUnits.fields.name')}</th>
+              <th className="py-2 text-left font-medium">{t('admin.orgUnits.fields.parent')}</th>
+              <th className="py-2 text-left font-medium">{t('requisitions.actions')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((unit) => {
+              const isEditing = editingId === unit.id
+              const parentName = unit.parentId ? byId.get(unit.parentId)?.name ?? "—" : t('admin.orgUnits.parentNone')
+              return (
+                <tr key={unit.id} className="border-b">
+                  <td className="py-2">
+                    {isEditing ? (
+                      <Input value={editName} onChange={(event) => setEditName(event.target.value)} />
+                    ) : unit.name}
+                  </td>
+                  <td className="py-2">
+                    {isEditing ? (
+                      <select
+                        value={editParentId}
+                        onChange={(event) => setEditParentId(event.target.value)}
+                        className="h-10 min-w-48 rounded-md border border-input bg-background px-3 text-sm"
+                      >
+                        <option value="">{t('admin.orgUnits.parentNone')}</option>
+                        {items
+                          .filter((candidate) => candidate.id !== unit.id)
+                          .map((candidate) => (
+                            <option key={candidate.id} value={candidate.id}>{candidate.name}</option>
+                          ))}
+                      </select>
+                    ) : parentName}
+                  </td>
+                  <td className="py-2">
+                    <div className="flex gap-2">
+                      {isEditing ? (
+                        <>
+                          <Button
+                            size="sm"
+                            onClick={() => updateMutation.mutate({ id: unit.id, name: editName, parentId: editParentId })}
+                            disabled={updateMutation.isPending}
+                          >
+                            {t('common:actions.save')}
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>
+                            {t('common:actions.cancel')}
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setEditingId(unit.id)
+                              setEditName(unit.name)
+                              setEditParentId(unit.parentId ?? "")
+                            }}
+                          >
+                            {t('common:actions.edit')}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => {
+                              if (window.confirm(t('admin.orgUnits.confirmDelete', { name: unit.name }))) {
+                                deleteMutation.mutate(unit.id)
+                              }
+                            }}
+                            disabled={deleteMutation.isPending}
+                          >
+                            {t('common:actions.delete')}
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )
+}
 
 export function AdminUsersPage() {
   const auth = useAuth()

@@ -10,6 +10,7 @@ import {
   listCandidatesResponseSchema,
   listInterviewsResponseSchema,
   listOrgUnitsResponseSchema,
+  orgUnitSchema,
   listRequisitionsResponseSchema,
   listUsersResponseSchema,
   listVacanciesResponseSchema,
@@ -67,6 +68,7 @@ import {
   type MeResponse,
   type MoveApplicationStageRequest,
   type OrgUnit,
+  type UpdateOrgUnitRequest,
   type PublishVacancyRequest,
   type RefreshRequest,
   type RefreshResponse,
@@ -214,9 +216,24 @@ export class ApiClient {
   }
 
   createOrgUnit(input: CreateOrgUnitRequest): Promise<OrgUnit> {
-    return this.request('/api/org-units', z.any(), {
+    return this.request('/api/org-units', orgUnitSchema, {
       method: 'POST',
       body: input,
+      auth: true,
+    })
+  }
+
+  updateOrgUnit(id: string, input: UpdateOrgUnitRequest): Promise<OrgUnit> {
+    return this.request(`/api/org-units/${id}`, orgUnitSchema, {
+      method: 'PATCH',
+      body: input,
+      auth: true,
+    })
+  }
+
+  async deleteOrgUnit(id: string): Promise<void> {
+    await this.request(`/api/org-units/${id}`, z.object({ ok: z.boolean() }), {
+      method: 'DELETE',
       auth: true,
     })
   }
