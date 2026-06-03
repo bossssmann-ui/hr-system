@@ -38,6 +38,68 @@ import {
   getActiveSelectionScoringWeights,
 } from './retention-calibration'
 
+const CARGO_LAYOUT_BONUS_ELIGIBLE_PACKAGES = new Set<string>([
+  'domestic_road_ftl_ltl',
+  'domestic_oversized_heavy',
+  'domestic_rail_container',
+])
+
+export const CARGO_LAYOUT_RECRUITER_FLAG = 'cargo_layout_test_required'
+
+type CargoLayoutEvaluation = {
+  claimedSelfLayout: boolean
+  hasConcreteEvidence: boolean
+}
+
+export function evaluateCargoLayoutExperience(answer: unknown): CargoLayoutEvaluation {
+  const text = asNonEmptyString(answer)
+  if (!text) return { claimedSelfLayout: false, hasConcreteEvidence: false }
+
+  const normalized = text.toLowerCase()
+  const hasNegativeClaim =
+    normalized.includes('не делал') ||
+    normalized.includes('не занимал') ||
+    normalized.includes('не выполнял') ||
+    normalized.includes('нет')
+  const claimedSelfLayout =
+    !hasNegativeClaim &&
+    (normalized.includes('да') ||
+      normalized.includes('сам') ||
+      normalized.includes('самостоятель') ||
+      normalized.includes('делал') ||
+      normalized.includes('расклад'))
+
+  const hasToolMention =
+    normalized.includes('excel') ||
+    normalized.includes('эксель') ||
+    normalized.includes('1с') ||
+    normalized.includes('wms') ||
+    normalized.includes('tms') ||
+    normalized.includes('planner') ||
+    normalized.includes('программ')
+  const hasVolumeMention =
+    /\d/.test(normalized) ||
+    normalized.includes('паллет') ||
+    normalized.includes('тонн') ||
+    normalized.includes('тн') ||
+    normalized.includes('м3') ||
+    normalized.includes('куб') ||
+    normalized.includes('мест')
+  const hasCargoMention =
+    normalized.includes('груз') ||
+    normalized.includes('оборуд') ||
+    normalized.includes('контейнер') ||
+    normalized.includes('негабарит') ||
+    normalized.includes('строймат') ||
+    normalized.includes('металл') ||
+    normalized.includes('продукт')
+
+  return {
+    claimedSelfLayout,
+    hasConcreteEvidence: claimedSelfLayout && hasToolMention && hasVolumeMention && hasCargoMention,
+  }
+}
+
 // ─── Stage 2 auto-scoring ─────────────────────────────────────────────────────
 
 /**
@@ -56,6 +118,7 @@ export function scoreDomesticStage2(
 ): RawModuleResult[] {
   const results: RawModuleResult[] = []
   const seen = new Set<string>()
+  const cargoLayout = evaluateCargoLayoutExperience(answers['q_cargo_layout_experience'])
   for (const spec of specializations) {
     if (seen.has(spec.packageId)) continue
     seen.add(spec.packageId)
@@ -71,6 +134,9 @@ export function scoreDomesticStage2(
       if (typeof given === 'string' && given === q.correct) {
         rawScore += weight
       }
+    }
+    if (CARGO_LAYOUT_BONUS_ELIGIBLE_PACKAGES.has(spec.packageId) && cargoLayout.hasConcreteEvidence) {
+      rawScore += 1
     }
     results.push({ packageId: spec.packageId, rawScore, maxScore })
   }
@@ -130,6 +196,66 @@ const DOMESTIC_OPEN_QUESTION_CONFIG = [
     question: 'Машина с грузом сломалась в пути в 500 км, водитель недоступен 2 часа — ваши действия?',
     rubric:
       'Оцени ответ по шкале 0-100. Сильный ответ включает контроль статуса груза и связи, уведомление клиента/склада, поиск резервного перевозчика или перегруза, фиксацию инцидента, проверку документов и SLA, оценку рисков срока/сохранности и дальнейший мониторинг. Слабый ответ — только общие слова без конкретного плана действий.',
+  },
+  {
+    key: 'rail_q_operators_open',
+    question: 'С какими операторами/экспедиторами и контейнерными линиями вы реально работали?',
+    rubric:
+      'Оцени глубину по шкале 0-100. Сильный ответ: реальные операторы/линии, примеры направлений/контейнеров, роли кандидата. Слабый: общие фразы без конкретных названий и процесса.',
+  },
+  {
+    key: 'rail_q_tariffs_open',
+    question: 'Откуда брали ставки ЖД-тарифов и как часто обновляли у поставщиков?',
+    rubric:
+      'Оцени глубину по шкале 0-100. Высокий балл: конкретные источники тарифов (операторы/экспедиторы/терминалы/системы), периодичность обновлений, валидация ставок и ответственность кандидата. Низкий: "получал готовое" без деталей.',
+  },
+  {
+    key: 'rail_q_benefits_open',
+    question: 'Что знаете о льготных категориях груза и понижающих коэффициентах по ЖД?',
+    rubric:
+      'Оцени глубину по шкале 0-100. Сильный ответ: понимание льгот/исключительных тарифов, понижающих коэффициентов по грузам/направлениям и влияния на калькуляцию. Слабый: отсутствие предметных терминов и практики.',
+  },
+  {
+    key: 'oversized_q_project_permits_open',
+    question: 'Что такое проектные разрешения и при каких габаритах/массе они нужны?',
+    rubric:
+      'Оцени глубину по шкале 0-100. Сильный ответ: критерии применения проектных разрешений, маршрутные согласования, сроки оформления и ограничения движения. Слабый: неопределённые формулировки без регуляторики.',
+  },
+  {
+    key: 'oversized_q_liability_open',
+    question: 'Когда ответственность за перевес/негабарит на экспедиторе, а когда на перевозчике?',
+    rubric:
+      'Оцени глубину по шкале 0-100. Высокий балл: разделение ответственности по договору-заявке (достоверность данных, разрешения, крепление, соблюдение режима в пути), примеры рисков и действий. Низкий: "все отвечают одинаково".',
+  },
+  {
+    key: 'oversized_q_escort_open',
+    question: 'Когда обязательно сопровождение (машины прикрытия/ГИБДД) и от чего это зависит?',
+    rubric:
+      'Оцени глубину по шкале 0-100. Сильный ответ: зависимость от превышений габаритов/условий разрешения, планирование сопровождения и ограничений. Слабый: без критериев и без понимания процедур.',
+  },
+  {
+    key: 'remote_q_regions_open',
+    question: 'Какие районы РФ относите к труднодоступным и почему?',
+    rubric:
+      'Оцени глубину по шкале 0-100. Высокий балл: корректные примеры регионов/населённых пунктов, связь с северным завозом/навигацией/отсутствием круглогодичной дороги. Низкий: общие слова без географии.',
+  },
+  {
+    key: 'remote_q_north_delivery_open',
+    question: 'Как северный завоз и навигационные окна влияют на планирование?',
+    rubric:
+      'Оцени глубину по шкале 0-100. Сильный ответ: сезонные окна, буфер сроков, резервные сценарии, хранение, последняя миля. Слабый: игнорирование сезонности и навигации.',
+  },
+  {
+    key: 'cab_q_ports_lines_open',
+    question: 'С какими портами и линиями работали и какие портовые расходы кроме фрахта учитывали?',
+    rubric:
+      'Оцени глубину по шкале 0-100. Сильный ответ: реальные порты/линии, детализация расходов (терминальная обработка, хранение, вывоз, сверхнорматив) и процесс координации. Слабый: без конкретики.',
+  },
+  {
+    key: 'dist_q_wms_open',
+    question: 'Работали ли с WMS / сканированием / штрихкодами при развозке? Как именно?',
+    rubric:
+      'Оцени глубину по шкале 0-100. Высокий балл: реальные сценарии работы с WMS/ТСД/штрихкодами, влияние на SLA/OTIF, фиксацию расхождений. Низкий: декларативный ответ без примеров.',
   },
 ] as const
 const HEURISTIC_WORD_COUNT_MULTIPLIER = 1.5
@@ -218,6 +344,40 @@ function estimateDomesticOpenAnswerScore(answer: string, key: string) {
       'монитор',
       'gps',
     ],
+    rail_q_operators_open: [
+      'оператор',
+      'линии',
+      'контейнер',
+      'терминал',
+      'жд',
+      'платформ',
+      'экспедитор',
+    ],
+    rail_q_tariffs_open: ['ставк', 'тариф', 'оператор', 'обновл', 'этран', 'запрос', 'калькуляц'],
+    rail_q_benefits_open: ['льгот', 'коэффиц', 'тариф', 'груз', 'направлен'],
+    oversized_q_project_permits_open: [
+      'проект',
+      'разреш',
+      'габарит',
+      'масса',
+      'маршрут',
+      'согласован',
+      'росавтодор',
+    ],
+    oversized_q_liability_open: [
+      'ответствен',
+      'экспедитор',
+      'перевозчик',
+      'договор',
+      'креплен',
+      'перевес',
+      'разреш',
+    ],
+    oversized_q_escort_open: ['сопровожд', 'прикрыти', 'гибдд', 'габарит', 'разреш', 'маршрут'],
+    remote_q_regions_open: ['якут', 'чукот', 'камчат', 'северн', 'завоз', 'зимник', 'навигац'],
+    remote_q_north_delivery_open: ['навигац', 'окно', 'сезон', 'завоз', 'буфер', 'последн', 'хранен'],
+    cab_q_ports_lines_open: ['порт', 'линии', 'фрахт', 'коносам', 'хранен', 'терминал', 'вывоз'],
+    dist_q_wms_open: ['wms', 'скан', 'штрих', 'тсд', 'otif', 'sla', 'расхожд', 'документ'],
   }
   const keywords = keywordMap[key] ?? []
   const keywordHits = keywords.filter((token) => normalized.includes(token)).length
@@ -345,6 +505,7 @@ export interface DomesticVerdictComputation {
   moduleResults: RawModuleResult[]
   stageScores: DomesticScoringResult
   retentionPrediction: RetentionPrediction
+  recruiterChecklistFlags: string[]
 }
 
 export function computeDomesticVerdict(
@@ -384,6 +545,12 @@ export function computeDomesticVerdict(
   const admission = shouldAdmitToLiveInterview(scoring.totalScore, flags)
   const status = admissionToStatus(admission)
   const verdictLabel = admissionToVerdictLabel(admission)
+  const cargoLayout = evaluateCargoLayoutExperience(mergedAnswers['q_cargo_layout_experience'])
+  const recruiterChecklistFlags =
+    cargoLayout.claimedSelfLayout &&
+    (admission === 'STRONG_CANDIDATE' || admission === 'ADMIT_TO_INTERVIEW')
+      ? [CARGO_LAYOUT_RECRUITER_FLAG]
+      : []
   const retentionPrediction = buildRetentionPrediction({
     stageScores: scoring,
     crossCheckFlags: flags,
@@ -399,6 +566,7 @@ export function computeDomesticVerdict(
     moduleResults,
     stageScores: scoring,
     retentionPrediction,
+    recruiterChecklistFlags,
   }
 }
 
@@ -523,7 +691,27 @@ export async function finalizeDomesticStage4(
     moduleResults: computation.moduleResults,
     openAnswerGrades,
     admission: computation.admission,
+    recruiterChecklistFlags: computation.recruiterChecklistFlags,
   } as unknown as Prisma.InputJsonValue
+
+  const currentChecklistFlags = Array.isArray(assessmentProfile['recruiterChecklistFlags'])
+    ? (assessmentProfile['recruiterChecklistFlags'] as unknown[]).filter(
+        (item): item is string => typeof item === 'string',
+      )
+    : []
+  const mergedChecklistFlags = Array.from(
+    new Set([...currentChecklistFlags, ...computation.recruiterChecklistFlags]),
+  )
+
+  await prisma.selectionSession.update({
+    where: { id: session.id },
+    data: {
+      assessmentProfile: {
+        ...assessmentProfile,
+        recruiterChecklistFlags: mergedChecklistFlags,
+      } as Prisma.InputJsonValue,
+    },
+  })
 
   await prisma.selectionVerdict.upsert({
     where: { sessionId: session.id },

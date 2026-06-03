@@ -72,6 +72,7 @@ type SelectionItem = {
   assessmentProfile?: {
     signals?: string[]
     riskFlags?: string[]
+    recruiterChecklistFlags?: string[]
   }
 }
 
@@ -138,7 +139,11 @@ function domesticVerdictLabel(verdict: string): string {
   return labels[verdict] ?? verdict
 }
 
-function generateRecruiterQuestions(riskFlags: string[], _specializations: SpecializationAssignment[]): string[] {
+function generateRecruiterQuestions(
+  riskFlags: string[],
+  _specializations: SpecializationAssignment[],
+  recruiterChecklistFlags: string[],
+): string[] {
   const questions: string[] = [
     'Назовите последний рейс который вы вели от заявки до закрывающих документов.',
     'Что именно было вашей зоной ответственности?',
@@ -154,6 +159,9 @@ function generateRecruiterQuestions(riskFlags: string[], _specializations: Speci
   if (riskFlags.includes('cabotage_depth_risk')) {
     questions.push('С какими портами и линиями вы реально работали?')
     questions.push('Как организовывали вывоз из порта?')
+  }
+  if (recruiterChecklistFlags.includes('cargo_layout_test_required')) {
+    questions.push('Выдать тестовое задание по раскладке груза.')
   }
   return questions
 }
@@ -175,15 +183,20 @@ function parseSpecializations(raw: unknown): SpecializationAssignment[] | undefi
   )
 }
 
-function parseAssessmentProfile(raw: unknown): { signals: string[]; riskFlags: string[] } | undefined {
+function parseAssessmentProfile(
+  raw: unknown,
+): { signals: string[]; riskFlags: string[]; recruiterChecklistFlags: string[] } | undefined {
   if (typeof raw !== 'object' || raw === null) return undefined
   const obj = raw as Record<string, unknown>
   const signals = Array.isArray(obj.signals) ? obj.signals.filter((x): x is string => typeof x === 'string') : []
   const riskFlags = Array.isArray(obj.riskFlags)
     ? obj.riskFlags.filter((x): x is string => typeof x === 'string')
     : []
-  if (signals.length === 0 && riskFlags.length === 0) return undefined
-  return { signals, riskFlags }
+  const recruiterChecklistFlags = Array.isArray(obj.recruiterChecklistFlags)
+    ? obj.recruiterChecklistFlags.filter((x): x is string => typeof x === 'string')
+    : []
+  if (signals.length === 0 && riskFlags.length === 0 && recruiterChecklistFlags.length === 0) return undefined
+  return { signals, riskFlags, recruiterChecklistFlags }
 }
 
 function parseCrossCheckFlags(raw: unknown): CrossCheckFlag[] {
@@ -375,7 +388,8 @@ function VerdictDetail({
                   <ol className="grid gap-1 pl-4">
                     {generateRecruiterQuestions(
                       session.assessmentProfile?.riskFlags ?? [],
-                      session.specializations ?? []
+                      session.specializations ?? [],
+                      session.assessmentProfile?.recruiterChecklistFlags ?? [],
                     ).map((q, i) => (
                       <li key={i} className="text-sm text-muted-foreground">{i + 1}. {q}</li>
                     ))}

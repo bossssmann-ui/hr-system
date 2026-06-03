@@ -17,6 +17,44 @@ const ALL_PACKAGES = [
 ] as const
 
 describe('getDomesticStageContent', () => {
+  it('добавлены новые батареи вопросов для rail/oversized/remote/cabotage/distribution', () => {
+    const rail = getDomesticStageContent('domestic_rail_container', 2) as TestStageContent
+    const oversized = getDomesticStageContent('domestic_oversized_heavy', 2) as TestStageContent
+    const remote = getDomesticStageContent('domestic_remote_regions', 2) as TestStageContent
+    const cab = getDomesticStageContent('domestic_cabotage', 2) as TestStageContent
+    const dist = getDomesticStageContent('domestic_distribution', 2) as TestStageContent
+
+    expect(rail.questions.some((q) => q.key === 'rail_q_etran')).toBe(true)
+    expect(rail.questions.some((q) => q.key === 'rail_q_gu12')).toBe(true)
+    expect(rail.questions.some((q) => q.key === 'rail_q_etsng')).toBe(true)
+    expect(rail.questions.some((q) => q.key === 'rail_q_operators_open')).toBe(true)
+
+    expect(oversized.questions.some((q) => q.key === 'oversized_q_dimensions')).toBe(true)
+    expect(oversized.questions.some((q) => q.key === 'oversized_q_permit_authority')).toBe(true)
+    expect(oversized.questions.some((q) => q.key === 'oversized_q_project_permits_open')).toBe(true)
+
+    expect(remote.questions.some((q) => q.key === 'remote_q_regions_open')).toBe(true)
+    expect(remote.questions.some((q) => q.key === 'remote_q_north_delivery_open')).toBe(true)
+
+    expect(cab.questions.some((q) => q.key === 'cab_q_document')).toBe(true)
+    expect(cab.questions.some((q) => q.key === 'cab_q_svh')).toBe(true)
+    expect(cab.questions.some((q) => q.key === 'cab_q_ports_lines_open')).toBe(true)
+
+    expect(dist.questions.some((q) => q.key === 'dist_q_sla_otif')).toBe(true)
+    expect(dist.questions.some((q) => q.key === 'dist_q_docs_partial')).toBe(true)
+    expect(dist.questions.some((q) => q.key === 'dist_q_wms_open')).toBe(true)
+  })
+
+  it('кросс-блок раскладки груза включён в road/rail/oversized', () => {
+    const road = getDomesticStageContent('domestic_road_ftl_ltl', 2) as TestStageContent
+    const rail = getDomesticStageContent('domestic_rail_container', 2) as TestStageContent
+    const oversized = getDomesticStageContent('domestic_oversized_heavy', 2) as TestStageContent
+
+    expect(road.questions.some((q) => q.key === 'q_cargo_layout_experience')).toBe(true)
+    expect(rail.questions.some((q) => q.key === 'q_cargo_layout_experience')).toBe(true)
+    expect(oversized.questions.some((q) => q.key === 'q_cargo_layout_experience')).toBe(true)
+  })
+
   it('возвращает null для неизвестного packageId', () => {
     const result = getDomesticStageContent('unknown_package' as any, 2)
     expect(result).toBeNull()
