@@ -3,6 +3,7 @@ import type { DbClient } from '../../db'
 import type { SelectionScoringWeights } from '../../generated/prisma/client'
 
 export interface DomesticScoringWeightCaps {
+  hardSkillFactology: number
   resumeAndInterview: number
   coreOperations: number
   primarySpec: number
@@ -12,7 +13,8 @@ export interface DomesticScoringWeightCaps {
 }
 
 export const DEFAULT_DOMESTIC_SCORING_WEIGHT_CAPS: DomesticScoringWeightCaps = {
-  resumeAndInterview: 15,
+  hardSkillFactology: 10,
+  resumeAndInterview: 5,
   coreOperations: 20,
   primarySpec: 25,
   secondarySpec: 15,
@@ -35,6 +37,7 @@ function asNumber(value: unknown): number | null {
 export function parseDomesticScoringWeightCaps(value: unknown): DomesticScoringWeightCaps | null {
   const obj = asRecord(value)
   if (!obj) return null
+  const hardSkillFactology = asNumber(obj['hardSkillFactology'])
   const resumeAndInterview = asNumber(obj['resumeAndInterview'])
   const coreOperations = asNumber(obj['coreOperations'])
   const primarySpec = asNumber(obj['primarySpec'])
@@ -42,6 +45,7 @@ export function parseDomesticScoringWeightCaps(value: unknown): DomesticScoringW
   const practicalAssignment = asNumber(obj['practicalAssignment'])
   const communication = asNumber(obj['communication'])
   if (
+    hardSkillFactology == null ||
     resumeAndInterview == null ||
     coreOperations == null ||
     primarySpec == null ||
@@ -52,6 +56,7 @@ export function parseDomesticScoringWeightCaps(value: unknown): DomesticScoringW
     return null
   }
   return {
+    hardSkillFactology,
     resumeAndInterview,
     coreOperations,
     primarySpec,
@@ -75,6 +80,7 @@ export async function getActiveSelectionScoringWeights(
 }
 
 type ComponentRow = {
+  hardSkillFactology: number
   resumeAndInterview: number
   coreOperations: number
   primarySpec: number
@@ -109,6 +115,7 @@ export function calibrateWeightCaps(rows: ComponentRow[]): DomesticScoringWeight
 
   const y = rows.map((r) => r.survived90)
   const componentKeys: Array<keyof DomesticScoringWeightCaps> = [
+    'hardSkillFactology',
     'resumeAndInterview',
     'coreOperations',
     'primarySpec',
@@ -131,6 +138,7 @@ export function calibrateWeightCaps(rows: ComponentRow[]): DomesticScoringWeight
 
   const defaults = DEFAULT_DOMESTIC_SCORING_WEIGHT_CAPS
   const defaultSum =
+    defaults.hardSkillFactology +
     defaults.resumeAndInterview +
     defaults.coreOperations +
     defaults.primarySpec +
@@ -150,12 +158,13 @@ export function calibrateWeightCaps(rows: ComponentRow[]): DomesticScoringWeight
 
   const scaled = blended.map((value) => (value / blendedSum) * defaultSum)
   return {
-    resumeAndInterview: Number(scaled[0]!.toFixed(4)),
-    coreOperations: Number(scaled[1]!.toFixed(4)),
-    primarySpec: Number(scaled[2]!.toFixed(4)),
-    secondarySpec: Number(scaled[3]!.toFixed(4)),
-    practicalAssignment: Number(scaled[4]!.toFixed(4)),
-    communication: Number(scaled[5]!.toFixed(4)),
+    hardSkillFactology: Number(scaled[0]!.toFixed(4)),
+    resumeAndInterview: Number(scaled[1]!.toFixed(4)),
+    coreOperations: Number(scaled[2]!.toFixed(4)),
+    primarySpec: Number(scaled[3]!.toFixed(4)),
+    secondarySpec: Number(scaled[4]!.toFixed(4)),
+    practicalAssignment: Number(scaled[5]!.toFixed(4)),
+    communication: Number(scaled[6]!.toFixed(4)),
   }
 }
 
@@ -165,6 +174,7 @@ function readComponentRow(
 ): ComponentRow | null {
   const scores = asRecord(stageScores)
   if (!scores) return null
+  const hardSkillFactology = asNumber(scores['hardSkillFactologyScore'])
   const resumeAndInterview = asNumber(scores['resumeAndInterviewScore'])
   const coreOperations = asNumber(scores['coreOperationsScore'])
   const primarySpec = asNumber(scores['primarySpecScore'])
@@ -172,6 +182,7 @@ function readComponentRow(
   const practicalAssignment = asNumber(scores['practicalAssignmentScore'])
   const communication = asNumber(scores['communicationScore'])
   if (
+    hardSkillFactology == null ||
     resumeAndInterview == null ||
     coreOperations == null ||
     primarySpec == null ||
@@ -182,6 +193,7 @@ function readComponentRow(
     return null
   }
   return {
+    hardSkillFactology,
     resumeAndInterview,
     coreOperations,
     primarySpec,

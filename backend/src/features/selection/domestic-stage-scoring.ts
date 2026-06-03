@@ -12,10 +12,14 @@
 
 import { Prisma } from '../../generated/prisma/client'
 import type { DbClient } from '../../db'
+import type { AppEnv } from '../../env'
+import { createAssessmentProvider, isAiScoringConfigured } from '../../integrations/llm'
+import { asNonEmptyString } from './domestic-answer-helpers'
 import {
   computeDomesticCrossCheckFlags,
 } from './domestic-cross-check'
 import {
+  scoreDomesticHardSkillFactology,
   scoreDomesticAssessment,
   shouldAdmitToLiveInterview,
   type DomesticScoringWeightCaps,
@@ -29,7 +33,10 @@ import {
 import { getDomesticStageContent } from './domestic-stage-content'
 import type { TestStageContent } from './stage-content'
 import { buildRetentionPrediction, type RetentionPrediction } from './retention-prediction'
-import { getActiveSelectionScoringWeights } from './retention-calibration'
+import {
+  DEFAULT_DOMESTIC_SCORING_WEIGHT_CAPS,
+  getActiveSelectionScoringWeights,
+} from './retention-calibration'
 
 // ─── Stage 2 auto-scoring ─────────────────────────────────────────────────────
 
@@ -82,6 +89,177 @@ export interface ProvisionalComponents {
   resumeAndInterviewScore: number
   communicationScore: number
   practicalScore: number
+}
+
+type OpenAnswerGrade = {
+  key: string
+  question: string
+  score: number
+  rationale: string
+}
+
+type OpenAnswerGradingProvider = {
+  gradeOpenAnswer: (input: {
+    question: string
+    rubric: string
+    answer: string
+  }) => Promise<{ score: number; rationale: string }>
+}
+
+const DOMESTIC_OPEN_QUESTION_CONFIG = [
+  {
+    key: 'q_new_carrier_check',
+    question: 'Как вы ищете и проверяете нового перевозчика, которому впервые отдаёте груз?',
+    rubric:
+      'Оцени глубину ответа логиста по шкале 0-100. Высокий балл требует конкретной последовательности действий: поиск перевозчика, проверка рейтинга/рисков (например, АТИ Светофор), проверка юрлица и документов, страховки/ЭДО/ЭЦП, отзывов/истории работы, резервного плана. Низкий балл — общие слова без инструментов, документов и критериев риска.',
+  },
+  {
+    key: 'q_contract_risk_signs',
+    question: 'По каким признакам в заявке/договоре вы видите риск срыва перевозки?',
+    rubric:
+      'Оцени глубину ответа по шкале 0-100. Сильный ответ называет конкретные красные флаги: неполные условия заявки, окна погрузки/выгрузки, штрафы, неопределённый груз, несогласованные простои/доплаты, документы, ответственность сторон, требования к машине/водителю. Слабый ответ — абстрактные формулировки без деталей договора и логистических рисков.',
+  },
+  {
+    key: 'q_hardest_shipment',
+    question: 'Расскажите про самую сложную перевозку в вашей практике и как вы решали проблему.',
+    rubric:
+      'Оцени глубину ответа по шкале 0-100. Сильный ответ содержит контекст перевозки, ограничения, тип груза/маршрут, документы, переговоры, принятые решения, результат и выводы. Слабый ответ — короткий пересказ без цифр, ограничений, действий и результата.',
+  },
+  {
+    key: 'q_breakdown_500km',
+    question: 'Машина с грузом сломалась в пути в 500 км, водитель недоступен 2 часа — ваши действия?',
+    rubric:
+      'Оцени ответ по шкале 0-100. Сильный ответ включает контроль статуса груза и связи, уведомление клиента/склада, поиск резервного перевозчика или перегруза, фиксацию инцидента, проверку документов и SLA, оценку рисков срока/сохранности и дальнейший мониторинг. Слабый ответ — только общие слова без конкретного плана действий.',
+  },
+] as const
+const HEURISTIC_WORD_COUNT_MULTIPLIER = 1.5
+const HEURISTIC_KEYWORD_HIT_POINTS = 8
+const HEURISTIC_MAX_KEYWORD_BONUS = 40
+
+function getOpenAnswerText(answers: Record<string, unknown>, key: string): string | null {
+  if (key === 'q_breakdown_500km') {
+    // Keep reading the legacy `road_q4` key so in-flight sessions created
+    // before the shared breakdown question was introduced still grade cleanly.
+    return asNonEmptyString(answers['q_breakdown_500km']) ?? asNonEmptyString(answers['road_q4'])
+  }
+  return asNonEmptyString(answers[key])
+}
+
+/**
+ * Fallback scoring for domestic open answers when Anthropic grading is not
+ * configured. It rewards answer length plus domain-specific keywords so the
+ * deterministic verdict still reacts to obviously shallow vs. concrete
+ * responses, but `gradeOpenAnswer` remains the primary path whenever AI
+ * scoring is enabled. The current tuning lets ~67 words saturate the length
+ * portion (67 × 1.5 ≈ 100) while keyword hits add up to 40 bonus points to
+ * reward logistics-specific specificity instead of generic prose.
+ */
+function estimateDomesticOpenAnswerScore(answer: string, key: string) {
+  const normalized = answer.toLowerCase()
+  const wordCount = normalized.split(/\s+/).filter(Boolean).length
+  const keywordMap: Record<string, string[]> = {
+    q_new_carrier_check: [
+      'ати',
+      'светофор',
+      'контур',
+      'сбис',
+      'егрюл',
+      'фнс',
+      'инн',
+      'страх',
+      'эдо',
+      'эцп',
+      'документ',
+      'договор',
+      'отзыв',
+    ],
+    q_contract_risk_signs: [
+      'окн',
+      'погруз',
+      'выгруз',
+      'штраф',
+      'простой',
+      'доплат',
+      'вес',
+      'габарит',
+      'температур',
+      'документ',
+      'договор',
+      'заявк',
+      'ответствен',
+    ],
+    q_hardest_shipment: [
+      'маршрут',
+      'клиент',
+      'перевоз',
+      'груз',
+      'проблем',
+      'решил',
+      'документ',
+      'срок',
+      'ставк',
+      'резерв',
+      'перегруз',
+      'погруз',
+      'выгруз',
+    ],
+    q_breakdown_500km: [
+      'клиент',
+      'водител',
+      'связ',
+      'резерв',
+      'перегруз',
+      'эваку',
+      'страх',
+      'груз',
+      'срок',
+      'склад',
+      'документ',
+      'монитор',
+      'gps',
+    ],
+  }
+  const keywords = keywordMap[key] ?? []
+  const keywordHits = keywords.filter((token) => normalized.includes(token)).length
+  const base = Math.min(100, wordCount * HEURISTIC_WORD_COUNT_MULTIPLIER)
+  const keywordBonus = Math.min(
+    HEURISTIC_MAX_KEYWORD_BONUS,
+    keywordHits * HEURISTIC_KEYWORD_HIT_POINTS,
+  )
+  return Math.max(0, Math.min(100, base + keywordBonus))
+}
+
+export async function gradeDomesticOpenAnswers(input: {
+  answers: Record<string, unknown>
+  env?: AppEnv
+  provider?: OpenAnswerGradingProvider
+}) {
+  const { answers, env, provider } = input
+  const gradingProvider =
+    provider ?? (env && isAiScoringConfigured(env) ? createAssessmentProvider(env) : null)
+
+  const grades: OpenAnswerGrade[] = []
+  for (const item of DOMESTIC_OPEN_QUESTION_CONFIG) {
+    const answer = getOpenAnswerText(answers, item.key)
+    if (!answer) continue
+    if (gradingProvider) {
+      const grade = await gradingProvider.gradeOpenAnswer({
+        question: item.question,
+        rubric: item.rubric,
+        answer,
+      })
+      grades.push({ key: item.key, question: item.question, score: grade.score, rationale: grade.rationale })
+      continue
+    }
+    grades.push({
+      key: item.key,
+      question: item.question,
+      score: estimateDomesticOpenAnswerScore(answer, item.key),
+      rationale: 'Fallback heuristic score derived from answer specificity.',
+    })
+  }
+
+  return grades
 }
 
 /**
@@ -152,6 +330,9 @@ export interface DomesticVerdictInputs {
   moduleResults: RawModuleResult[]
   /** Merged answers across stages (used for cross-check trap detection). */
   mergedAnswers: Record<string, unknown>
+  openAnswerGrades?: Array<{ key: string; question: string; score: number; rationale: string }>
+  hardSkillFactologyScore?: number
+  resumeAndInterviewScore?: number
   scoringWeightCaps?: DomesticScoringWeightCaps
 }
 
@@ -179,7 +360,8 @@ export function computeDomesticVerdict(
     signals: [],
     specializations,
     riskFlags,
-    resumeAndInterviewScore: components.resumeAndInterviewScore,
+    hardSkillFactologyScore: inputs.hardSkillFactologyScore,
+    resumeAndInterviewScore: inputs.resumeAndInterviewScore ?? components.resumeAndInterviewScore,
     communicationScore: components.communicationScore,
     practicalScore: components.practicalScore,
   }
@@ -189,6 +371,9 @@ export function computeDomesticVerdict(
   // about per-package performance (e.g. RED-3: claimed primary oversized but
   // scored < 30 % on that module).
   const crossCheckAnswers: Record<string, unknown> = { ...mergedAnswers }
+  if (inputs.openAnswerGrades) {
+    crossCheckAnswers['open_answer_grades'] = inputs.openAnswerGrades
+  }
   for (const r of moduleResults) {
     crossCheckAnswers[`${r.packageId}.rawScore`] = r.rawScore
     crossCheckAnswers[`${r.packageId}.maxScore`] = r.maxScore
@@ -255,6 +440,8 @@ function readModuleResultsFromScores(scores: unknown): RawModuleResult[] | null 
 export async function finalizeDomesticStage4(
   prisma: DbClient,
   sessionId: string,
+  env?: AppEnv,
+  provider?: OpenAnswerGradingProvider,
 ): Promise<DomesticVerdictComputation | null> {
   const session = await prisma.selectionSession.findUnique({
     where: { id: sessionId },
@@ -293,6 +480,21 @@ export async function finalizeDomesticStage4(
     scoreDomesticStage2(specializations, stage2Answers)
 
   const activeWeightCaps = await getActiveSelectionScoringWeights(prisma, session.tenantId)
+  const effectiveWeightCaps = activeWeightCaps ?? DEFAULT_DOMESTIC_SCORING_WEIGHT_CAPS
+  const factology = scoreDomesticHardSkillFactology(mergedAnswers)
+  const hardSkillFactologyScore =
+    factology.maxScore > 0
+      ? (factology.rawScore / factology.maxScore) * effectiveWeightCaps.hardSkillFactology
+      : 0
+  const openAnswerGrades = await gradeDomesticOpenAnswers({
+    answers: mergedAnswers,
+    env,
+    provider,
+  })
+  const openAnswerAverage =
+    openAnswerGrades.length > 0
+      ? openAnswerGrades.reduce((sum, item) => sum + item.score, 0) / openAnswerGrades.length
+      : null
 
   const computation = computeDomesticVerdict({
     candidateId: session.applicationId ?? session.id,
@@ -300,10 +502,17 @@ export async function finalizeDomesticStage4(
     riskFlags,
     moduleResults,
     mergedAnswers,
-    scoringWeightCaps: activeWeightCaps ?? undefined,
+    openAnswerGrades,
+    hardSkillFactologyScore,
+    resumeAndInterviewScore:
+      openAnswerAverage == null
+        ? undefined
+        : (openAnswerAverage / 100) * effectiveWeightCaps.resumeAndInterview,
+    scoringWeightCaps: effectiveWeightCaps,
   })
 
   const stageScoresJson = {
+    hardSkillFactologyScore: computation.stageScores.hardSkillFactologyScore,
     resumeAndInterviewScore: computation.stageScores.resumeAndInterviewScore,
     coreOperationsScore: computation.stageScores.coreOperationsScore,
     primarySpecScore: computation.stageScores.primarySpecScore,
@@ -312,6 +521,7 @@ export async function finalizeDomesticStage4(
     communicationScore: computation.stageScores.communicationScore,
     totalScore: computation.stageScores.totalScore,
     moduleResults: computation.moduleResults,
+    openAnswerGrades,
     admission: computation.admission,
   } as unknown as Prisma.InputJsonValue
 
