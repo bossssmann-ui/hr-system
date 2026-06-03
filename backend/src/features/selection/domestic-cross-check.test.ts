@@ -114,6 +114,36 @@ describe('computeDomesticCrossCheckFlags', () => {
     expect(flags.some((f) => f.type === 'ORANGE' && f.id === 105)).toBe(true)
   })
 
+  test('ORANGE: primary rail без глубины по операторам/тарифам', () => {
+    const profile = makeProfile({
+      specializations: [
+        { packageId: 'domestic_core_operations', level: 'primary' },
+        { packageId: 'domestic_rail_container', level: 'primary' },
+      ],
+    })
+    const flags = computeDomesticCrossCheckFlags(profile, {
+      'domestic_rail_container.rawScore': 2,
+      'domestic_rail_container.maxScore': 10,
+      rail_q_operators_open: 'Работал в целом по рынку.',
+    })
+    expect(flags.some((f) => f.type === 'ORANGE' && f.id === 106)).toBe(true)
+  })
+
+  test('ORANGE: primary distribution без глубины по окнам/WMS/документам', () => {
+    const profile = makeProfile({
+      specializations: [
+        { packageId: 'domestic_core_operations', level: 'primary' },
+        { packageId: 'domestic_distribution', level: 'primary' },
+      ],
+    })
+    const flags = computeDomesticCrossCheckFlags(profile, {
+      'domestic_distribution.rawScore': 1,
+      'domestic_distribution.maxScore': 8,
+      dist_q_wms_open: 'Опыт общий.',
+    })
+    expect(flags.some((f) => f.type === 'ORANGE' && f.id === 110)).toBe(true)
+  })
+
   test('нет флагов → пустой массив', () => {
     const profile = makeProfile()
     const flags = computeDomesticCrossCheckFlags(profile, {})

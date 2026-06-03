@@ -1,10 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
+  CARGO_LAYOUT_RECRUITER_FLAG,
   admissionToStatus,
   admissionToVerdictLabel,
   computeDomesticVerdict,
   deriveProvisionalComponents,
+  evaluateCargoLayoutExperience,
   finalizeDomesticStage4,
   gradeDomesticOpenAnswers,
   scoreDomesticStage2,
@@ -66,6 +68,19 @@ describe('scoreDomesticStage2', () => {
     const out = scoreDomesticStage2(specs, {})
     expect(out).toHaveLength(1)
     expect(out[0]?.rawScore).toBe(0)
+    expect(out[0]?.maxScore).toBeGreaterThan(0)
+  })
+
+  test('добавляет бонус +1 за конкретную раскладку груза для eligible-специализации', () => {
+    const specs: SpecializationAssignment[] = [
+      { packageId: 'domestic_road_ftl_ltl', level: 'primary' },
+    ]
+    const out = scoreDomesticStage2(specs, {
+      q_cargo_layout_experience:
+        'Да, делал самостоятельно в Excel: 24 паллеты стройматериалов и 18 тонн оборудования.',
+    })
+    expect(out).toHaveLength(1)
+    expect(out[0]?.rawScore).toBe(1)
     expect(out[0]?.maxScore).toBeGreaterThan(0)
   })
 })
@@ -137,6 +152,21 @@ describe('gradeDomesticOpenAnswers', () => {
     })
     expect(calls).toHaveLength(2)
     expect(grades.map((item) => item.score)).toEqual([77, 77])
+  })
+})
+
+describe('evaluateCargoLayoutExperience', () => {
+  test('распознаёт конкретный положительный ответ', () => {
+    const res = evaluateCargoLayoutExperience(
+      'Да, сам делал в Excel, раскладывал 32 паллеты металла и 20 тонн оборудования.',
+    )
+    expect(res.claimedSelfLayout).toBe(true)
+    expect(res.hasConcreteEvidence).toBe(true)
+  })
+
+  test('пустой/неконкретный ответ не даёт concrete-evidence', () => {
+    const res = evaluateCargoLayoutExperience('Иногда участвовал, без деталей.')
+    expect(res.hasConcreteEvidence).toBe(false)
   })
 })
 
@@ -236,14 +266,33 @@ describe('computeDomesticVerdict', () => {
     expect(c.retentionPrediction.survival60).toBeGreaterThanOrEqual(c.retentionPrediction.survival90)
     expect(c.retentionPrediction.modelVersion).toBe('retention-v1')
   })
+
+  test('ставит recruiter checklist flag при заявленной раскладке и допуске', () => {
+    const moduleResults = scoreDomesticStage2(specs, allCorrectAnswersFor(specs))
+    const c = computeDomesticVerdict({
+      specializations: specs,
+      riskFlags: [],
+      moduleResults,
+      mergedAnswers: {
+        q_cargo_layout_experience:
+          'Да, делал самостоятельно в Excel: 24 паллеты стройматериалов и 18 тонн оборудования.',
+      },
+    })
+    expect(c.recruiterChecklistFlags).toContain(CARGO_LAYOUT_RECRUITER_FLAG)
+  })
 })
 
 describe('finalizeDomesticStage4', () => {
   function makeFakePrisma(session: Record<string, unknown> | null) {
     const upsertCalls: Array<Record<string, unknown>> = []
+    const updateCalls: Array<Record<string, unknown>> = []
     const prisma = {
       selectionSession: {
         findUnique: async () => session,
+        update: async (args: Record<string, unknown>) => {
+          updateCalls.push(args)
+          return session
+        },
       },
       selectionScoringWeights: {
         findFirst: async () => null,
@@ -255,11 +304,11 @@ describe('finalizeDomesticStage4', () => {
         },
       },
     }
-    return { prisma, upsertCalls }
+    return { prisma, upsertCalls, updateCalls }
   }
 
   test('не-domestic → null, без записи вердикта', async () => {
-    const { prisma, upsertCalls } = makeFakePrisma({
+    const { prisma, upsertCalls, updateCalls } = makeFakePrisma({
       id: 'sess-1',
       template: { role: 'logist' },
       stageResults: [],
@@ -281,7 +330,7 @@ describe('finalizeDomesticStage4', () => {
       { packageId: 'domestic_road_ftl_ltl', level: 'primary' },
     ]
     const stage2Answers = allCorrectAnswersFor(specs)
-    const { prisma, upsertCalls } = makeFakePrisma({
+    const { prisma, upsertCalls, updateCalls } = makeFakePrisma({
       id: 'sess-2',
       template: { role: 'logist_domestic' },
       stageResults: [
@@ -306,6 +355,7 @@ describe('finalizeDomesticStage4', () => {
     expect(call.where.sessionId).toBe('sess-2')
     expect(call.create.verdict).toBe('ДОПУСТИТЬ')
     expect(call.create).toHaveProperty('retentionPrediction')
+    expect(updateCalls).toHaveLength(1)
   })
 
   test('domestic, использует уже сохранённые scores.moduleResults Stage-2', async () => {
