@@ -1545,7 +1545,7 @@ function AdminOrgUnits() {
     mutationFn: async ({ id, name, parentId }: { id: string; name: string; parentId: string }) =>
       api.updateOrgUnit(id, {
         name: name.trim(),
-        parentId: parentId ? parentId : null,
+        parentId: parentId || null,
       }),
     onSuccess: async () => {
       toast.success(t('admin.orgUnits.toasts.updated'))

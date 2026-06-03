@@ -28,7 +28,6 @@ import {
   refreshResponseSchema,
   registerRequestSchema,
   requisitionSchema,
-  updateOrgUnitRequestSchema,
   vacancySchema,
   listConversationsResponseSchema,
   listMessageTemplatesResponseSchema,
@@ -225,10 +224,9 @@ export class ApiClient {
   }
 
   updateOrgUnit(id: string, input: UpdateOrgUnitRequest): Promise<OrgUnit> {
-    const payload = updateOrgUnitRequestSchema.parse(input)
     return this.request(`/api/org-units/${id}`, orgUnitSchema, {
       method: 'PATCH',
-      body: payload,
+      body: input,
       auth: true,
     })
   }

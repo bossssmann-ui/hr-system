@@ -140,7 +140,7 @@ export function createOrgUnitsRoutes() {
         where: { id },
         data: {
           name: body.name ?? undefined,
-          parentId: body.parentId === undefined ? undefined : body.parentId,
+          parentId: body.parentId,
         },
       })
 
