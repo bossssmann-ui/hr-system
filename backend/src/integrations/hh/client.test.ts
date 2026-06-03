@@ -5,9 +5,11 @@ import { createHhClient, type HhHttpTransport } from './client'
 describe('hh client', () => {
   test('refreshAccessToken exchanges refresh token via oauth endpoint', async () => {
     let capturedBody = ''
+    let capturedUrl = ''
 
     const transport: HhHttpTransport = async (request) => {
       capturedBody = request.body ?? ''
+      capturedUrl = request.url
       return {
         status: 200,
         headers: {},
@@ -36,6 +38,36 @@ describe('hh client', () => {
     expect(token.expiresInSeconds).toBe(3600)
     expect(capturedBody).toContain('grant_type=refresh_token')
     expect(capturedBody).toContain('refresh_token=old-refresh-token')
+    expect(capturedUrl).toBe('https://api.hh.ru/token')
+  })
+
+  test('sends a User-Agent header on the OAuth token request', async () => {
+    let capturedHeaders: Record<string, string> = {}
+
+    const transport: HhHttpTransport = async (request) => {
+      capturedHeaders = request.headers ?? {}
+      return {
+        status: 200,
+        headers: {},
+        body: {
+          access_token: 'a',
+          refresh_token: 'r',
+          expires_in: 3600,
+        },
+      }
+    }
+
+    const client = createHhClient({
+      env: { HH_CLIENT_ID: 'cid', HH_CLIENT_SECRET: 'csecret' },
+      http: transport,
+      now: () => 0,
+      sleep: async () => {},
+    })
+
+    await client.exchangeAuthorizationCode({ code: 'c', redirectUri: 'https://career.pacificstar.ru/admin/integrations/hh' })
+
+    expect(capturedHeaders['User-Agent']).toBeDefined()
+    expect(capturedHeaders['User-Agent']?.length ?? 0).toBeGreaterThan(0)
   })
 
   test('retries 429 responses using exponential backoff', async () => {
