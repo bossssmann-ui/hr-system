@@ -9,11 +9,14 @@ import type {
 } from './types'
 
 const HH_API_BASE_URL = 'https://api.hh.ru'
-const HH_OAUTH_BASE_URL = 'https://hh.ru/oauth'
+// Per the current hh.ru OpenAPI spec the OAuth token endpoint lives on the API
+// host (https://api.hh.ru/token). The legacy https://hh.ru/oauth/token endpoint
+// is no longer documented. Authorization (user redirect) still uses hh.ru/oauth/authorize.
+const HH_TOKEN_URL = 'https://api.hh.ru/token'
 const SAFE_RATE_LIMIT_RPS = 8
 const RETRY_BASE_DELAY_MS = 250
 const DEFAULT_TIMEOUT_MS = 10_000
-const HH_CLIENT_USER_AGENT = 'hr-system/integration'
+const HH_CLIENT_USER_AGENT = 'hr-system/1.0 (career.pacificstar.ru)'
 
 type HttpRequest = {
   method: 'GET' | 'POST'
@@ -58,8 +61,18 @@ export function createHhClient(options: CreateHhClientOptions): HhClient {
     const retries = opts.retries ?? 4
     let attempt = 0
 
+    // hh.ru rejects every request without a User-Agent (incl. OAuth token
+    // exchange). Inject it centrally so token requests are covered too.
+    const requestWithUserAgent: HttpRequest = {
+      ...request,
+      headers: {
+        'User-Agent': HH_CLIENT_USER_AGENT,
+        ...request.headers,
+      },
+    }
+
     while (true) {
-      const response = await http(request)
+      const response = await http(requestWithUserAgent)
       if (response.status === 429 && attempt < retries) {
         const retryAfterHeader = response.headers['retry-after']
         const retryAfterSeconds = retryAfterHeader ? Number(retryAfterHeader) : Number.NaN
@@ -87,7 +100,7 @@ export function createHhClient(options: CreateHhClientOptions): HhClient {
     }>(
       {
         method: 'POST',
-        url: `${HH_OAUTH_BASE_URL}/token`,
+        url: HH_TOKEN_URL,
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
