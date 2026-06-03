@@ -311,6 +311,32 @@
       },
       "loadFailed": "Could not load users"
     },
+    "orgUnits": {
+      "title": "Org units",
+      "loadFailed": "Could not load org units",
+      "parentNone": "No parent",
+      "confirmDelete": "Delete org unit “{{name}}”?",
+      "fields": {
+        "name": "Name",
+        "parent": "Parent"
+      },
+      "create": {
+        "title": "Create org unit",
+        "namePlaceholder": "e.g. Engineering",
+        "submit": "Create"
+      },
+      "validation": {
+        "name": "Name is required (1–200 chars)"
+      },
+      "toasts": {
+        "created": "Org unit created",
+        "createFailed": "Failed to create org unit",
+        "updated": "Org unit updated",
+        "updateFailed": "Failed to update org unit",
+        "deleted": "Org unit deleted",
+        "deleteFailed": "Failed to delete org unit"
+      }
+    },
     "audit": {
       "title": "Audit log",
       "entityTypeLabel": "Entity type:",

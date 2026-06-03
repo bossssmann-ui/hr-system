@@ -4,6 +4,7 @@ import { AppPage, HomePage, RootLayout } from './pages'
 import {
   AdminAuditLogPage,
   AdminHhIntegrationPage,
+  AdminOrgUnitsPage,
   AdminUsersPage,
   ApplicationDetailPage,
   ApplicationsPage,
@@ -99,6 +100,12 @@ const adminUsersRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin/users',
   component: AdminUsersPage,
+})
+
+const adminOrgUnitsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/org-units',
+  component: AdminOrgUnitsPage,
 })
 
 const adminAuditLogRoute = createRoute({
@@ -219,6 +226,7 @@ const routeTree = rootRoute.addChildren([
   applicationsRoute,
   applicationDetailRoute,
   adminUsersRoute,
+  adminOrgUnitsRoute,
   adminAuditLogRoute,
   adminHhIntegrationRoute,
   settingsIntegrationsRoute,

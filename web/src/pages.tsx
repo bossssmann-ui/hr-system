@@ -96,6 +96,13 @@ export function RootLayout() {
                 {t('navigation:nav.admin')}
               </Link>
             </Typography>
+            {showComp && (
+              <Typography asChild variant="control" tone="muted">
+                <Link to="/admin/org-units" className={navLinkClass}>
+                  {t('navigation:nav.orgUnits')}
+                </Link>
+              </Typography>
+            )}
             <Typography asChild variant="control" tone="muted">
               <Link to="/admin/integrations/hh" className={navLinkClass}>
                 {t('navigation:nav.hh')}
