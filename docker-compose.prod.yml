@@ -34,6 +34,51 @@ services:
       - internal
     # Migrations are run by scripts/deploy.sh, NOT by this service on startup.
 
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    command: ["bun", "backend/src/worker.ts"]
+    restart: unless-stopped
+    env_file: .env.prod
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal
+
+  cron:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        mkdir -p /tmp/crontabs
+        cat >/tmp/crontabs/root <<EOF
+        SHELL=/bin/sh
+        PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+        ${CRON_ANALYTICS_SNAPSHOT_SCHEDULE:-0 1 * * *} /app/backend/scripts/run-cron-task.sh analytics.snapshot >> /proc/1/fd/1 2>&1
+        ${CRON_PROBATION_REMINDER_SCHEDULE:-15 1 * * *} /app/backend/scripts/run-cron-task.sh probation.reminder >> /proc/1/fd/1 2>&1
+        ${CRON_ONE_ON_ONE_REMINDER_SCHEDULE:-30 1 * * *} /app/backend/scripts/run-cron-task.sh 1on1.reminder >> /proc/1/fd/1 2>&1
+        ${CRON_REVIEW_REMINDER_SCHEDULE:-45 1 * * *} /app/backend/scripts/run-cron-task.sh review.reminder >> /proc/1/fd/1 2>&1
+        ${CRON_DATA_RETENTION_SCHEDULE:-0 2 * * *} /app/backend/scripts/run-cron-task.sh data.retention >> /proc/1/fd/1 2>&1
+        ${CRON_SIGNALS_COMPUTE_SCHEDULE:-15 2 * * *} /app/backend/scripts/run-cron-task.sh signals.compute >> /proc/1/fd/1 2>&1
+        ${CRON_SELECTION_RETENTION_OUTCOMES_SCHEDULE:-30 2 * * *} /app/backend/scripts/run-cron-task.sh selection.retention_outcomes >> /proc/1/fd/1 2>&1
+        ${CRON_SELECTION_RETENTION_CALIBRATION_SCHEDULE:-45 2 * * 1} /app/backend/scripts/run-cron-task.sh selection.retention_calibration >> /proc/1/fd/1 2>&1
+        ${CRON_OKR_QUARTER_START_SCHEDULE:-0 3 1 1,4,7,10 *} /app/backend/scripts/run-cron-task.sh okr.quarter_start >> /proc/1/fd/1 2>&1
+        ${CRON_HH_SOURCING_SCHEDULE:-15 3 * * *} /app/backend/scripts/run-cron-task.sh hh.sourcing >> /proc/1/fd/1 2>&1
+        EOF
+        exec crond -f -l 8 -c /tmp/crontabs
+    restart: unless-stopped
+    env_file: .env.prod
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal
+
   web:
     build:
       context: .

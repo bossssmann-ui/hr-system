@@ -53,7 +53,7 @@ The script will:
 2. Build all Docker images
 3. Apply pending Prisma migrations
 4. Seed the bootstrap owner (idempotent — safe to re-run)
-5. Start all services with `docker compose up -d`
+5. Start all services with `docker compose up -d` (including `backend`, `worker`, and `cron`)
 
 ### 4. Verify the stack
 ```bash
@@ -82,9 +82,35 @@ docker compose -f docker-compose.prod.yml logs -f
 
 # Single service
 docker compose -f docker-compose.prod.yml logs -f backend
+docker compose -f docker-compose.prod.yml logs -f worker
+docker compose -f docker-compose.prod.yml logs -f cron
 docker compose -f docker-compose.prod.yml logs -f caddy
 docker compose -f docker-compose.prod.yml logs -f postgres
 ```
+
+---
+
+## Background Processing in Production
+
+`docker-compose.prod.yml` runs two dedicated background services:
+
+- `worker` — continuous durable queue drain (`backend/src/worker.ts`).
+- `cron` — in-container scheduler that runs `backend/src/cron.ts <task>` on defaults below.
+
+Default cron schedules (UTC, configurable via `.env.prod`):
+
+- `analytics.snapshot` — `CRON_ANALYTICS_SNAPSHOT_SCHEDULE` (daily)
+- `probation.reminder` — `CRON_PROBATION_REMINDER_SCHEDULE` (daily)
+- `1on1.reminder` — `CRON_ONE_ON_ONE_REMINDER_SCHEDULE` (daily)
+- `review.reminder` — `CRON_REVIEW_REMINDER_SCHEDULE` (daily)
+- `data.retention` — `CRON_DATA_RETENTION_SCHEDULE` (daily)
+- `signals.compute` — `CRON_SIGNALS_COMPUTE_SCHEDULE` (daily)
+- `selection.retention_outcomes` — `CRON_SELECTION_RETENTION_OUTCOMES_SCHEDULE` (daily)
+- `selection.retention_calibration` — `CRON_SELECTION_RETENTION_CALIBRATION_SCHEDULE` (weekly)
+- `okr.quarter_start` — `CRON_OKR_QUARTER_START_SCHEDULE` (quarterly)
+- `hh.sourcing` — `CRON_HH_SOURCING_SCHEDULE` (daily, no-op when integration flag is off)
+
+`queue.drain` is not scheduled by cron because it is handled by the dedicated `worker` service.
 
 ---
 
@@ -100,7 +126,7 @@ All integrations default to `false`. Enable them once you have the keys:
 
 2. Restart the affected service (no rebuild needed for env-only changes):
    ```bash
-   docker compose -f docker-compose.prod.yml up -d backend
+   docker compose -f docker-compose.prod.yml up -d backend worker cron
    ```
 
 ---
