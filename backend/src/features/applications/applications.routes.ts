@@ -21,6 +21,7 @@ import {
 import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
 import { z } from 'zod'
+import { Prisma } from '../../generated/prisma/client'
 
 import { requireRole, type RoleGuardBindings } from '../../auth/requireRole'
 import type { DbClient } from '../../db'
@@ -52,6 +53,10 @@ type RawApplication = {
   aiScoring: unknown
   aiScoreFeedback: unknown
   aiInterviewQuestions: unknown
+  aiScore: Prisma.Decimal | number | null
+  aiVerdict: string | null
+  aiAssessedAt: Date | null
+  aiFlags: unknown
   trustFlagged: boolean
   externalIds: unknown
   createdAt: Date
@@ -70,6 +75,10 @@ function toDto(row: RawApplication, env: AppEnv): Application {
     aiScoring: aiScoringSchema.parse(withScoringPresentation(row.aiScoring, env)),
     aiScoreFeedback: aiScoreFeedbackSchema.nullable().parse(asNullableRecord(row.aiScoreFeedback)),
     aiInterviewQuestions: Array.isArray(row.aiInterviewQuestions) ? row.aiInterviewQuestions : null,
+    aiScore: row.aiScore === null || row.aiScore === undefined ? null : Number(row.aiScore),
+    aiVerdict: row.aiVerdict ?? null,
+    aiAssessedAt: row.aiAssessedAt ? row.aiAssessedAt.toISOString() : null,
+    aiFlags: asNullableRecord(row.aiFlags),
     trustFlagged: Boolean(row.trustFlagged),
     externalIds: asRecord(row.externalIds),
     createdAt: row.createdAt.toISOString(),
@@ -222,6 +231,20 @@ export function createApplicationsRoutes() {
           stage: 'new',
         },
       })
+
+      try {
+        getRealtimeBus().publishToTenant(tenantId, {
+          type: 'application.created',
+          payload: {
+            applicationId: row.id,
+            candidateId: row.candidateId,
+            vacancyId: row.vacancyId,
+            source: 'manual',
+          },
+        })
+      } catch {
+        // realtime is best-effort
+      }
 
       c.set('auditEntry', {
         action: 'application.create',

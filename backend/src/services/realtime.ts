@@ -22,6 +22,7 @@ import { EventEmitter } from 'node:events'
 
 export type RealtimeEventType =
   | 'notification.new'
+  | 'application.created'
   | 'application.stage_changed'
   | 'offer.status_changed'
   | 'checklist.task_updated'
@@ -49,6 +50,8 @@ export interface RealtimeBus {
   publishToTenant(tenantId: string, event: RealtimeEvent): void
   /** Returns an unsubscribe function. Subscribers receive both per-user and per-tenant events. */
   subscribe(tenantId: string, userId: string, handler: RealtimeSubscriber): () => void
+  /** Internal subscribers for cross-feature domain bridges. */
+  subscribeAll(handler: (envelope: DeliveryEnvelope) => void): () => void
 }
 
 class InProcessRealtimeBus implements RealtimeBus {
@@ -82,6 +85,13 @@ class InProcessRealtimeBus implements RealtimeBus {
     this.emitter.on(CHANNEL, listener)
     return () => {
       this.emitter.off(CHANNEL, listener)
+    }
+  }
+
+  subscribeAll(handler: (envelope: DeliveryEnvelope) => void): () => void {
+    this.emitter.on(CHANNEL, handler)
+    return () => {
+      this.emitter.off(CHANNEL, handler)
     }
   }
 }

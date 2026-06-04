@@ -34,6 +34,7 @@ import { Hono } from 'hono'
 import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
 import { AppError } from '../../http/errors'
+import { getRealtimeBus } from '../../services/realtime'
 
 type RouteBindings = {
   Variables: {
@@ -254,6 +255,20 @@ export function createPublicCareersRoutes() {
           notes: body.cover_note ?? null,
         },
       })
+
+      try {
+        getRealtimeBus().publishToTenant(tenantId, {
+          type: 'application.created',
+          payload: {
+            applicationId: application.id,
+            candidateId: candidate.id,
+            vacancyId: vacancy.id,
+            source: 'public_apply',
+          },
+        })
+      } catch {
+        // realtime is best-effort
+      }
 
       // ── Audit event ──
       c.set('auditEntry', {

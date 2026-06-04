@@ -21,6 +21,7 @@ import { createPublicCareersRoutes } from './features/public/public.routes'
 import { createPortalRoutes } from './features/portal/portal.routes'
 import { createAssessmentRoutes, createPublicAssessmentRoutes } from './features/assessments/assessments.routes'
 import { createSelectionRoutes } from './features/selection/selection.routes'
+import { registerSelectionApplicationBridge } from './features/selection/selection-application-bridge'
 import { createSignalsRoutes, createEmployeeSignalsRoutes } from './features/signals/signals.routes'
 import { createRequisitionsRoutes } from './features/requisitions/requisitions.routes'
 import { createVacanciesRoutes } from './features/vacancies/vacancies.routes'
@@ -69,6 +70,7 @@ type CreateAppOptions = {
 }
 
 export function createApp({ env, prisma }: CreateAppOptions) {
+  registerSelectionApplicationBridge({ prisma, env })
   const authService = new AuthService(prisma, env)
   const storageService = createStorageServiceFromEnv(env)
   const app = new OpenAPIHono<AppBindings>({

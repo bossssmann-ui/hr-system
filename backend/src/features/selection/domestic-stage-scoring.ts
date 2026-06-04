@@ -14,6 +14,7 @@ import { Prisma } from '../../generated/prisma/client'
 import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
 import { createAssessmentProvider, isAiScoringConfigured } from '../../integrations/llm'
+import { canTransition, type ApplicationStage } from '../applications/applications.fsm'
 import { asNonEmptyString } from './domestic-answer-helpers'
 import {
   computeDomesticCrossCheckFlags,
@@ -45,6 +46,9 @@ const CARGO_LAYOUT_BONUS_ELIGIBLE_PACKAGES = new Set<string>([
 ])
 
 export const CARGO_LAYOUT_RECRUITER_FLAG = 'cargo_layout_test_required'
+const VERDICT_ADMIT = 'ДОПУСТИТЬ'
+const VERDICT_REJECT = 'ОТКЛОНИТЬ'
+const AUTOMATION_STAGE_ROLES = ['recruiter', 'hr_admin', 'owner'] as const
 
 type CargoLayoutEvaluation = {
   claimedSelfLayout: boolean
@@ -733,5 +737,150 @@ export async function finalizeDomesticStage4(
     },
   })
 
+  await writeBackVerdictToApplication(prisma, {
+    sessionId: session.id,
+    tenantId: session.tenantId,
+    applicationId: session.applicationId,
+    verdictLabel: computation.verdictLabel,
+    totalScore: computation.totalScore,
+    crossCheckFlags: computation.flags as unknown as Prisma.InputJsonValue,
+    recruiterChecklistFlags: mergedChecklistFlags,
+    retentionPrediction: computation.retentionPrediction as unknown as Prisma.InputJsonValue,
+  })
+
   return computation
+}
+
+async function writeBackVerdictToApplication(
+  prisma: DbClient,
+  input: {
+    sessionId: string
+    tenantId: string
+    applicationId: string | null
+    verdictLabel: string
+    totalScore: number
+    crossCheckFlags: Prisma.InputJsonValue
+    recruiterChecklistFlags: string[]
+    retentionPrediction: Prisma.InputJsonValue
+  },
+) {
+  if (!input.applicationId) return
+  const application = await prisma.application.findFirst({
+    where: {
+      id: input.applicationId,
+      tenantId: input.tenantId,
+    },
+  })
+  if (!application) return
+
+  const settings = await prisma.tenantSettings.findUnique({
+    where: { tenantId: input.tenantId },
+    select: { featureFlags: true },
+  })
+  const automationActorUserId = await resolveAutomationActorUserId(prisma, {
+    tenantId: input.tenantId,
+    assignedToUserId: application.assignedToUserId,
+  })
+  const featureFlags = asRecord(settings?.featureFlags)
+  const autoAdvanceEnabled = featureFlags['selection.autoAdvance.enabled'] === true
+  const autoRejectEnabled = featureFlags['selection.autoReject.enabled'] === true
+
+  let moveToStage: ApplicationStage | null = null
+  if (
+    automationActorUserId &&
+    input.verdictLabel === VERDICT_ADMIT &&
+    autoAdvanceEnabled &&
+    application.stage === 'new' &&
+    canTransition(application.stage as ApplicationStage, 'screen', AUTOMATION_STAGE_ROLES)
+  ) {
+    moveToStage = 'screen'
+  } else if (
+    automationActorUserId &&
+    input.verdictLabel === VERDICT_REJECT &&
+    autoRejectEnabled &&
+    canTransition(application.stage as ApplicationStage, 'rejected', AUTOMATION_STAGE_ROLES)
+  ) {
+    moveToStage = 'rejected'
+  }
+
+  const aiAssessedAt = new Date()
+  await prisma.$transaction(async (tx) => {
+    await tx.application.update({
+      where: { id: application.id },
+      data: {
+        aiScore: new Prisma.Decimal(input.totalScore.toFixed(4)),
+        aiVerdict: input.verdictLabel,
+        aiAssessedAt,
+        aiFlags: {
+          selectionSessionId: input.sessionId,
+          aiQualifiedForRecruiter: input.verdictLabel === VERDICT_ADMIT,
+          crossCheckFlags: input.crossCheckFlags,
+          recruiterChecklistFlags: input.recruiterChecklistFlags,
+          retentionPrediction: input.retentionPrediction,
+        } as Prisma.InputJsonValue,
+        ...(moveToStage ? { stage: moveToStage } : {}),
+      },
+    })
+
+    await tx.auditEvent.create({
+      data: {
+        tenantId: input.tenantId,
+        actorUserId: automationActorUserId ?? null,
+        action: 'application.ai_assessed',
+        entityType: 'Application',
+        entityId: application.id,
+        diff: {
+          aiScore: Number(input.totalScore.toFixed(4)),
+          aiVerdict: input.verdictLabel,
+          movedToStage: moveToStage,
+        },
+      },
+    })
+
+    if (moveToStage && automationActorUserId) {
+      await tx.applicationStageEvent.create({
+        data: {
+          tenantId: input.tenantId,
+          applicationId: application.id,
+          fromStage: application.stage as ApplicationStage,
+          toStage: moveToStage,
+          actorUserId: automationActorUserId,
+          comment: `Auto-moved by selection verdict: ${input.verdictLabel}`,
+        },
+      })
+      await tx.auditEvent.create({
+        data: {
+          tenantId: input.tenantId,
+          actorUserId: automationActorUserId ?? null,
+          action: 'application.move_stage',
+          entityType: 'Application',
+          entityId: application.id,
+          diff: {
+            from: application.stage,
+            to: moveToStage,
+            comment: 'Auto-moved by selection verdict',
+            actorUserId: automationActorUserId ?? null,
+          },
+        },
+      })
+    }
+
+  })
+}
+
+async function resolveAutomationActorUserId(
+  prisma: DbClient,
+  input: { tenantId: string; assignedToUserId: string | null },
+) {
+  if (input.assignedToUserId) return input.assignedToUserId
+  const actor = await prisma.userRole.findFirst({
+    where: {
+      tenantId: input.tenantId,
+      role: {
+        in: ['recruiter', 'hr_admin', 'owner'],
+      },
+    },
+    select: { userId: true },
+  })
+  return actor?.userId ?? null
 }
