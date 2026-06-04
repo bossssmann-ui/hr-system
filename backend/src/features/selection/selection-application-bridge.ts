@@ -9,6 +9,7 @@ import type { SupportedRole } from './selection-role-adapter'
 import { createSelectionSession } from './selection-session.service'
 
 type ApplicationSource = 'public_apply' | 'hh_sync' | 'manual'
+const SUPPORTED_ROLES = ['logist', 'sales_manager', 'logist_domestic'] as const
 
 export async function handleApplicationCreatedForSelection(input: {
   prisma: DbClient
@@ -165,7 +166,7 @@ async function inferSupportedRole(input: {
 
 function parseSupportedRole(value: unknown): SupportedRole | null {
   if (typeof value !== 'string') return null
-  if (value === 'logist' || value === 'sales_manager' || value === 'logist_domestic') return value
+  if ((SUPPORTED_ROLES as readonly string[]).includes(value)) return value as SupportedRole
   return null
 }
 

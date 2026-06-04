@@ -1156,7 +1156,7 @@ function asStringList(value: unknown): string[] {
 
 function formatUnifiedScore(value: number | null, status: string | null) {
   if (typeof value !== "number") return null
-  const mode = status === "final" ? "final" : "preliminary"
+  const mode = status === "final" ? "финальный" : "предварительный"
   return `${value.toFixed(1)}/100 (${mode})`
 }
 
