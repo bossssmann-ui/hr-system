@@ -46,6 +46,9 @@ const CARGO_LAYOUT_BONUS_ELIGIBLE_PACKAGES = new Set<string>([
 ])
 
 export const CARGO_LAYOUT_RECRUITER_FLAG = 'cargo_layout_test_required'
+const VERDICT_ADMIT = 'ДОПУСТИТЬ'
+const VERDICT_REJECT = 'ОТКЛОНИТЬ'
+const AUTOMATION_STAGE_ROLES = ['recruiter', 'hr_admin', 'owner'] as const
 
 type CargoLayoutEvaluation = {
   claimedSelfLayout: boolean
@@ -784,18 +787,18 @@ async function writeBackVerdictToApplication(
 
   let moveToStage: ApplicationStage | null = null
   if (
-    Boolean(automationActorUserId) &&
-    input.verdictLabel === 'ДОПУСТИТЬ' &&
+    automationActorUserId &&
+    input.verdictLabel === VERDICT_ADMIT &&
     autoAdvanceEnabled &&
     application.stage === 'new' &&
-    canTransition(application.stage as ApplicationStage, 'screen', ['owner'] as const)
+    canTransition(application.stage as ApplicationStage, 'screen', AUTOMATION_STAGE_ROLES)
   ) {
     moveToStage = 'screen'
   } else if (
-    Boolean(automationActorUserId) &&
-    input.verdictLabel === 'ОТКЛОНИТЬ' &&
+    automationActorUserId &&
+    input.verdictLabel === VERDICT_REJECT &&
     autoRejectEnabled &&
-    canTransition(application.stage as ApplicationStage, 'rejected', ['owner'] as const)
+    canTransition(application.stage as ApplicationStage, 'rejected', AUTOMATION_STAGE_ROLES)
   ) {
     moveToStage = 'rejected'
   }
@@ -810,7 +813,7 @@ async function writeBackVerdictToApplication(
         aiAssessedAt,
         aiFlags: {
           selectionSessionId: input.sessionId,
-          aiQualifiedForRecruiter: input.verdictLabel === 'ДОПУСТИТЬ',
+          aiQualifiedForRecruiter: input.verdictLabel === VERDICT_ADMIT,
           crossCheckFlags: input.crossCheckFlags,
           recruiterChecklistFlags: input.recruiterChecklistFlags,
           retentionPrediction: input.retentionPrediction,
@@ -822,7 +825,7 @@ async function writeBackVerdictToApplication(
     await tx.auditEvent.create({
       data: {
         tenantId: input.tenantId,
-        actorUserId: null,
+        actorUserId: automationActorUserId ?? null,
         action: 'application.ai_assessed',
         entityType: 'Application',
         entityId: application.id,
@@ -834,21 +837,21 @@ async function writeBackVerdictToApplication(
       },
     })
 
-    if (moveToStage) {
+    if (moveToStage && automationActorUserId) {
       await tx.applicationStageEvent.create({
         data: {
           tenantId: input.tenantId,
           applicationId: application.id,
           fromStage: application.stage as ApplicationStage,
           toStage: moveToStage,
-          actorUserId: automationActorUserId!,
+          actorUserId: automationActorUserId,
           comment: `Auto-moved by selection verdict: ${input.verdictLabel}`,
         },
       })
       await tx.auditEvent.create({
         data: {
           tenantId: input.tenantId,
-          actorUserId: null,
+          actorUserId: automationActorUserId ?? null,
           action: 'application.move_stage',
           entityType: 'Application',
           entityId: application.id,
@@ -856,7 +859,7 @@ async function writeBackVerdictToApplication(
             from: application.stage,
             to: moveToStage,
             comment: 'Auto-moved by selection verdict',
-            actorUserId: null,
+            actorUserId: automationActorUserId ?? null,
           },
         },
       })

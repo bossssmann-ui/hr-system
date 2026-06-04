@@ -606,6 +606,10 @@ function canMoveStage(from: ApplicationStage, to: ApplicationStage): boolean {
   return Boolean(APP_TRANSITIONS[from]?.includes(to))
 }
 
+const CHECKLIST_FLAG_LABELS: Record<string, string> = {
+  cargo_layout_test_required: "Проверить тестовое задание по раскладке груза",
+}
+
 export function ApplicationsPage() {
   const auth = useAuth()
   if (!auth.user) return <LoginRequired />
@@ -921,7 +925,7 @@ function ApplicationDetail() {
               <ul className="list-disc pl-5">
                 {recruiterChecklistFlags.map((flag) => (
                   <li key={flag}>
-                    <Typography variant="bodySm">{flag === "cargo_layout_test_required" ? "Проверить тестовое задание по раскладке груза" : flag}</Typography>
+                    <Typography variant="bodySm">{CHECKLIST_FLAG_LABELS[flag] ?? flag}</Typography>
                   </li>
                 ))}
               </ul>

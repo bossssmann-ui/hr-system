@@ -141,7 +141,7 @@ async function sendSelectionInvite(input: {
 }) {
   const hhAccessToken = await resolveHhAccessToken(input.prisma, input.env, input.tenantId)
   const channels = resolveCandidateChannels(input.candidate)
-  const link = `/selection/${input.token}`
+  const link = buildSelectionLink(input.env, input.token)
   const body = `Здравствуйте! Продолжите отбор по ссылке: ${link}`
 
   await Promise.all(channels.map(async (channel) => {
@@ -151,6 +151,12 @@ async function sendSelectionInvite(input: {
     if (!destination) return
     await adapter.send({ destination, body, subject: 'Ссылка на этап отбора' }).catch(() => undefined)
   }))
+}
+
+function buildSelectionLink(env: AppEnv, token: string) {
+  const origin = env.CORS_ORIGINS[0]
+  if (!origin) return `/selection/${token}`
+  return `${origin.replace(/\/$/, '')}/selection/${token}`
 }
 
 function resolveCandidateChannels(candidate: {
