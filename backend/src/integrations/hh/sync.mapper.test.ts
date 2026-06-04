@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { shouldSyncNegotiation, upsertNegotiationFromHh } from './sync'
+import { enqueueHhNegotiationsSyncJob, shouldSyncNegotiation, upsertNegotiationFromHh } from './sync'
 
 type CandidateRow = {
   id: string
@@ -133,6 +133,39 @@ describe('hh sync mapper', () => {
         'neg-1',
       ),
     ).toBe(false)
+  })
+
+  test('rejects and logs when enqueue fails', async () => {
+    const queueInsertError = new Error('queue insert failed')
+    const logged: string[] = []
+    const originalConsoleError = console.error
+
+    try {
+      console.error = (message?: unknown) => {
+        logged.push(String(message))
+      }
+
+      type EnqueueInput = Parameters<typeof enqueueHhNegotiationsSyncJob>[0]
+      await expect(
+        enqueueHhNegotiationsSyncJob({
+          prisma: {
+            $executeRaw: async () => {
+              throw queueInsertError
+            },
+            $queryRaw: async () => [],
+          } as unknown as EnqueueInput['prisma'],
+          env: {} as EnqueueInput['env'],
+          tenantId: 'tenant-1',
+        }),
+      ).rejects.toBe(queueInsertError)
+    } finally {
+      console.error = originalConsoleError
+    }
+
+    expect(logged).toHaveLength(1)
+    expect(logged[0]).toContain('"level":"error"')
+    expect(logged[0]).toContain('"msg":"hh.sync.enqueue_failed"')
+    expect(logged[0]).toContain('"tenantId":"tenant-1"')
   })
 })
 
