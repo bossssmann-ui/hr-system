@@ -1,8 +1,10 @@
 import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
+import { Prisma } from '../../generated/prisma/client'
 import { getChannelAdapter } from '../messaging/messaging.service'
 import { decryptHhSecret } from '../../integrations/hh/crypto'
 import { getRealtimeBus } from '../../services/realtime'
+import { notifyRecruitersAboutApplicationCreated } from '../applications/application-notifications'
 import type { SupportedRole } from './selection-role-adapter'
 import { createSelectionSession } from './selection-session.service'
 
@@ -30,12 +32,31 @@ export async function handleApplicationCreatedForSelection(input: {
   })
   if (!application) return { created: false as const, reason: 'application_not_found' as const }
 
-  const role = inferSupportedRole({
+  const role = await inferSupportedRole({
+    prisma: input.prisma,
+    tenantId: input.tenantId,
+    vacancyId: application.vacancyId,
+    vacancyRole: asRecord(application.vacancy)['role'],
+    requisitionRole: asRecord(application.vacancy.requisition)['role'],
     vacancyTitle: application.vacancy.title,
     vacancyDescription: application.vacancy.description,
     requisitionTitle: application.vacancy.requisition?.title ?? null,
   })
-  if (!role) return { created: false as const, reason: 'role_not_supported' as const }
+  if (!role) {
+    console.warn(JSON.stringify({
+      level: 'warn',
+      msg: 'selection.bridge.role_not_supported',
+      tenantId: input.tenantId,
+      applicationId: input.applicationId,
+      vacancyId: application.vacancyId,
+    }))
+    await markApplicationPipelineBindingRequired(input.prisma, {
+      tenantId: input.tenantId,
+      applicationId: application.id,
+      currentAiFlags: application.aiFlags,
+    })
+    return { created: false as const, reason: 'role_not_supported' as const }
+  }
 
   const { session, created } = await createSelectionSession({
     prisma: input.prisma,
@@ -74,6 +95,16 @@ export function registerSelectionApplicationBridge(input: {
     if (!applicationId) return
     const source = asSource(event.payload.source)
     try {
+      await notifyRecruitersAboutApplicationCreated({
+        prisma: input.prisma,
+        env: input.env,
+        tenantId,
+        applicationId,
+      })
+    } catch {
+      // notifier bridge is best-effort
+    }
+    try {
       await handleApplicationCreatedForSelection({
         prisma: input.prisma,
         env: input.env,
@@ -94,11 +125,24 @@ function asSource(value: unknown): ApplicationSource {
   return 'manual'
 }
 
-function inferSupportedRole(input: {
+async function inferSupportedRole(input: {
+  prisma: DbClient
+  tenantId: string
+  vacancyId: string
+  vacancyRole: unknown
+  requisitionRole: unknown
   vacancyTitle: string
   vacancyDescription: string
   requisitionTitle: string | null
-}): SupportedRole | null {
+}): Promise<SupportedRole | null> {
+  const explicitRole =
+    parseSupportedRole(input.vacancyRole) ??
+    parseSupportedRole(input.requisitionRole)
+  if (explicitRole) return explicitRole
+
+  const roleFromTemplate = await resolveRoleFromTemplate(input.prisma, input.tenantId, input.vacancyId)
+  if (roleFromTemplate) return roleFromTemplate
+
   const haystack = `${input.vacancyTitle} ${input.vacancyDescription} ${input.requisitionTitle ?? ''}`.toLowerCase()
   if (
     haystack.includes('logist') ||
@@ -116,6 +160,22 @@ function inferSupportedRole(input: {
   if (haystack.includes('sales') || haystack.includes('продаж')) {
     return 'sales_manager'
   }
+  return null
+}
+
+function parseSupportedRole(value: unknown): SupportedRole | null {
+  if (typeof value !== 'string') return null
+  if (value === 'logist' || value === 'sales_manager' || value === 'logist_domestic') return value
+  return null
+}
+
+async function resolveRoleFromTemplate(prisma: DbClient, tenantId: string, vacancyId: string): Promise<SupportedRole | null> {
+  const templates = await prisma.selectionTemplate.findMany({
+    where: { tenantId, vacancyId },
+    select: { role: true },
+  })
+  const supported = Array.from(new Set(templates.map((item) => parseSupportedRole(item.role)).filter(Boolean)))
+  if (supported.length === 1) return supported[0] ?? null
   return null
 }
 
@@ -204,4 +264,21 @@ function asRecord(value: unknown): Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {}
+}
+
+async function markApplicationPipelineBindingRequired(
+  prisma: DbClient,
+  input: { tenantId: string; applicationId: string; currentAiFlags: unknown },
+) {
+  const flags = asRecord(input.currentAiFlags)
+  await prisma.application.update({
+    where: { id: input.applicationId },
+    data: {
+      aiFlags: {
+        ...flags,
+        selectionPipelineBindingRequired: true,
+        selectionPipelineBindingReason: 'role_not_supported',
+      } as Prisma.InputJsonValue,
+    },
+  }).catch(() => undefined)
 }

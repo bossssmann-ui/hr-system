@@ -33,6 +33,7 @@ import { generateInterviewQuestions } from '../assessments/assessments.service'
 import { createFromApplication } from '../employees/employees.service'
 import { enqueueApplicationScoringJob } from '../scoring/scoring.queue'
 import { withScoringPresentation } from '../scoring/scoring.service'
+import { computeUnifiedScore } from './application-score-aggregate'
 
 type RouteBindings = RoleGuardBindings & {
   Variables: {
@@ -63,7 +64,30 @@ type RawApplication = {
   updatedAt: Date
 }
 
-function toDto(row: RawApplication, env: AppEnv): Application {
+type SelectionSummary = {
+  totalWeightedScore: Prisma.Decimal | number | null
+  retentionPrediction: Record<string, unknown> | null
+  hrNotes: string | null
+}
+
+function toDto(
+  row: RawApplication,
+  env: AppEnv,
+  extra: {
+    selectionSummary: SelectionSummary | null
+    trustScore: number | null
+    selectionPipelineEnabled: boolean
+  },
+): Application {
+  const unifiedScore = computeUnifiedScore({
+    finalSelectionScore: extra.selectionSummary?.totalWeightedScore ?? null,
+    preliminaryAiScore: row.aiScore,
+  })
+  const aiFlags = asNullableRecord(row.aiFlags)
+  const fallbackRetention =
+    aiFlags && typeof aiFlags['retentionPrediction'] === 'object' && aiFlags['retentionPrediction'] !== null
+      ? (aiFlags['retentionPrediction'] as Record<string, unknown>)
+      : null
   return {
     id: row.id,
     tenantId: row.tenantId,
@@ -78,7 +102,12 @@ function toDto(row: RawApplication, env: AppEnv): Application {
     aiScore: row.aiScore === null || row.aiScore === undefined ? null : Number(row.aiScore),
     aiVerdict: row.aiVerdict ?? null,
     aiAssessedAt: row.aiAssessedAt ? row.aiAssessedAt.toISOString() : null,
-    aiFlags: asNullableRecord(row.aiFlags),
+    aiFlags,
+    unifiedScore,
+    trustScore: extra.trustScore,
+    retentionPrediction: extra.selectionSummary?.retentionPrediction ?? fallbackRetention,
+    selectionHrNotes: extra.selectionSummary?.hrNotes ?? null,
+    selectionPipelineEnabled: extra.selectionPipelineEnabled,
     trustFlagged: Boolean(row.trustFlagged),
     externalIds: asRecord(row.externalIds),
     createdAt: row.createdAt.toISOString(),
@@ -95,6 +124,75 @@ function asRecord(value: unknown): Record<string, unknown> {
 function asNullableRecord(value: unknown): Record<string, unknown> | null {
   if (value === null || value === undefined) return null
   return asRecord(value)
+}
+
+async function loadSelectionSummaryByApplicationIds(
+  prisma: DbClient,
+  tenantId: string,
+  applicationIds: string[],
+): Promise<Map<string, SelectionSummary>> {
+  if (applicationIds.length === 0) return new Map()
+  const sessions = await prisma.selectionSession.findMany({
+    where: {
+      tenantId,
+      applicationId: { in: applicationIds },
+      verdict: { isNot: null },
+    },
+    include: { verdict: true },
+    orderBy: { createdAt: 'desc' },
+  })
+  const map = new Map<string, SelectionSummary>()
+  for (const session of sessions) {
+    if (!session.applicationId || !session.verdict || map.has(session.applicationId)) continue
+    map.set(session.applicationId, {
+      totalWeightedScore: session.verdict.totalWeightedScore,
+      retentionPrediction: asNullableRecord(session.verdict.retentionPrediction),
+      hrNotes: session.verdict.hrNotes ?? null,
+    })
+  }
+  return map
+}
+
+async function loadTrustScoreByApplicationIds(
+  prisma: DbClient,
+  tenantId: string,
+  applicationIds: string[],
+): Promise<Map<string, number | null>> {
+  if (applicationIds.length === 0) return new Map()
+  const sessions = await prisma.assessmentSession.findMany({
+    where: {
+      tenantId,
+      applicationId: { in: applicationIds },
+    },
+    select: {
+      applicationId: true,
+      trustScore: true,
+    },
+    orderBy: { createdAt: 'desc' },
+  })
+  const map = new Map<string, number | null>()
+  for (const session of sessions) {
+    if (!map.has(session.applicationId)) {
+      map.set(session.applicationId, session.trustScore)
+    }
+  }
+  return map
+}
+
+async function loadSelectionPipelineVacancyIds(
+  prisma: DbClient,
+  tenantId: string,
+  vacancyIds: string[],
+): Promise<Set<string>> {
+  if (vacancyIds.length === 0) return new Set()
+  const templates = await prisma.selectionTemplate.findMany({
+    where: {
+      tenantId,
+      vacancyId: { in: vacancyIds },
+    },
+    select: { vacancyId: true },
+  })
+  return new Set(templates.map((item) => item.vacancyId))
 }
 
 export function createApplicationsRoutes() {
@@ -128,7 +226,22 @@ export function createApplicationsRoutes() {
         take: 200,
       })
 
-      return c.json(listApplicationsResponseSchema.parse({ items: rows.map((row) => toDto(row, env)) }))
+      const applicationIds = rows.map((row) => row.id)
+      const vacancyIds = Array.from(new Set(rows.map((row) => row.vacancyId)))
+      const [selectionByApplicationId, trustByApplicationId, selectionVacancyIds] = await Promise.all([
+        loadSelectionSummaryByApplicationIds(prisma, tenantId, applicationIds),
+        loadTrustScoreByApplicationIds(prisma, tenantId, applicationIds),
+        loadSelectionPipelineVacancyIds(prisma, tenantId, vacancyIds),
+      ])
+
+      return c.json(listApplicationsResponseSchema.parse({
+        items: rows.map((row) =>
+          toDto(row, env, {
+            selectionSummary: selectionByApplicationId.get(row.id) ?? null,
+            trustScore: trustByApplicationId.get(row.id) ?? null,
+            selectionPipelineEnabled: selectionVacancyIds.has(row.vacancyId),
+          })),
+      }))
     },
   )
 
@@ -152,6 +265,12 @@ export function createApplicationsRoutes() {
       })
 
       if (!row) throw new AppError(404, 'NOT_FOUND', 'Application not found')
+
+      const [selectionByApplicationId, trustByApplicationId, selectionVacancyIds] = await Promise.all([
+        loadSelectionSummaryByApplicationIds(prisma, tenantId, [row.id]),
+        loadTrustScoreByApplicationIds(prisma, tenantId, [row.id]),
+        loadSelectionPipelineVacancyIds(prisma, tenantId, [row.vacancyId]),
+      ])
 
       const candidate: Candidate = {
         id: row.candidate.id,
@@ -182,7 +301,11 @@ export function createApplicationsRoutes() {
 
       return c.json(
         applicationDetailSchema.parse({
-          ...toDto(row, env),
+          ...toDto(row, env, {
+            selectionSummary: selectionByApplicationId.get(row.id) ?? null,
+            trustScore: trustByApplicationId.get(row.id) ?? null,
+            selectionPipelineEnabled: selectionVacancyIds.has(row.vacancyId),
+          }),
           candidate,
           vacancy,
         }),
@@ -260,7 +383,16 @@ export function createApplicationsRoutes() {
         actorUserId: userId,
       })
 
-      return c.json(applicationSchema.parse(toDto(row, env)), 201)
+      const [selectionByApplicationId, trustByApplicationId, selectionVacancyIds] = await Promise.all([
+        loadSelectionSummaryByApplicationIds(prisma, tenantId, [row.id]),
+        loadTrustScoreByApplicationIds(prisma, tenantId, [row.id]),
+        loadSelectionPipelineVacancyIds(prisma, tenantId, [row.vacancyId]),
+      ])
+      return c.json(applicationSchema.parse(toDto(row, env, {
+        selectionSummary: selectionByApplicationId.get(row.id) ?? null,
+        trustScore: trustByApplicationId.get(row.id) ?? null,
+        selectionPipelineEnabled: selectionVacancyIds.has(row.vacancyId),
+      })), 201)
     },
   )
 
@@ -346,7 +478,16 @@ export function createApplicationsRoutes() {
         // realtime is best-effort
       }
 
-      return c.json(applicationSchema.parse(toDto(updated, env)))
+      const [selectionByApplicationId, trustByApplicationId, selectionVacancyIds] = await Promise.all([
+        loadSelectionSummaryByApplicationIds(prisma, tenantId, [updated.id]),
+        loadTrustScoreByApplicationIds(prisma, tenantId, [updated.id]),
+        loadSelectionPipelineVacancyIds(prisma, tenantId, [updated.vacancyId]),
+      ])
+      return c.json(applicationSchema.parse(toDto(updated, env, {
+        selectionSummary: selectionByApplicationId.get(updated.id) ?? null,
+        trustScore: trustByApplicationId.get(updated.id) ?? null,
+        selectionPipelineEnabled: selectionVacancyIds.has(updated.vacancyId),
+      })))
     },
   )
 
@@ -462,7 +603,16 @@ export function createApplicationsRoutes() {
         },
       })
 
-      return c.json(applicationSchema.parse(toDto(updated, env)))
+      const [selectionByApplicationId, trustByApplicationId, selectionVacancyIds] = await Promise.all([
+        loadSelectionSummaryByApplicationIds(prisma, tenantId, [updated.id]),
+        loadTrustScoreByApplicationIds(prisma, tenantId, [updated.id]),
+        loadSelectionPipelineVacancyIds(prisma, tenantId, [updated.vacancyId]),
+      ])
+      return c.json(applicationSchema.parse(toDto(updated, env, {
+        selectionSummary: selectionByApplicationId.get(updated.id) ?? null,
+        trustScore: trustByApplicationId.get(updated.id) ?? null,
+        selectionPipelineEnabled: selectionVacancyIds.has(updated.vacancyId),
+      })))
     },
   )
 

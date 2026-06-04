@@ -73,6 +73,41 @@ describe('selection application bridge', () => {
 
     expect(result).toEqual({ created: false, reason: 'role_not_supported' })
     expect(state.sessions).toHaveLength(0)
+    expect(state.applicationUpdates.at(-1)).toMatchObject({
+      aiFlags: {
+        selectionPipelineBindingRequired: true,
+        selectionPipelineBindingReason: 'role_not_supported',
+      },
+    })
+  })
+
+  test('uses explicit vacancy role when provided', async () => {
+    const state = makeState({
+      application: {
+        id: 'app-3',
+        tenantId: 'tenant-1',
+        vacancyId: 'vac-3',
+        candidate: { source: 'manual', email: null, externalIds: {} },
+        vacancy: {
+          title: 'Frontend Engineer',
+          description: 'UI role',
+          role: 'sales_manager',
+          requisition: { title: 'Frontend' },
+        },
+      },
+      featureFlags: {},
+    })
+
+    const result = await handleApplicationCreatedForSelection({
+      prisma: state.prisma as never,
+      env: baseEnv as never,
+      tenantId: 'tenant-1',
+      applicationId: 'app-3',
+      source: 'manual',
+    })
+
+    expect(result.created).toBe(true)
+    expect(state.sessions).toHaveLength(1)
   })
 })
 
@@ -82,17 +117,22 @@ function makeState(input: {
     tenantId: string
     vacancyId: string
     candidate: { source: string; email: string | null; externalIds: Record<string, unknown> }
-    vacancy: { title: string; description: string; requisition: { title: string } | null }
+    vacancy: { title: string; description: string; role?: string; requisition: { title: string } | null }
+    aiFlags?: Record<string, unknown> | null
   }
   featureFlags: Record<string, boolean>
 }) {
   const sessions: Array<Record<string, unknown>> = []
   const templates: Array<Record<string, unknown>> = []
+  const applicationUpdates: Array<Record<string, unknown>> = []
   const prisma = {
     application: {
       findFirst: async ({ where }: { where: { id: string; tenantId: string } }) => {
         if (where.id !== input.application.id || where.tenantId !== input.application.tenantId) return null
         return input.application
+      },
+      update: async ({ data }: { data: Record<string, unknown> }) => {
+        applicationUpdates.push(data)
       },
     },
     selectionSession: {
@@ -110,6 +150,9 @@ function makeState(input: {
       findFirst: async ({ where }: { where: { vacancyId: string; role: string } }) => {
         return templates.find((t) => t.vacancyId === where.vacancyId && t.role === where.role) ?? null
       },
+      findMany: async ({ where }: { where: { vacancyId: string } }) => {
+        return templates.filter((t) => t.vacancyId === where.vacancyId)
+      },
       create: async ({ data }: { data: Record<string, unknown> }) => {
         const row = { id: `tpl-${templates.length + 1}`, ...data }
         templates.push(row)
@@ -123,5 +166,5 @@ function makeState(input: {
       findUnique: async () => null,
     },
   }
-  return { prisma, sessions }
+  return { prisma, sessions, applicationUpdates }
 }

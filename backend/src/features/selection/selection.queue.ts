@@ -10,6 +10,7 @@ import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
 import { callGeminiGenerateContent, GeminiApiError } from '../../integrations/llm/gemini'
 import { createInMemoryQueue } from '../../queues'
+import { notifyRecruitersAboutSelectionReady } from '../applications/application-notifications'
 import { computeDomesticCrossCheckFlags } from './domestic-cross-check'
 import type { DomesticAssessmentProfile } from './domestic-scoring'
 
@@ -396,6 +397,21 @@ async function runEvaluation({ prisma, env, sessionId }: EvaluateJob): Promise<v
         where: { sessionId },
         create: { sessionId, ...baseData },
         update: baseData,
+      })
+    }
+    const normalizedVerdict = aiVerdict.toUpperCase()
+    if (!isDomestic && normalizedVerdict.includes('ДОПУСТИТЬ')) {
+      const totalScoreRaw = parsed['total_weighted_score']
+      const totalScore =
+        totalScoreRaw !== null && totalScoreRaw !== undefined && !Number.isNaN(Number(totalScoreRaw))
+          ? Number(totalScoreRaw)
+          : null
+      void notifyRecruitersAboutSelectionReady({
+        prisma,
+        env,
+        tenantId: session.tenantId,
+        applicationId: session.applicationId,
+        totalScore,
       })
     }
   } catch (err) {
