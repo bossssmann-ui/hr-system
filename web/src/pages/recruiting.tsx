@@ -712,6 +712,7 @@ function KanbanBoard() {
                     const vac = vacancies.find((v) => v.id === app.vacancyId)
                     const scoreBadge = aiScoreBadge(t, (app.aiScoring ?? null) as Record<string, unknown> | null)
                     const hasAiVerdict = typeof app.aiVerdict === "string" && app.aiVerdict.length > 0
+                    const unifiedScoreText = formatUnifiedScore(app.unifiedScore?.value ?? null, app.unifiedScore?.status ?? null)
                     return (
                       <div key={app.id} draggable onDragStart={() => setDragging({ id: app.id, from: app.stage })} onDragEnd={() => setDragging(null)}
                         className="cursor-grab rounded-md border bg-background p-3 shadow-sm active:cursor-grabbing"
@@ -723,6 +724,16 @@ function KanbanBoard() {
                         {hasAiVerdict && (
                           <Typography variant="bodySm" tone="muted">
                             AI: {app.aiVerdict}{typeof app.aiScore === "number" ? ` (${app.aiScore.toFixed(1)})` : ""}
+                          </Typography>
+                        )}
+                        {unifiedScoreText && (
+                          <Typography variant="bodySm" tone="muted">
+                            Итог: {unifiedScoreText}
+                          </Typography>
+                        )}
+                        {typeof app.trustScore === "number" && (
+                          <Typography variant="bodySm" tone="muted">
+                            Trust-score: {app.trustScore}
                           </Typography>
                         )}
                         {vac && <Typography variant="bodySm" tone="muted">{vac.title}</Typography>}
@@ -919,6 +930,27 @@ function ApplicationDetail() {
               {typeof app.aiScore === "number" ? ` (${app.aiScore.toFixed(1)})` : ""}
             </Typography>
           )}
+          {formatUnifiedScore(app.unifiedScore?.value ?? null, app.unifiedScore?.status ?? null) && (
+            <Typography>
+              <span className="font-medium">Единый балл:</span> {formatUnifiedScore(app.unifiedScore?.value ?? null, app.unifiedScore?.status ?? null)}
+            </Typography>
+          )}
+          {typeof app.trustScore === "number" && (
+            <Typography>
+              <span className="font-medium">Trust-score:</span> {app.trustScore}
+            </Typography>
+          )}
+          {app.retentionPrediction && typeof app.retentionPrediction === "object" && (
+            <Typography>
+              <span className="font-medium">Retention prediction:</span> {JSON.stringify(app.retentionPrediction)}
+            </Typography>
+          )}
+          {app.selectionHrNotes && (
+            <div className="grid gap-1">
+              <Typography><span className="font-medium">AI notes for recruiter:</span></Typography>
+              <Typography variant="bodySm" tone="muted" className="whitespace-pre-wrap">{app.selectionHrNotes}</Typography>
+            </div>
+          )}
           {recruiterChecklistFlags.length > 0 && (
             <div className="grid gap-1">
               <Typography><span className="font-medium">AI checklist for live interview:</span></Typography>
@@ -1035,27 +1067,32 @@ function ApplicationDetail() {
           <CardDescription>{t('applications.assessments.description')}</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <select
-              className="min-w-[240px] rounded-md border border-input bg-background px-3 py-2 text-sm"
-              value={selectedTemplateId}
-              onChange={(event) => setSelectedTemplateId(event.target.value)}
-              data-testid="assessment-template-select"
-            >
-              <option value="">{t('applications.assessments.selectTemplate')}</option>
-              {templates.map((template: AssessmentTemplate) => (
-                <option key={template.id} value={template.id}>{template.title}</option>
-              ))}
-            </select>
-            <Button
-              variant="outline"
-              onClick={() => inviteAssessmentMutation.mutate()}
-              disabled={!selectedTemplateId || inviteAssessmentMutation.isPending}
-              data-testid="assessment-invite-button"
-            >
-              {inviteAssessmentMutation.isPending ? t('applications.assessments.inviting') : t('applications.assessments.inviteCandidate')}
-            </Button>
-          </div>
+          {!app.selectionPipelineEnabled && (
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                className="min-w-[240px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={selectedTemplateId}
+                onChange={(event) => setSelectedTemplateId(event.target.value)}
+                data-testid="assessment-template-select"
+              >
+                <option value="">{t('applications.assessments.selectTemplate')}</option>
+                {templates.map((template: AssessmentTemplate) => (
+                  <option key={template.id} value={template.id}>{template.title}</option>
+                ))}
+              </select>
+              <Button
+                variant="outline"
+                onClick={() => inviteAssessmentMutation.mutate()}
+                disabled={!selectedTemplateId || inviteAssessmentMutation.isPending}
+                data-testid="assessment-invite-button"
+              >
+                {inviteAssessmentMutation.isPending ? t('applications.assessments.inviting') : t('applications.assessments.inviteCandidate')}
+              </Button>
+            </div>
+          )}
+          {app.selectionPipelineEnabled && (
+            <Typography tone="muted">Для этой вакансии используется единый pipeline selection. Отдельные assessments отключены.</Typography>
+          )}
           {latestInviteLink && (
             <Typography variant="bodySm" data-testid="assessment-invite-link">
               {t('applications.assessments.candidateLink')} <a className="underline" href={latestInviteLink}>{latestInviteLink}</a>
@@ -1115,6 +1152,12 @@ function ScoringList({ title, items }: { title: string; items: string[] }) {
 function asStringList(value: unknown): string[] {
   if (!Array.isArray(value)) return []
   return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+}
+
+function formatUnifiedScore(value: number | null, status: string | null) {
+  if (typeof value !== "number") return null
+  const mode = status === "final" ? "финальный" : "предварительный"
+  return `${value.toFixed(1)}/100 (${mode})`
 }
 
 // ─── Interview Panel ──────────────────────────────────────────────────────────

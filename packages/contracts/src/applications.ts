@@ -59,6 +59,8 @@ export const aiScoreFeedbackSchema = z.object({
   created_at: z.string().datetime(),
 })
 
+export const unifiedScoreStatusSchema = z.enum(['preliminary', 'final'])
+
 export const applicationSchema = z.object({
   id: z.string(),
   tenantId: z.string(),
@@ -74,6 +76,14 @@ export const applicationSchema = z.object({
   aiVerdict: z.string().nullable().optional(),
   aiAssessedAt: z.string().datetime().nullable().optional(),
   aiFlags: z.record(z.string(), z.unknown()).nullable().optional(),
+  unifiedScore: z.object({
+    value: z.number().nullable(),
+    status: unifiedScoreStatusSchema.nullable(),
+  }).optional(),
+  trustScore: z.number().int().min(0).max(100).nullable().optional(),
+  retentionPrediction: z.record(z.string(), z.unknown()).nullable().optional(),
+  selectionHrNotes: z.string().nullable().optional(),
+  selectionPipelineEnabled: z.boolean().optional(),
   trustFlagged: z.boolean().optional().default(false),
   externalIds: z.record(z.string(), z.unknown()).optional().default({}),
   createdAt: z.string().datetime(),

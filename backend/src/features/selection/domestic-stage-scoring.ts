@@ -15,6 +15,7 @@ import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
 import { createAssessmentProvider, isAiScoringConfigured } from '../../integrations/llm'
 import { canTransition, type ApplicationStage } from '../applications/applications.fsm'
+import { notifyRecruitersAboutSelectionReady } from '../applications/application-notifications'
 import { asNonEmptyString } from './domestic-answer-helpers'
 import {
   computeDomesticCrossCheckFlags,
@@ -697,6 +698,13 @@ export async function finalizeDomesticStage4(
     admission: computation.admission,
     recruiterChecklistFlags: computation.recruiterChecklistFlags,
   } as unknown as Prisma.InputJsonValue
+  const hrNotes = buildDomesticHrNotes({
+    specializations,
+    riskFlags,
+    crossCheckFlags: computation.flags,
+    stageScores: computation.stageScores,
+    openAnswerGrades,
+  })
 
   const currentChecklistFlags = Array.isArray(assessmentProfile['recruiterChecklistFlags'])
     ? (assessmentProfile['recruiterChecklistFlags'] as unknown[]).filter(
@@ -725,6 +733,7 @@ export async function finalizeDomesticStage4(
       stageScores: stageScoresJson,
       crossCheckFlags: computation.flags as unknown as Prisma.InputJsonValue,
       retentionPrediction: computation.retentionPrediction as unknown as Prisma.InputJsonValue,
+      hrNotes,
     },
     create: {
       sessionId: session.id,
@@ -734,6 +743,7 @@ export async function finalizeDomesticStage4(
       crossCheckFlags: computation.flags as unknown as Prisma.InputJsonValue,
       retentionPrediction: computation.retentionPrediction as unknown as Prisma.InputJsonValue,
       lieScaleResult: Prisma.JsonNull,
+      hrNotes,
     },
   })
 
@@ -747,6 +757,47 @@ export async function finalizeDomesticStage4(
     recruiterChecklistFlags: mergedChecklistFlags,
     retentionPrediction: computation.retentionPrediction as unknown as Prisma.InputJsonValue,
   })
+
+  if (env && computation.verdictLabel === VERDICT_ADMIT) {
+    void notifyRecruitersAboutSelectionReady({
+      prisma,
+      env,
+      tenantId: session.tenantId,
+      applicationId: session.applicationId,
+      totalScore: Number(computation.totalScore.toFixed(1)),
+    })
+  }
+
+  function buildDomesticHrNotes(input: {
+    specializations: SpecializationAssignment[]
+    riskFlags: string[]
+    crossCheckFlags: DomesticCrossCheckFlag[]
+    stageScores: DomesticScoringResult
+    openAnswerGrades: Array<{ key: string; question: string; score: number; rationale: string }>
+  }) {
+    const primarySpecs = input.specializations
+      .filter((item) => item.level === 'primary')
+      .map((item) => item.packageId)
+    const secondarySpecs = input.specializations
+      .filter((item) => item.level === 'secondary')
+      .map((item) => item.packageId)
+    const redFlags = input.crossCheckFlags.filter((flag) => flag.type === 'RED').map((flag) => flag.description)
+    const orangeFlags = input.crossCheckFlags.filter((flag) => flag.type === 'ORANGE').map((flag) => flag.description)
+    const lowOpenAnswers = input.openAnswerGrades
+      .filter((item) => item.score < 60)
+      .map((item) => `${item.question}: ${item.rationale}`)
+    const lines = [
+      `Сильные стороны: core=${input.stageScores.coreOperationsScore.toFixed(1)}, practical=${input.stageScores.practicalAssignmentScore.toFixed(1)}.`,
+      `Специализации: primary=${primarySpecs.join(', ') || '—'}; secondary=${secondarySpecs.join(', ') || '—'}.`,
+      `Слабые стороны: communication=${input.stageScores.communicationScore.toFixed(1)}, resume/interview=${input.stageScores.resumeAndInterviewScore.toFixed(1)}.`,
+      `Спорные моменты и несоответствия: RED=${redFlags.length}; ORANGE=${orangeFlags.length}.`,
+      redFlags.length > 0 ? `Выявленное враньё/критичные флаги: ${redFlags.join(' | ')}.` : 'Выявленное враньё/критичные флаги: не обнаружено.',
+      orangeFlags.length > 0 ? `Наблюдения для уточнения: ${orangeFlags.join(' | ')}.` : 'Наблюдения для уточнения: нет.',
+      input.riskFlags.length > 0 ? `Риски из AI-собеседования: ${input.riskFlags.join(' | ')}.` : 'Риски из AI-собеседования: нет.',
+      lowOpenAnswers.length > 0 ? `Открытые ответы на проверку: ${lowOpenAnswers.join(' | ')}.` : 'Открытые ответы на проверку: без существенных замечаний.',
+    ]
+    return lines.join('\n')
+  }
 
   return computation
 }
