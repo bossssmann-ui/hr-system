@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
+import { Hono } from 'hono'
 
-import { redact } from './audit'
+import { createAuditMiddleware, redact } from './audit'
 
 describe('audit.redact', () => {
   test('strips well-known secret keys', () => {
@@ -61,5 +62,43 @@ describe('audit.redact', () => {
     expect(redact(42)).toBe(42)
     expect(redact('hello')).toBe('hello')
     expect(redact(true)).toBe(true)
+  })
+})
+
+describe('audit middleware', () => {
+  test('writes audit row without queueMicrotask deferral', async () => {
+    const writes: Array<Record<string, unknown>> = []
+    const prisma = {
+      auditEvent: {
+        create: async ({ data }: { data: Record<string, unknown> }) => {
+          writes.push(data)
+          return data
+        },
+      },
+    }
+
+    const app = new Hono<{
+      Variables: {
+        auditEntry?: { action: string; entityType: string; entityId: string; diff?: unknown }
+        tenantId?: string
+      }
+    }>()
+    app.use('*', createAuditMiddleware({ prisma: prisma as never }))
+    app.post('/test', (c) => {
+      c.set('tenantId', 'tenant-1')
+      c.set('auditEntry', {
+        action: 'entity.updated',
+        entityType: 'Entity',
+        entityId: '00000000-0000-0000-0000-000000000001',
+        diff: { ok: true },
+      })
+      return c.json({ ok: true }, 200)
+    })
+
+    const response = await app.request('/test', {
+      method: 'POST',
+    })
+    expect(response.status).toBe(200)
+    expect(writes).toHaveLength(1)
   })
 })

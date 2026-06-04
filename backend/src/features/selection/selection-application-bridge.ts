@@ -1,6 +1,7 @@
 import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
 import { Prisma } from '../../generated/prisma/client'
+import { createInMemoryQueue } from '../../queues'
 import { getChannelAdapter } from '../messaging/messaging.service'
 import { decryptHhSecret } from '../../integrations/hh/crypto'
 import { getRealtimeBus } from '../../services/realtime'
@@ -10,6 +11,30 @@ import { createSelectionSession } from './selection-session.service'
 
 type ApplicationSource = 'public_apply' | 'hh_sync' | 'manual'
 const SUPPORTED_ROLES = ['logist', 'sales_manager', 'logist_domestic'] as const
+type SelectionBridgeJob = {
+  prisma: DbClient
+  env: AppEnv
+  tenantId: string
+  applicationId: string
+  source: ApplicationSource
+}
+
+const selectionBridgeQueue = createInMemoryQueue<SelectionBridgeJob>('selection.bridge')
+let selectionBridgeQueueRegistered = false
+
+function ensureSelectionBridgeQueueRegistered() {
+  if (selectionBridgeQueueRegistered) return
+  selectionBridgeQueueRegistered = true
+  selectionBridgeQueue.process(async (job) => {
+    await handleApplicationCreatedForSelection(job)
+  })
+}
+
+export async function enqueueSelectionBridgeJob(input: SelectionBridgeJob) {
+  ensureSelectionBridgeQueueRegistered()
+  await selectionBridgeQueue.enqueue(input)
+  return { queued: true as const }
+}
 
 export async function handleApplicationCreatedForSelection(input: {
   prisma: DbClient
@@ -106,7 +131,7 @@ export function registerSelectionApplicationBridge(input: {
       // notifier bridge is best-effort
     }
     try {
-      await handleApplicationCreatedForSelection({
+      await enqueueSelectionBridgeJob({
         prisma: input.prisma,
         env: input.env,
         tenantId,
@@ -119,6 +144,7 @@ export function registerSelectionApplicationBridge(input: {
   })
 }
 const registeredPrismaClients = new WeakSet<object>()
+ensureSelectionBridgeQueueRegistered()
 
 function asSource(value: unknown): ApplicationSource {
   if (value === 'hh_sync') return 'hh_sync'

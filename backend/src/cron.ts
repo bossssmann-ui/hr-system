@@ -1,3 +1,7 @@
+import { randomUUID } from 'node:crypto'
+
+import type { DbClient } from './db'
+import type { AppEnv } from './env'
 import { createBackendRuntime, type BackendRuntime } from './runtime'
 import { sendProbationReminders } from './features/employees/employees.service'
 import { expireOverdueOffers } from './features/offers/offers.service'
@@ -11,12 +15,13 @@ import { computeSignalsForTenant } from './features/signals/signals.service'
 import { runDataRetention } from './features/tenant/tenant.service'
 import { collectSelectionRetentionOutcomes } from './features/selection/retention-outcomes'
 import { runSelectionScoringCalibration } from './features/selection/retention-calibration'
-import { drainDurableQueue } from './queues'
+import { createInMemoryQueue, drainDurableQueue } from './queues'
 import './features/assessments/assessments.queue'
 import './features/interviews/interviews.queue'
 import './features/messaging/messaging.queue'
 import './features/scoring/scoring.queue'
 import './features/selection/selection.queue'
+import './features/selection/selection-application-bridge'
 
 type CronTask = (runtime: BackendRuntime) => Promise<void>
 
@@ -117,14 +122,183 @@ const cronTasks = {
 
 export type CronTaskName = keyof typeof cronTasks
 
-export async function runCronTask(taskName: string, runtime: BackendRuntime) {
+type CronRunJob = {
+  prisma: DbClient
+  env: AppEnv
+  taskName: CronTaskName
+  scheduledWindow: string
+}
+
+const cronRunQueue = createInMemoryQueue<CronRunJob>('cron.run')
+let cronRunQueueRegistered = false
+
+function ensureCronRunQueueRegistered() {
+  if (cronRunQueueRegistered) return
+  cronRunQueueRegistered = true
+  cronRunQueue.process(async (job) => {
+    await executeCronRun(job)
+  })
+}
+
+async function executeCronRun(job: CronRunJob) {
+  const task = cronTasks[job.taskName]
+  if (!task) throw new Error(`Unknown cron task "${job.taskName}"`)
+  if (!hasDurableSql(job.prisma)) {
+    await task({ prisma: job.prisma, env: job.env, close: async () => undefined })
+    return
+  }
+
+  const tenantId: string | null = null
+  if (await hasSucceededRun(job.prisma, job.taskName, tenantId, job.scheduledWindow)) {
+    return
+  }
+
+  const attempt = await nextAttempt(job.prisma, job.taskName, tenantId, job.scheduledWindow)
+  const runId = randomUUID()
+  await job.prisma.$executeRaw`
+    INSERT INTO cron_job_runs (
+      id,
+      job_name,
+      tenant_id,
+      scheduled_window,
+      started_at,
+      status,
+      attempt,
+      created_at,
+      updated_at
+    )
+    VALUES (
+      ${runId}::uuid,
+      ${job.taskName},
+      ${tenantId}::uuid,
+      ${job.scheduledWindow},
+      now(),
+      'running',
+      ${attempt},
+      now(),
+      now()
+    )
+  `
+
+  try {
+    await task({ prisma: job.prisma, env: job.env, close: async () => undefined })
+    await job.prisma.$executeRaw`
+      UPDATE cron_job_runs
+      SET status = 'succeeded',
+          finished_at = now(),
+          error = NULL,
+          updated_at = now()
+      WHERE id = ${runId}::uuid
+    `
+  } catch (err) {
+    await job.prisma.$executeRaw`
+      UPDATE cron_job_runs
+      SET status = 'failed',
+          finished_at = now(),
+          error = ${safeErrorMessage(err)},
+          updated_at = now()
+      WHERE id = ${runId}::uuid
+    `
+    throw err
+  }
+}
+
+function hasDurableSql(prisma: DbClient) {
+  if (!prisma) return false
+  return (
+    typeof (prisma as unknown as { $executeRaw?: unknown }).$executeRaw === 'function' &&
+    typeof (prisma as unknown as { $queryRaw?: unknown }).$queryRaw === 'function'
+  )
+}
+
+async function hasSucceededRun(prisma: DbClient, jobName: string, tenantId: string | null, scheduledWindow: string) {
+  const rows = await prisma.$queryRaw<Array<{ id: string }>>`
+    SELECT id
+    FROM cron_job_runs
+    WHERE job_name = ${jobName}
+      AND tenant_id IS NOT DISTINCT FROM ${tenantId}::uuid
+      AND scheduled_window = ${scheduledWindow}
+      AND status = 'succeeded'
+    LIMIT 1
+  `
+  return rows.length > 0
+}
+
+async function nextAttempt(prisma: DbClient, jobName: string, tenantId: string | null, scheduledWindow: string) {
+  const rows = await prisma.$queryRaw<Array<{ attempt: number }>>`
+    SELECT COALESCE(MAX(attempt), 0) + 1 AS attempt
+    FROM cron_job_runs
+    WHERE job_name = ${jobName}
+      AND tenant_id IS NOT DISTINCT FROM ${tenantId}::uuid
+      AND scheduled_window = ${scheduledWindow}
+  `
+  return rows[0]?.attempt ?? 1
+}
+
+function safeErrorMessage(err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err)
+  return message.slice(0, 2000)
+}
+
+function resolveScheduledWindow(taskName: CronTaskName, now: Date): string {
+  const iso = now.toISOString()
+  if (taskName === 'data.retention') return iso.slice(0, 7)
+  return iso.slice(0, 10)
+}
+
+async function enqueueCronRunJob(prisma: DbClient, env: AppEnv, taskName: CronTaskName, scheduledWindow: string) {
+  const maxRetries = env.QUEUE_MAX_RETRIES ?? 5
+  await prisma.$executeRaw`
+    INSERT INTO queue_jobs (
+      id,
+      queue_name,
+      payload,
+      status,
+      attempts,
+      max_retries,
+      available_at,
+      created_at,
+      updated_at
+    )
+    VALUES (
+      ${randomUUID()}::uuid,
+      'cron.run',
+      ${{ taskName, scheduledWindow }}::jsonb,
+      'pending',
+      0,
+      ${maxRetries},
+      now(),
+      now(),
+      now()
+    )
+  `
+}
+
+export async function runCronTask(
+  taskName: string,
+  runtime: BackendRuntime,
+  options?: { scheduledWindow?: string },
+) {
   const task = cronTasks[taskName as CronTaskName]
 
   if (!task) {
     throw new Error(`Unknown cron task "${taskName}". Available tasks: ${Object.keys(cronTasks).join(', ')}`)
   }
 
-  await task(runtime)
+  if (!hasDurableSql(runtime.prisma)) {
+    await task(runtime)
+    return
+  }
+
+  const jobName = taskName as CronTaskName
+  const scheduledWindow = options?.scheduledWindow ?? resolveScheduledWindow(jobName, new Date())
+  ensureCronRunQueueRegistered()
+  await enqueueCronRunJob(runtime.prisma, runtime.env, jobName, scheduledWindow)
+  await drainDurableQueue({
+    prisma: runtime.prisma,
+    env: runtime.env,
+    queueName: 'cron.run',
+  })
 }
 
 export async function main(argv: string[] = Bun.argv.slice(2)) {

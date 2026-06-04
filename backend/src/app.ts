@@ -107,7 +107,7 @@ export function createApp({ env, prisma }: CreateAppOptions) {
   })
 
   // Audit middleware — runs after every mutating route; writes AuditEvent row.
-  app.use('/api/*', createAuditMiddleware({ prisma, async: true }))
+  app.use('/api/*', createAuditMiddleware({ prisma }))
 
   app.get('/', (c) => {
     return c.json({

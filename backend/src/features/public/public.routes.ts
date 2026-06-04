@@ -35,6 +35,7 @@ import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
 import { AppError } from '../../http/errors'
 import { getRealtimeBus } from '../../services/realtime'
+import { enqueueApplicationScoringJob } from '../scoring/scoring.queue'
 
 type RouteBindings = {
   Variables: {
@@ -285,13 +286,13 @@ export function createPublicCareersRoutes() {
 
       // ── AI scoring (async, if enabled) ──
       if (env.AI_SCORING_ENABLED) {
-        // Import lazily to avoid circular deps. Fires and forgets — the score
-        // lands asynchronously just like the authed flow.
-        import('../../features/scoring/scoring.service').then(({ scoreApplication }) => {
-          void scoreApplication({ prisma, env, applicationId: application.id }).catch(() => {
-            // Scoring failure must never fail the apply response.
-          })
-        }).catch(() => { /* ignore */ })
+        void enqueueApplicationScoringJob({
+          prisma,
+          env,
+          applicationId: application.id,
+        }).catch(() => {
+          // Scoring queue enqueue must never fail the apply response.
+        })
       }
 
       // ── Response: no internal IDs leaked ──

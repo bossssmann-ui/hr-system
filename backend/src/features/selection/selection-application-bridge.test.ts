@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 
-import { handleApplicationCreatedForSelection } from './selection-application-bridge'
+import type { DbClient } from '../../db'
+import { drainDurableQueue } from '../../queues'
+import { enqueueSelectionBridgeJob, handleApplicationCreatedForSelection } from './selection-application-bridge'
 
 const baseEnv = {
   ASSESSMENT_SYSTEM_ENABLED: true,
@@ -109,6 +111,54 @@ describe('selection application bridge', () => {
     expect(result.created).toBe(true)
     expect(state.sessions).toHaveLength(1)
   })
+
+  test('enqueues durable bridge job and stays idempotent on retry', async () => {
+    const state = makeState({
+      application: {
+        id: 'app-4',
+        tenantId: 'tenant-1',
+        vacancyId: 'vac-4',
+        candidate: { source: 'manual', email: null, externalIds: {} },
+        vacancy: {
+          title: 'Logist Specialist',
+          description: 'Operations role',
+          requisition: { title: 'Logist' },
+        },
+      },
+      featureFlags: {},
+    })
+    const durable = withDurableQueue(state.prisma as unknown as DbClient)
+
+    await enqueueSelectionBridgeJob({
+      prisma: durable.prisma as never,
+      env: baseEnv as never,
+      tenantId: 'tenant-1',
+      applicationId: 'app-4',
+      source: 'manual',
+    })
+
+    expect(durable.jobs.size).toBeGreaterThan(0)
+
+    await drainDurableQueue({
+      prisma: durable.prisma as never,
+      env: baseEnv as never,
+      queueName: 'selection.bridge',
+    })
+    await enqueueSelectionBridgeJob({
+      prisma: durable.prisma as never,
+      env: baseEnv as never,
+      tenantId: 'tenant-1',
+      applicationId: 'app-4',
+      source: 'manual',
+    })
+    await drainDurableQueue({
+      prisma: durable.prisma as never,
+      env: baseEnv as never,
+      queueName: 'selection.bridge',
+    })
+
+    expect(state.sessions).toHaveLength(1)
+  })
 })
 
 function makeState(input: {
@@ -167,4 +217,85 @@ function makeState(input: {
     },
   }
   return { prisma, sessions, applicationUpdates }
+}
+
+type QueueJob = {
+  id: string
+  queue_name: string
+  payload: Record<string, unknown>
+  status: 'pending' | 'processing' | 'done' | 'failed'
+  attempts: number
+  max_retries: number
+  available_at: number
+}
+
+function withDurableQueue(basePrisma: DbClient) {
+  const jobs = new Map<string, QueueJob>()
+  const prisma = {
+    ...basePrisma,
+    async $executeRaw(strings: TemplateStringsArray, ...values: unknown[]) {
+      const sql = strings.join(' ')
+      const now = Date.now()
+      if (sql.includes('INSERT INTO queue_jobs')) {
+        const [id, queueName, payload, maxRetries, delayMs] =
+          values as [string, string, Record<string, unknown>, number, number]
+        jobs.set(id, {
+          id,
+          queue_name: queueName,
+          payload,
+          status: 'pending',
+          attempts: 0,
+          max_retries: maxRetries,
+          available_at: now + delayMs,
+        })
+        return 1
+      }
+      if (sql.includes("SET status = 'done'")) {
+        const [id] = values as [string]
+        const job = jobs.get(id)
+        if (!job) return 0
+        job.status = 'done'
+        return 1
+      }
+      if (sql.includes("SET status = 'failed'")) {
+        const [, , id] = values as [number, string, string]
+        const job = jobs.get(id)
+        if (!job) return 0
+        job.status = 'failed'
+        return 1
+      }
+      if (sql.includes("SET status = 'pending'")) {
+        const job = jobs.get(values.at(-1) as string)
+        if (!job) return 0
+        job.status = 'pending'
+        return 1
+      }
+      return 0
+    },
+    async $queryRaw(strings: TemplateStringsArray, ...values: unknown[]) {
+      const sql = strings.join(' ')
+      if (!sql.includes('WITH picked AS')) return []
+      const hasQueueFilter = sql.includes('queue_name =')
+      const queueName = hasQueueFilter ? (values[0] as string) : undefined
+      const batchSize = hasQueueFilter ? (values[1] as number) : (values[0] as number)
+      const now = Date.now()
+      const picked = Array.from(jobs.values())
+        .filter((job) => job.status === 'pending' && job.available_at <= now)
+        .filter((job) => (queueName ? job.queue_name === queueName : true))
+        .slice(0, batchSize)
+
+      for (const job of picked) {
+        job.status = 'processing'
+      }
+
+      return picked.map((job) => ({
+        id: job.id,
+        queue_name: job.queue_name,
+        payload: job.payload,
+        attempts: job.attempts,
+        max_retries: job.max_retries,
+      }))
+    },
+  }
+  return { prisma: prisma as DbClient, jobs }
 }

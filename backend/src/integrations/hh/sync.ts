@@ -2,7 +2,7 @@ import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
 import { Prisma } from '../../generated/prisma/client'
 import { enqueueApplicationScoringJob } from '../../features/scoring/scoring.queue'
-import { handleApplicationCreatedForSelection } from '../../features/selection/selection-application-bridge'
+import { enqueueSelectionBridgeJob } from '../../features/selection/selection-application-bridge'
 import { createInMemoryQueue } from '../../queues'
 import { createHhClient } from './client'
 import { decryptHhSecret, encryptHhSecret } from './crypto'
@@ -374,7 +374,7 @@ export async function upsertNegotiationFromHh(
       actorUserId: input.actorUserId,
     })
 
-    void handleApplicationCreatedForSelection({
+    void enqueueSelectionBridgeJob({
       prisma,
       env: input.env,
       tenantId: input.tenantId,
