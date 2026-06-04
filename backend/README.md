@@ -62,8 +62,8 @@ DigitalOcean Spaces env is optional. Leave `SPACES_*` blank until the product ne
 The backend is one workspace with one Prisma schema and one Dockerfile, but it has separate runtime entrypoints:
 
 - API: `bun run start:api`, backed by `src/index.ts`.
-- Worker: `bun run start:worker`, backed by `src/worker.ts`. It is intentionally empty until a real long-running background handler is added, and deployment generation refuses to deploy this placeholder command as an App Platform worker.
-- Cron: `bun run start:cron -- <task>`, backed by `src/cron.ts`. Current local validation tasks are `noop`, `db:ping`, and `probation.reminder`.
+- Worker: `bun run start:worker`, backed by `src/worker.ts`, continuously drains the durable queue.
+- Cron: `bun run start:cron -- <task>`, backed by `src/cron.ts`. Available tasks include `analytics.snapshot`, `probation.reminder`, `1on1.reminder`, `review.reminder`, `data.retention`, `signals.compute`, `selection.retention_outcomes`, `selection.retention_calibration`, `okr.quarter_start`, and `hh.sourcing`.
 
 All entrypoints use `src/runtime.ts` for env loading, Prisma creation, and cleanup, so backend services can be shared without duplicating Prisma schema or database setup.
 

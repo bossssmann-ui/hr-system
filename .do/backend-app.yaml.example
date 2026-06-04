@@ -64,7 +64,7 @@ services:
         value: "true"
         scope: RUN_TIME
         type: GENERAL
-REPLACE_WITH_OPTIONAL_BACKEND_WORKERS
+REPLACE_WITH_BACKEND_WORKERS
 jobs:
   - name: migrate
     kind: PRE_DEPLOY
@@ -81,4 +81,4 @@ jobs:
         value: "${REPLACE_WITH_DO_DB_COMPONENT_NAME.DATABASE_URL}"
         scope: RUN_TIME
         type: SECRET
-REPLACE_WITH_OPTIONAL_BACKEND_CRON_JOBS
+REPLACE_WITH_BACKEND_CRON_JOBS
