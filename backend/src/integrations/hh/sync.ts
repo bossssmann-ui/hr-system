@@ -59,6 +59,16 @@ export async function enqueueHhNegotiationsSyncJob(input: {
       ...input,
       resolve,
       reject,
+    }).catch((error) => {
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          msg: 'hh.sync.enqueue_failed',
+          tenantId: input.tenantId,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      )
+      reject(error)
     })
   })
 }
