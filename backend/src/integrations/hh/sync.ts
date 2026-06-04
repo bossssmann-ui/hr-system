@@ -2,6 +2,7 @@ import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
 import { Prisma } from '../../generated/prisma/client'
 import { enqueueApplicationScoringJob } from '../../features/scoring/scoring.queue'
+import { handleApplicationCreatedForSelection } from '../../features/selection/selection-application-bridge'
 import { createInMemoryQueue } from '../../queues'
 import { createHhClient } from './client'
 import { decryptHhSecret, encryptHhSecret } from './crypto'
@@ -262,6 +263,7 @@ export async function upsertNegotiationFromHh(
   const candidateExternalIds = mergeExternalIds(existingCandidate?.externalIds, {
     hh_resume_id: input.resume.id,
     hh_negotiation_id: input.negotiation.id,
+    ...(input.negotiation.messages_url ? { hh_messages_url: input.negotiation.messages_url } : {}),
     hh_resume_snapshot: buildResumeSnapshot(input.resume),
   })
 
@@ -294,6 +296,7 @@ export async function upsertNegotiationFromHh(
   const applicationExternalIds = {
     hh_negotiation_id: input.negotiation.id,
     hh_resume_id: input.resume.id,
+    ...(input.negotiation.messages_url ? { hh_messages_url: input.negotiation.messages_url } : {}),
   }
 
   const existingApplicationByNegotiation = await prisma.application.findFirst({
@@ -369,6 +372,14 @@ export async function upsertNegotiationFromHh(
       env: input.env,
       applicationId: applicationIdForScoring,
       actorUserId: input.actorUserId,
+    })
+
+    void handleApplicationCreatedForSelection({
+      prisma,
+      env: input.env,
+      tenantId: input.tenantId,
+      applicationId: applicationIdForScoring,
+      source: 'hh_sync',
     })
   }
 

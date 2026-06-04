@@ -433,7 +433,7 @@ export class ApiClient {
   createSelectionSession(input: {
     vacancyId: string
     applicationId?: string
-    role: 'logist' | 'sales_manager'
+    role: 'logist' | 'sales_manager' | 'logist_domestic'
   }): Promise<{ sessionId: string; token: string; assessmentUrl: string }> {
     return this.request(
       '/api/selection/sessions',

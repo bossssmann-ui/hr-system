@@ -707,6 +707,7 @@ function KanbanBoard() {
                   {byStage(stage).map((app) => {
                     const vac = vacancies.find((v) => v.id === app.vacancyId)
                     const scoreBadge = aiScoreBadge(t, (app.aiScoring ?? null) as Record<string, unknown> | null)
+                    const hasAiVerdict = typeof app.aiVerdict === "string" && app.aiVerdict.length > 0
                     return (
                       <div key={app.id} draggable onDragStart={() => setDragging({ id: app.id, from: app.stage })} onDragEnd={() => setDragging(null)}
                         className="cursor-grab rounded-md border bg-background p-3 shadow-sm active:cursor-grabbing"
@@ -715,6 +716,11 @@ function KanbanBoard() {
                           <Typography variant="bodySm" className="font-medium">{app.candidateId.slice(0, 8)}</Typography>
                           <Badge variant="outline" className={cn("text-[11px]", scoreBadge.className)} title={scoreBadge.summary}>{scoreBadge.label}</Badge>
                         </div>
+                        {hasAiVerdict && (
+                          <Typography variant="bodySm" tone="muted">
+                            AI: {app.aiVerdict}{typeof app.aiScore === "number" ? ` (${app.aiScore.toFixed(1)})` : ""}
+                          </Typography>
+                        )}
                         {vac && <Typography variant="bodySm" tone="muted">{vac.title}</Typography>}
                         <Link to="/applications/$applicationId" params={{ applicationId: app.id }} className="text-xs text-primary underline-offset-4 hover:underline">
                           {t('applications.openDetail')}
@@ -881,6 +887,10 @@ function ApplicationDetail() {
   const templates = templatesQuery.data?.items ?? []
   const assessmentSessions = sessionsQuery.data?.items ?? []
   const aiInterviewQuestions = Array.isArray(app.aiInterviewQuestions) ? app.aiInterviewQuestions : []
+  const aiFlags = (app.aiFlags && typeof app.aiFlags === "object") ? app.aiFlags as Record<string, unknown> : null
+  const recruiterChecklistFlags = Array.isArray(aiFlags?.recruiterChecklistFlags)
+    ? aiFlags?.recruiterChecklistFlags.filter((item): item is string => typeof item === "string")
+    : []
 
   return (
     <section className="mx-auto grid w-full max-w-6xl gap-6 px-5 py-12">
@@ -899,6 +909,24 @@ function ApplicationDetail() {
           <Typography><span className="font-medium">{t('applications.candidateLabel')}</span> {app.candidate.fullName}</Typography>
           <Typography><span className="font-medium">{t('applications.vacancyLabel')}</span> {app.vacancy.title}</Typography>
           <Typography><span className="font-medium">{t('applications.stageLabel')}</span> {t(`applications.stages.${app.stage}`)}</Typography>
+          {app.aiVerdict && (
+            <Typography>
+              <span className="font-medium">AI verdict:</span> {app.aiVerdict}
+              {typeof app.aiScore === "number" ? ` (${app.aiScore.toFixed(1)})` : ""}
+            </Typography>
+          )}
+          {recruiterChecklistFlags.length > 0 && (
+            <div className="grid gap-1">
+              <Typography><span className="font-medium">AI checklist for live interview:</span></Typography>
+              <ul className="list-disc pl-5">
+                {recruiterChecklistFlags.map((flag) => (
+                  <li key={flag}>
+                    <Typography variant="bodySm">{flag === "cargo_layout_test_required" ? "Проверить тестовое задание по раскладке груза" : flag}</Typography>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <Typography tone="muted">{app.vacancy.description}</Typography>
         </CardContent>
       </Card>

@@ -29,15 +29,15 @@ import {
 import {
   applyChosenTrap,
   getAllStagesContent,
-  pickRandomTrapKey,
   scoreStage2,
   type QuestionnaireStageContent,
   type Role,
   type StageContent,
 } from './stage-content'
-import { buildStagesForRole, isDomesticRole, type SupportedRole } from './selection-role-adapter'
+import { isDomesticRole, type SupportedRole } from './selection-role-adapter'
 import { finalizeDomesticStage4, scoreDomesticStage2 } from './domestic-stage-scoring'
 import type { SpecializationAssignment } from './domestic-specializations'
+import { createSelectionSession } from './selection-session.service'
 
 type RouteBindings = RoleGuardBindings & {
   Variables: {
@@ -64,15 +64,6 @@ const adminQuerySchema = z.object({
   vacancyId: z.string().uuid().optional(),
   role: z.enum(['logist', 'sales_manager', 'logist_domestic']).optional(),
 })
-
-/**
- * Build the stages content for a given role. Full question content lives in
- * `stage-content.ts` (single source of truth). The Stage 1 trap pool is kept
- * in the template; the per-session chosen trap key is injected at GET time.
- */
-function buildStages(role: SupportedRole): StageContent[] {
-  return buildStagesForRole(role)
-}
 
 function stageNumberForStatus(status: string): number | null {
   const map: Record<string, number> = {
@@ -111,35 +102,12 @@ export function createSelectionRoutes() {
       const tenantId = c.get('tenantId')
       const body = c.req.valid('json')
 
-      // Find or create SelectionTemplate for vacancy+role
-      let template = await prisma.selectionTemplate.findFirst({
-        where: { tenantId, vacancyId: body.vacancyId, role: body.role },
-      })
-      if (!template) {
-        template = await prisma.selectionTemplate.create({
-          data: {
-            tenantId,
-            vacancyId: body.vacancyId,
-            role: body.role,
-            stages: buildStages(body.role as SupportedRole) as unknown as Prisma.InputJsonValue,
-          },
-        })
-      }
-
-      // Create session with a per-session randomly chosen Stage-1 trap. The
-      // chosen trap value is stored in `flags.chosen_trap_key` so cross-check
-      // (RED-1) can verify the answer matches the trap and so we never leak
-      // the other trap pool members to the candidate.
-      const chosenTrapKey = isDomesticRole(body.role) ? null : pickRandomTrapKey(body.role as Role)
-      const session = await prisma.selectionSession.create({
-        data: {
-          tenantId,
-          templateId: template.id,
-          applicationId: body.applicationId ?? null,
-          status: 'pending',
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-          flags: { chosen_trap_key: chosenTrapKey } as Prisma.InputJsonValue,
-        },
+      const { session } = await createSelectionSession({
+        prisma,
+        tenantId,
+        vacancyId: body.vacancyId,
+        role: body.role as SupportedRole,
+        applicationId: body.applicationId ?? null,
       })
 
       c.set('auditEntry', {

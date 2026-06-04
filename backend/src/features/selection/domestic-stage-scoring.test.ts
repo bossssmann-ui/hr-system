@@ -286,6 +286,9 @@ describe('finalizeDomesticStage4', () => {
   function makeFakePrisma(session: Record<string, unknown> | null) {
     const upsertCalls: Array<Record<string, unknown>> = []
     const updateCalls: Array<Record<string, unknown>> = []
+    const applicationUpdateCalls: Array<Record<string, unknown>> = []
+    const stageEventCalls: Array<Record<string, unknown>> = []
+    const auditCalls: Array<Record<string, unknown>> = []
     const prisma = {
       selectionSession: {
         findUnique: async () => session,
@@ -303,8 +306,43 @@ describe('finalizeDomesticStage4', () => {
           return { id: 'verdict-1' }
         },
       },
+      application: {
+        findFirst: async ({ where }: { where: { id: string } }) => {
+          if (!session || typeof session.applicationId !== 'string') return null
+          if (where.id !== session.applicationId) return null
+          return {
+            id: session.applicationId,
+            tenantId: (session.tenantId as string) ?? 'tenant-1',
+            stage: 'new',
+            assignedToUserId: 'user-actor-1',
+          }
+        },
+        update: async (args: Record<string, unknown>) => {
+          applicationUpdateCalls.push(args)
+          return { id: 'app-1' }
+        },
+      },
+      tenantSettings: {
+        findUnique: async () => ({ featureFlags: {} }),
+      },
+      userRole: {
+        findFirst: async () => ({ userId: 'user-actor-1' }),
+      },
+      applicationStageEvent: {
+        create: async (args: Record<string, unknown>) => {
+          stageEventCalls.push(args)
+          return args
+        },
+      },
+      auditEvent: {
+        create: async (args: Record<string, unknown>) => {
+          auditCalls.push(args)
+          return args
+        },
+      },
+      $transaction: async (fn: (tx: Record<string, unknown>) => Promise<unknown>) => fn(prisma as unknown as Record<string, unknown>),
     }
-    return { prisma, upsertCalls, updateCalls }
+    return { prisma, upsertCalls, updateCalls, applicationUpdateCalls, stageEventCalls, auditCalls }
   }
 
   test('не-domestic → null, без записи вердикта', async () => {
@@ -330,8 +368,9 @@ describe('finalizeDomesticStage4', () => {
       { packageId: 'domestic_road_ftl_ltl', level: 'primary' },
     ]
     const stage2Answers = allCorrectAnswersFor(specs)
-    const { prisma, upsertCalls, updateCalls } = makeFakePrisma({
+    const { prisma, upsertCalls, updateCalls, applicationUpdateCalls } = makeFakePrisma({
       id: 'sess-2',
+      tenantId: 'tenant-1',
       template: { role: 'logist_domestic' },
       stageResults: [
         { stageNumber: 1, answers: {}, scores: null },
@@ -356,6 +395,7 @@ describe('finalizeDomesticStage4', () => {
     expect(call.create.verdict).toBe('ДОПУСТИТЬ')
     expect(call.create).toHaveProperty('retentionPrediction')
     expect(updateCalls).toHaveLength(1)
+    expect(applicationUpdateCalls).toHaveLength(1)
   })
 
   test('domestic, использует уже сохранённые scores.moduleResults Stage-2', async () => {
@@ -384,5 +424,89 @@ describe('finalizeDomesticStage4', () => {
     )
     expect(result?.moduleResults).toEqual(persistedModuleResults)
     expect(upsertCalls).toHaveLength(1)
+  })
+
+  test('не двигает Application stage при ДОПУСТИТЬ когда autoAdvance флаг выключен', async () => {
+    const specs: SpecializationAssignment[] = [
+      { packageId: 'domestic_core_operations', level: 'primary' },
+      { packageId: 'domestic_road_ftl_ltl', level: 'primary' },
+    ]
+    const stage2Answers = allCorrectAnswersFor(specs)
+    const { prisma, stageEventCalls } = makeFakePrisma({
+      id: 'sess-4',
+      tenantId: 'tenant-1',
+      template: { role: 'logist_domestic' },
+      stageResults: [
+        { stageNumber: 2, answers: stage2Answers, scores: null },
+        { stageNumber: 4, answers: { practical: 'ok' }, scores: null },
+      ],
+      specializations: specs,
+      assessmentProfile: { signals: [], riskFlags: [] },
+      applicationId: 'app-1',
+    })
+
+    await finalizeDomesticStage4(
+      prisma as unknown as Parameters<typeof finalizeDomesticStage4>[0],
+      'sess-4',
+    )
+    expect(stageEventCalls).toHaveLength(0)
+  })
+
+  test('двигает Application stage new→screen при ДОПУСТИТЬ когда autoAdvance флаг включен', async () => {
+    const specs: SpecializationAssignment[] = [
+      { packageId: 'domestic_core_operations', level: 'primary' },
+      { packageId: 'domestic_road_ftl_ltl', level: 'primary' },
+    ]
+    const stage2Answers = allCorrectAnswersFor(specs)
+    const fx = makeFakePrisma({
+      id: 'sess-5',
+      tenantId: 'tenant-1',
+      template: { role: 'logist_domestic' },
+      stageResults: [
+        { stageNumber: 2, answers: stage2Answers, scores: null },
+        { stageNumber: 4, answers: { practical: 'ok' }, scores: null },
+      ],
+      specializations: specs,
+      assessmentProfile: { signals: [], riskFlags: [] },
+      applicationId: 'app-1',
+    })
+    ;(fx.prisma as unknown as { tenantSettings: { findUnique: () => Promise<unknown> } }).tenantSettings.findUnique = async () => ({
+      featureFlags: { 'selection.autoAdvance.enabled': true },
+    })
+
+    await finalizeDomesticStage4(
+      fx.prisma as unknown as Parameters<typeof finalizeDomesticStage4>[0],
+      'sess-5',
+    )
+    expect(fx.stageEventCalls).toHaveLength(1)
+  })
+
+  test('не двигает Application stage в rejected по умолчанию при ОТКЛОНИТЬ', async () => {
+    const specs: SpecializationAssignment[] = [
+      { packageId: 'domestic_core_operations', level: 'primary' },
+      { packageId: 'domestic_road_ftl_ltl', level: 'primary' },
+    ]
+    const fx = makeFakePrisma({
+      id: 'sess-6',
+      tenantId: 'tenant-1',
+      template: { role: 'logist_domestic' },
+      stageResults: [
+        { stageNumber: 2, answers: {}, scores: null },
+        { stageNumber: 4, answers: {}, scores: null },
+      ],
+      specializations: specs,
+      assessmentProfile: {
+        signals: [],
+        riskFlags: ['oversized_depth_risk', 'remote_region_depth_risk', 'cabotage_depth_risk'],
+      },
+      applicationId: 'app-1',
+    })
+
+    const result = await finalizeDomesticStage4(
+      fx.prisma as unknown as Parameters<typeof finalizeDomesticStage4>[0],
+      'sess-6',
+    )
+    expect(result?.verdictLabel).toBe('ОТКЛОНИТЬ')
+    expect(fx.stageEventCalls).toHaveLength(0)
   })
 })
