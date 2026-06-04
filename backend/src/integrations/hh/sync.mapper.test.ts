@@ -139,11 +139,13 @@ describe('hh sync mapper', () => {
     const queueInsertError = new Error('queue insert failed')
     const logged: string[] = []
     const originalConsoleError = console.error
-    console.error = (message?: unknown) => {
-      logged.push(String(message))
-    }
 
     try {
+      console.error = (message?: unknown) => {
+        logged.push(String(message))
+      }
+
+      type EnqueueInput = Parameters<typeof enqueueHhNegotiationsSyncJob>[0]
       await expect(
         enqueueHhNegotiationsSyncJob({
           prisma: {
@@ -151,8 +153,8 @@ describe('hh sync mapper', () => {
               throw queueInsertError
             },
             $queryRaw: async () => [],
-          } as never,
-          env: {} as never,
+          } as EnqueueInput['prisma'],
+          env: {} as EnqueueInput['env'],
           tenantId: 'tenant-1',
         }),
       ).rejects.toBe(queueInsertError)
