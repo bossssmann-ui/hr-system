@@ -16,7 +16,7 @@ export async function runWorker(runtime: BackendRuntime) {
     if (result.claimed > 0) {
       console.log(`Worker queue tick: claimed=${result.claimed} processed=${result.processed}`)
     }
-    await new Promise((resolve) => setTimeout(resolve, runtime.env.QUEUE_POLL_INTERVAL_MS))
+    await new Promise((resolve) => setTimeout(resolve, runtime.env.QUEUE_POLL_INTERVAL_MS ?? 1000))
   }
 }
 

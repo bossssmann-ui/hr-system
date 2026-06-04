@@ -124,10 +124,10 @@ const envSchema = z.object({
   MOBILE_PUSH_ENABLED: booleanStringSchema,
   EXPO_PUSH_API_URL: stringWithDefault('https://exp.host/--/api/v2/push/send'),
   // Durable Postgres-backed job queue
-  QUEUE_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(1000),
-  QUEUE_BATCH_SIZE: z.coerce.number().int().positive().max(500).default(20),
-  QUEUE_MAX_RETRIES: z.coerce.number().int().positive().max(50).default(5),
-  QUEUE_JOB_TIMEOUT_MS: z.coerce.number().int().positive().default(120000),
+  QUEUE_POLL_INTERVAL_MS: z.coerce.number().int().positive().optional(),
+  QUEUE_BATCH_SIZE: z.coerce.number().int().positive().max(500).optional(),
+  QUEUE_MAX_RETRIES: z.coerce.number().int().positive().max(50).optional(),
+  QUEUE_JOB_TIMEOUT_MS: z.coerce.number().int().positive().optional(),
   // Phase 12 — Multi-tenancy, compliance, enterprise admin
   BILLING_ENABLED: booleanStringSchema,
   SUBDOMAIN_ROUTING_ENABLED: booleanStringSchema,

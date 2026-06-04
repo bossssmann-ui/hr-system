@@ -3,6 +3,7 @@ import * as React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 
 mock.module('react-i18next', () => ({
+  initReactI18next: { type: '3rdParty', init: () => {} },
   useTranslation: () => ({ t: (key: string) => key }),
 }))
 

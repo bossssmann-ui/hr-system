@@ -45,10 +45,10 @@ const activeWorkers = new Set<string>()
 
 function queueConfigFromEnv(env: AppEnv, override?: Partial<QueueRunnerConfig>): QueueRunnerConfig {
   return {
-    pollIntervalMs: override?.pollIntervalMs ?? env.QUEUE_POLL_INTERVAL_MS,
-    batchSize: override?.batchSize ?? env.QUEUE_BATCH_SIZE,
-    maxRetries: override?.maxRetries ?? env.QUEUE_MAX_RETRIES,
-    timeoutMs: override?.timeoutMs ?? env.QUEUE_JOB_TIMEOUT_MS,
+    pollIntervalMs: override?.pollIntervalMs ?? env.QUEUE_POLL_INTERVAL_MS ?? 1000,
+    batchSize: override?.batchSize ?? env.QUEUE_BATCH_SIZE ?? 20,
+    maxRetries: override?.maxRetries ?? env.QUEUE_MAX_RETRIES ?? 5,
+    timeoutMs: override?.timeoutMs ?? env.QUEUE_JOB_TIMEOUT_MS ?? 120000,
   }
 }
 
@@ -237,7 +237,8 @@ export async function drainDurableQueue(options: DrainOptions): Promise<{ claime
   return { claimed: rows.length, processed }
 }
 
-async function tryImmediateDrain(payload: unknown) {
+async function tryImmediateDrain(payload: unknown, queueName: string) {
+  if (!handlers.has(queueName)) return
   const runtime = extractRuntime(payload)
   if (!runtime) return
   void drainDurableQueue({
@@ -258,6 +259,28 @@ export function createInMemoryQueue<TPayload>(name: string, logger: Logger = def
         logger.error({ queue: name }, 'queue.runtime_missing')
         return
       }
+      const hasDurableSql =
+        typeof (runtime.prisma as unknown as { $executeRaw?: unknown }).$executeRaw === 'function' &&
+        typeof (runtime.prisma as unknown as { $queryRaw?: unknown }).$queryRaw === 'function'
+      if (!hasDurableSql) {
+        const run = () => {
+          const handler = handlers.get(name)
+          if (!handler) {
+            logger.error({ queue: name }, 'queue.no_handler_registered')
+            return
+          }
+          Promise.resolve(handler(payload as unknown)).catch((err) => {
+            logger.error({ queue: name, err }, 'queue.job_failed')
+          })
+        }
+        if (opts?.delayMs && opts.delayMs > 0) {
+          setTimeout(run, opts.delayMs)
+        } else {
+          queueMicrotask(run)
+        }
+        return
+      }
+
       const config = queueConfigFromEnv(runtime.env)
       const jobId = crypto.randomUUID()
       const delayMs = opts?.delayMs && opts.delayMs > 0 ? opts.delayMs : 0
@@ -288,7 +311,7 @@ export function createInMemoryQueue<TPayload>(name: string, logger: Logger = def
         )
       `
       transientPayloads.set(jobId, payload)
-      void tryImmediateDrain(payload)
+      void tryImmediateDrain(payload, name)
     },
     process(handler) {
       if (activeWorkers.has(name)) return

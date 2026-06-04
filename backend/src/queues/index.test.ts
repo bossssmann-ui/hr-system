@@ -237,12 +237,13 @@ describe('durable queue', () => {
     const queue = createInMemoryQueue<{ prisma: DbClient; env: AppEnv; id: string }>('retry.queue')
 
     let attempts = 0
+    await queue.enqueue({ prisma, env, id: 'r1' })
+
     queue.process(async () => {
       attempts += 1
       if (attempts === 1) throw new Error('boom')
     })
 
-    await queue.enqueue({ prisma, env, id: 'r1' })
     await drainDurableQueue({ prisma, env, queueName: 'retry.queue' })
 
     const first = Array.from(jobs.values())[0]!
@@ -262,12 +263,12 @@ describe('durable queue', () => {
     const queue = createInMemoryQueue<{ prisma: DbClient; env: AppEnv; id: string }>('lock.queue')
 
     let handled = 0
+    await queue.enqueue({ prisma, env, id: 'one' })
+
     queue.process(async () => {
       handled += 1
       await new Promise((resolve) => setTimeout(resolve, 10))
     })
-
-    await queue.enqueue({ prisma, env, id: 'one' })
 
     await Promise.all([
       drainDurableQueue({ prisma, env, queueName: 'lock.queue' }),
