@@ -153,7 +153,7 @@ describe('hh sync mapper', () => {
               throw queueInsertError
             },
             $queryRaw: async () => [],
-          } as EnqueueInput['prisma'],
+          } as unknown as EnqueueInput['prisma'],
           env: {} as EnqueueInput['env'],
           tenantId: 'tenant-1',
         }),
