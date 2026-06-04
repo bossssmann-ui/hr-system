@@ -266,6 +266,8 @@ export async function enqueueSelectionEvaluate(input: EvaluateJob) {
   return { queued: true as const }
 }
 
+ensureRegistered()
+
 async function runEvaluation({ prisma, env, sessionId }: EvaluateJob): Promise<void> {
   // 1. Load full session with all stage results
   const session = await prisma.selectionSession.findUnique({

@@ -11,6 +11,12 @@ import { computeSignalsForTenant } from './features/signals/signals.service'
 import { runDataRetention } from './features/tenant/tenant.service'
 import { collectSelectionRetentionOutcomes } from './features/selection/retention-outcomes'
 import { runSelectionScoringCalibration } from './features/selection/retention-calibration'
+import { drainDurableQueue } from './queues'
+import './features/assessments/assessments.queue'
+import './features/interviews/interviews.queue'
+import './features/messaging/messaging.queue'
+import './features/scoring/scoring.queue'
+import './features/selection/selection.queue'
 
 type CronTask = (runtime: BackendRuntime) => Promise<void>
 
@@ -102,6 +108,10 @@ const cronTasks = {
     console.log(
       `Cron selection.retention_calibration completed. tenants=${result.totalTenants} calibrated=${result.calibratedTenants}`,
     )
+  },
+  'queue.drain': async ({ prisma, env }) => {
+    const result = await drainDurableQueue({ prisma, env })
+    console.log(`Cron queue.drain completed. claimed=${result.claimed} processed=${result.processed}`)
   },
 } satisfies Record<string, CronTask>
 

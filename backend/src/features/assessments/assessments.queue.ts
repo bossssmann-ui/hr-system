@@ -25,3 +25,5 @@ export async function enqueueAssessmentOpenAnswerGrading(input: GradeOpenAnswers
   await gradeQueue.enqueue(input)
   return { queued: true as const }
 }
+
+ensureRegistered()

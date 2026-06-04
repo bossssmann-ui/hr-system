@@ -462,8 +462,15 @@ export function SelectionDashboardPage() {
   const { t } = useTranslation('selection')
   const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
+  const [period, setPeriod] = useState<'today' | 'week' | 'all'>('today')
   const [roleFilter, setRoleFilter] = useState<'logist' | 'sales_manager' | 'logist_domestic' | ''>('')
   const [selected, setSelected] = useState<SelectionItem | null>(null)
+
+  const funnelQuery = useQuery({
+    queryKey: ['selection-funnel', period],
+    queryFn: () => api.getRecruiterFunnel(period),
+    enabled: Boolean(user),
+  })
 
   const sessionsQuery = useQuery({
     queryKey: ['selection-sessions', page, roleFilter],
@@ -539,6 +546,71 @@ export function SelectionDashboardPage() {
           {t('dashboard.subtitle', { total: data.total })}
         </Typography>
       </div>
+
+      <div className="flex items-center gap-2">
+        <Typography variant="bodySm" tone="muted">{t('dashboard.period.label')}</Typography>
+        <Button variant={period === 'today' ? 'default' : 'outline'} size="sm" onClick={() => setPeriod('today')}>
+          {t('dashboard.period.today')}
+        </Button>
+        <Button variant={period === 'week' ? 'default' : 'outline'} size="sm" onClick={() => setPeriod('week')}>
+          {t('dashboard.period.week')}
+        </Button>
+        <Button variant={period === 'all' ? 'default' : 'outline'} size="sm" onClick={() => setPeriod('all')}>
+          {t('dashboard.period.all')}
+        </Button>
+      </div>
+
+      {funnelQuery.data && (
+        <>
+          <div className="grid gap-3 md:grid-cols-5">
+            <KpiCard label={t('dashboard.funnel.new')} value={funnelQuery.data.newApplications} />
+            <KpiCard label={t('dashboard.funnel.processed')} value={funnelQuery.data.aiProcessed} />
+            <KpiCard label={t('dashboard.funnel.passed')} value={funnelQuery.data.passedToRecruiter} />
+            <KpiCard label={t('dashboard.funnel.rejected')} value={funnelQuery.data.aiRejected} />
+            <KpiCard label={t('dashboard.funnel.manual')} value={funnelQuery.data.manualReview} />
+          </div>
+          <div className="overflow-x-auto rounded-md border">
+            <table className="w-full text-sm">
+              <thead className="border-b bg-muted/40">
+                <tr>
+                  <th className="px-4 py-3 text-left font-medium">{t('dashboard.processed.columns.candidate')}</th>
+                  <th className="px-4 py-3 text-left font-medium">{t('dashboard.processed.columns.score')}</th>
+                  <th className="px-4 py-3 text-left font-medium">{t('dashboard.processed.columns.status')}</th>
+                  <th className="px-4 py-3 text-left font-medium">{t('dashboard.processed.columns.trust')}</th>
+                  <th className="px-4 py-3 text-left font-medium">{t('dashboard.processed.columns.retention')}</th>
+                  <th className="px-4 py-3 text-left font-medium">{t('dashboard.processed.columns.notes')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {funnelQuery.data.processedCandidates.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-6 text-center text-muted-foreground">
+                      {t('dashboard.processed.empty')}
+                    </td>
+                  </tr>
+                )}
+                {funnelQuery.data.processedCandidates.map((item) => {
+                  const pred = parseRetentionPrediction(item.retentionPrediction)
+                  return (
+                    <tr key={item.applicationId} className="border-b">
+                      <td className="px-4 py-3 font-mono text-xs">{item.candidateId.slice(0, 8)}…</td>
+                      <td className="px-4 py-3">
+                        {item.unifiedScore != null ? `${Math.round(item.unifiedScore)}/100` : '—'}
+                      </td>
+                      <td className="px-4 py-3">
+                        {item.scoreStatus === 'final' ? t('dashboard.processed.final') : t('dashboard.processed.preliminary')}
+                      </td>
+                      <td className="px-4 py-3">{item.trustScore != null ? item.trustScore : '—'}</td>
+                      <td className="px-4 py-3">{pred ? `${(pred.survival90 * 100).toFixed(0)}%` : '—'}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{item.hrNotes ?? '—'}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
 
       {/* Filters */}
       <div className="flex items-center gap-3">
@@ -697,5 +769,14 @@ export function SelectionDashboardPage() {
         />
       )}
     </section>
+  )
+}
+
+function KpiCard({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-md border p-3">
+      <Typography variant="bodySm" tone="muted">{label}</Typography>
+      <Typography variant="h2">{value}</Typography>
+    </div>
   )
 }
