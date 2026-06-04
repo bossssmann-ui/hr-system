@@ -309,6 +309,7 @@ model Vacancy {
   requisitionId String   @unique @map("requisition_id") @db.Uuid
   orgUnitId     String   @map("org_unit_id") @db.Uuid
   hhVacancyId   String?  @unique @map("hh_vacancy_id")
+  hhSourcingCriteria Json? @map("hh_sourcing_criteria")
   slug          String?  @map("slug")
   title         String
   description   String

@@ -16,6 +16,7 @@ import { runDataRetention } from './features/tenant/tenant.service'
 import { collectSelectionRetentionOutcomes } from './features/selection/retention-outcomes'
 import { runSelectionScoringCalibration } from './features/selection/retention-calibration'
 import { createInMemoryQueue, drainDurableQueue } from './queues'
+import { sourceHhResumesForTenant } from './integrations/hh/sourcing'
 import './features/assessments/assessments.queue'
 import './features/interviews/interviews.queue'
 import './features/messaging/messaging.queue'
@@ -112,6 +113,19 @@ const cronTasks = {
     const result = await runSelectionScoringCalibration({ prisma })
     console.log(
       `Cron selection.retention_calibration completed. tenants=${result.totalTenants} calibrated=${result.calibratedTenants}`,
+    )
+  },
+  'hh.sourcing': async ({ prisma, env }) => {
+    const tenants = await prisma.tenant.findMany({ select: { id: true } })
+    let candidatesImported = 0
+    let applicationsCreated = 0
+    for (const tenant of tenants) {
+      const result = await sourceHhResumesForTenant(prisma, env, tenant.id)
+      candidatesImported += result.candidatesImported
+      applicationsCreated += result.applicationsCreated
+    }
+    console.log(
+      `Cron hh.sourcing completed. tenants=${tenants.length} candidates=${candidatesImported} applications=${applicationsCreated}`,
     )
   },
   'queue.drain': async ({ prisma, env }) => {

@@ -88,6 +88,25 @@ export type HhResume = {
   contact?: HhResumeContact[]
 }
 
+export type HhResumeSearchItem = {
+  id: string
+  title?: string
+  updated_at?: string
+}
+
+export type HhResumeSearchPage = {
+  found: number
+  pages: number
+  page: number
+  per_page: number
+  items: HhResumeSearchItem[]
+}
+
+export type HhNegotiationInviteResult = {
+  id: string | null
+  messagesUrl: string | null
+}
+
 export type HhClient = {
   getMe(accessToken: string): Promise<{ id?: string; employer?: { id?: string } }>
   exchangeAuthorizationCode(input: { code: string; redirectUri: string }): Promise<HhTokens>
@@ -95,5 +114,16 @@ export type HhClient = {
   listEmployerVacancies(accessToken: string, page?: number): Promise<HhEmployerVacancy[]>
   getNegotiationCollections(accessToken: string, vacancyId: string): Promise<HhNegotiationCollection[]>
   listNegotiations(accessToken: string, collectionUrl: string, page?: number): Promise<HhNegotiationsPage>
+  listResumes(
+    accessToken: string,
+    criteria: Record<string, string>,
+    page?: number,
+  ): Promise<HhResumeSearchPage>
   getResume(accessToken: string, resumeId: string): Promise<HhResume>
+  createNegotiationInvite(input: {
+    accessToken: string
+    resumeId: string
+    vacancyId: string
+    message?: string
+  }): Promise<HhNegotiationInviteResult>
 }

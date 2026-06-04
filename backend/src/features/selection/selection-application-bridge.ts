@@ -9,7 +9,7 @@ import { notifyRecruitersAboutApplicationCreated } from '../applications/applica
 import type { SupportedRole } from './selection-role-adapter'
 import { createSelectionSession } from './selection-session.service'
 
-type ApplicationSource = 'public_apply' | 'hh_sync' | 'manual'
+type ApplicationSource = 'public_apply' | 'hh_sync' | 'hh_sourcing' | 'manual'
 const SUPPORTED_ROLES = ['logist', 'sales_manager', 'logist_domestic'] as const
 type SelectionBridgeJob = {
   prisma: DbClient
@@ -148,6 +148,7 @@ ensureSelectionBridgeQueueRegistered()
 
 function asSource(value: unknown): ApplicationSource {
   if (value === 'hh_sync') return 'hh_sync'
+  if (value === 'hh_sourcing') return 'hh_sourcing'
   if (value === 'public_apply') return 'public_apply'
   return 'manual'
 }
