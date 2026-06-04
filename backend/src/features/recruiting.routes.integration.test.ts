@@ -858,5 +858,14 @@ maybeDescribe('Phase 1B recruiting routes', () => {
 
       expect(res.status).toBe(400)
     })
+
+    test('sourcing sync endpoint is unavailable when feature is disabled', async () => {
+      const res = await app.request('/api/integrations/hh/sourcing/sync', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + ownerToken },
+      })
+
+      expect(res.status).toBe(400)
+    })
   })
 })
