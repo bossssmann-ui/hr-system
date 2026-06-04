@@ -101,17 +101,11 @@ export function redact(value: unknown): unknown {
 export type CreateAuditMiddlewareOptions = {
   prisma: DbClient
   logger?: Logger
-  /**
-   * When true (Phase 0 default), audit writes happen asynchronously after the
-   * response is sent. Set to false in tests to make the write deterministic.
-   */
-  async?: boolean
 }
 
 export function createAuditMiddleware({
   prisma,
   logger = defaultLogger,
-  async: isAsync = true,
 }: CreateAuditMiddlewareOptions): MiddlewareHandler<AuditBindings> {
   return async (c, next) => {
     await next()
@@ -161,12 +155,6 @@ export function createAuditMiddleware({
       }
     }
 
-    if (isAsync) {
-      queueMicrotask(() => {
-        void write()
-      })
-    } else {
-      await write()
-    }
+    await write()
   }
 }

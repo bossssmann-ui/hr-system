@@ -5,6 +5,7 @@ import './features/interviews/interviews.queue'
 import './features/messaging/messaging.queue'
 import './features/scoring/scoring.queue'
 import './features/selection/selection.queue'
+import './features/selection/selection-application-bridge'
 
 export async function runWorker(runtime: BackendRuntime) {
   console.log('Backend worker started. Polling durable queue...')
