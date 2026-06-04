@@ -3,6 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import type { DbClient } from '../../db'
 import {
   buildPayrollExport,
+  computeRecruiterFunnel,
   computeHrSnapshot,
   payrollRowsToCsv,
 } from './analytics.service'
@@ -199,5 +200,140 @@ describe('payrollRowsToCsv', () => {
     expect(lines[1]).toContain('"Smith, John"')
     expect(lines[1]).toContain('"CEO ""Big"""')
     expect(lines[1]).toContain('200000')
+  })
+})
+
+describe('computeRecruiterFunnel', () => {
+  test('calculates weekly funnel counters and processed candidates', async () => {
+    const now = new Date('2026-06-18T10:00:00.000Z')
+    const prisma = {
+      application: {
+        count: async () => 4,
+        findMany: async () => [
+          {
+            id: 'app-1',
+            candidateId: 'cand-1',
+            aiScore: 73,
+            createdAt: new Date('2026-06-16T10:00:00.000Z'),
+          },
+          {
+            id: 'app-2',
+            candidateId: 'cand-2',
+            aiScore: null,
+            createdAt: new Date('2026-06-17T10:00:00.000Z'),
+          },
+        ],
+      },
+      selectionSession: {
+        findMany: async () => [
+          {
+            id: 's-1',
+            applicationId: 'app-1',
+            createdAt: new Date('2026-06-16T10:00:00.000Z'),
+            verdict: {
+              verdict: 'ДОПУСТИТЬ',
+              totalWeightedScore: 88,
+              retentionPrediction: { survival90: 0.8 },
+              hrNotes: 'Сильный кандидат',
+            },
+          },
+          {
+            id: 's-2',
+            applicationId: 'app-2',
+            createdAt: new Date('2026-06-17T10:00:00.000Z'),
+            verdict: {
+              verdict: 'НА РУЧНУЮ ПРОВЕРКУ HR',
+              totalWeightedScore: null,
+              retentionPrediction: null,
+              hrNotes: 'Проверить детали',
+            },
+          },
+          {
+            id: 's-3',
+            applicationId: 'app-3',
+            createdAt: new Date('2026-06-17T11:00:00.000Z'),
+            verdict: {
+              verdict: 'ОТКЛОНИТЬ',
+              totalWeightedScore: 40,
+              retentionPrediction: null,
+              hrNotes: null,
+            },
+          },
+          {
+            id: 's-4',
+            applicationId: 'app-4',
+            createdAt: new Date('2026-06-17T12:00:00.000Z'),
+            verdict: null,
+          },
+        ],
+      },
+      assessmentSession: {
+        findMany: async () => [
+          {
+            applicationId: 'app-1',
+            trustScore: 91,
+            createdAt: new Date('2026-06-17T12:30:00.000Z'),
+          },
+          {
+            applicationId: 'app-2',
+            trustScore: 67,
+            createdAt: new Date('2026-06-17T13:30:00.000Z'),
+          },
+        ],
+      },
+    } as unknown as DbClient
+
+    const result = await computeRecruiterFunnel({
+      prisma,
+      tenantId: 'tenant-1',
+      period: 'week',
+      now,
+    })
+
+    expect(result.newApplications).toBe(4)
+    expect(result.aiProcessed).toBe(3)
+    expect(result.passedToRecruiter).toBe(1)
+    expect(result.aiRejected).toBe(1)
+    expect(result.manualReview).toBe(1)
+    expect(result.inProgress).toBe(1)
+    expect(result.processedCandidates).toHaveLength(3)
+    expect(result.processedCandidates[0]).toMatchObject({
+      applicationId: 'app-1',
+      scoreStatus: 'final',
+      trustScore: 91,
+      verdict: 'ДОПУСТИТЬ',
+    })
+  })
+
+  test('returns empty funnel for tenant without data', async () => {
+    const prisma = {
+      application: {
+        count: async () => 0,
+        findMany: async () => [],
+      },
+      selectionSession: {
+        findMany: async () => [],
+      },
+      assessmentSession: {
+        findMany: async () => [],
+      },
+    } as unknown as DbClient
+
+    const result = await computeRecruiterFunnel({
+      prisma,
+      tenantId: 'tenant-empty',
+      period: 'today',
+      now: new Date('2026-06-18T10:00:00.000Z'),
+    })
+
+    expect(result).toMatchObject({
+      newApplications: 0,
+      aiProcessed: 0,
+      passedToRecruiter: 0,
+      aiRejected: 0,
+      manualReview: 0,
+      inProgress: 0,
+    })
+    expect(result.processedCandidates).toEqual([])
   })
 })

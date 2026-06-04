@@ -109,3 +109,5 @@ export async function enqueueMessageSend(
   ensureMessageQueueRegistered()
   await messageQueue.enqueue(job, opts)
 }
+
+ensureMessageQueueRegistered()

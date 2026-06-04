@@ -111,3 +111,7 @@ export async function enqueueBuildProtocolJob(input: BuildProtocolJob) {
   await buildProtocolQueue.enqueue(input)
   return { queued: true as const }
 }
+
+ensureTranscribeRegistered()
+ensureBuildProtocolRegistered()
+ensureBuildOfferDraftRegistered()

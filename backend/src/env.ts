@@ -123,6 +123,11 @@ const envSchema = z.object({
   // Phase 11 — Mobile push notifications via Expo Push API
   MOBILE_PUSH_ENABLED: booleanStringSchema,
   EXPO_PUSH_API_URL: stringWithDefault('https://exp.host/--/api/v2/push/send'),
+  // Durable Postgres-backed job queue
+  QUEUE_POLL_INTERVAL_MS: z.coerce.number().int().positive().optional(),
+  QUEUE_BATCH_SIZE: z.coerce.number().int().positive().max(500).optional(),
+  QUEUE_MAX_RETRIES: z.coerce.number().int().positive().max(50).optional(),
+  QUEUE_JOB_TIMEOUT_MS: z.coerce.number().int().positive().optional(),
   // Phase 12 — Multi-tenancy, compliance, enterprise admin
   BILLING_ENABLED: booleanStringSchema,
   SUBDOMAIN_ROUTING_ENABLED: booleanStringSchema,

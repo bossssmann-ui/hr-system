@@ -34,3 +34,5 @@ export async function enqueueApplicationScoringJob(input: ScoringJob) {
   await scoringQueue.enqueue(input)
   return { queued: true as const }
 }
+
+ensureScoringQueueRegistered()
