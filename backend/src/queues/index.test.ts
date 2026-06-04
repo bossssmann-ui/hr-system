@@ -23,7 +23,7 @@ function mkEnv(overrides?: Partial<AppEnv>): AppEnv {
   return {
     NODE_ENV: 'test',
     PORT: 3000,
-    DATABASE_URL: '******localhost:5432/test',
+    DATABASE_URL: 'test-db-url',
     JWT_SECRET: 'x'.repeat(32),
     CORS_ORIGINS: ['http://localhost:5173'],
     ACCESS_TOKEN_TTL_SECONDS: 900,

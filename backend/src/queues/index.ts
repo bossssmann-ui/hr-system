@@ -245,8 +245,9 @@ async function tryImmediateDrain(payload: unknown, queueName: string) {
     prisma: runtime.prisma,
     env: runtime.env,
     config: { batchSize: 1 },
-  }).catch(() => {
+  }).catch((err) => {
     // Best-effort eager execution in API process.
+    defaultLogger.error({ queue: queueName, err }, 'queue.eager_drain_failed')
   })
 }
 
