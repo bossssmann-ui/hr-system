@@ -41,7 +41,10 @@ export function RootLayout() {
           <Typography asChild variant="h6">
             <Link to="/">{t('common:appName')}</Link>
           </Typography>
-          <nav className="ml-auto flex items-center gap-2" aria-label={t('navigation:nav.primary')}>
+          <nav
+            className="ml-auto flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2"
+            aria-label={t('navigation:nav.primary')}
+          >
             <Typography asChild variant="control" tone="muted">
               <Link to="/" className={navLinkClass}>
                 {t('navigation:nav.auth')}
@@ -128,7 +131,9 @@ export function RootLayout() {
           )}
         </div>
       </header>
-      <Outlet />
+      <div className="mx-auto w-full max-w-6xl">
+        <Outlet />
+      </div>
     </main>
   )
 }
