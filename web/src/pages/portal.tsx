@@ -9,7 +9,7 @@ import { useAuth } from '@/lib/use-auth'
 export function PortalPage() {
   const { t } = useTranslation('portal')
   return (
-    <div style={{ padding: '2rem' }}>
+    <section className="mx-auto w-full max-w-6xl px-5 py-12">
       <h1>{t('portal.title')}</h1>
       <p>{t('portal.description')}</p>
       <section style={{ marginTop: '1.5rem' }}>
@@ -32,7 +32,7 @@ export function PortalPage() {
       <p>
         <em>{t('portal.soon')}</em>
       </p>
-    </div>
+    </section>
   )
 }
 

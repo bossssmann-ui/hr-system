@@ -18,10 +18,10 @@ export function KnowledgePage() {
   const { user } = useAuth()
   if (!user) {
     return (
-      <div style={{ padding: '2rem' }}>
+      <section className="mx-auto w-full max-w-6xl px-5 py-12">
         <h1>Knowledge Hub</h1>
         <p>Sign in to browse HR knowledge articles.</p>
-      </div>
+      </section>
     )
   }
   return <KnowledgeContent />
@@ -61,7 +61,7 @@ function KnowledgeContent() {
   })
 
   return (
-    <div style={{ padding: '2rem', maxWidth: 1000 }}>
+    <section className="mx-auto w-full max-w-6xl px-5 py-12">
       <h1>Knowledge Hub</h1>
 
       <section style={{ marginTop: '1rem' }}>
@@ -160,7 +160,7 @@ function KnowledgeContent() {
           <p>No articles yet.</p>
         )}
       </section>
-    </div>
+    </section>
   )
 }
 
