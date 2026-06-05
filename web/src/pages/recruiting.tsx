@@ -667,7 +667,7 @@ function KanbanBoard() {
   }
 
   return (
-    <section className="mx-auto grid w-full gap-4 px-5 py-8">
+    <section className="mx-auto grid w-full max-w-6xl gap-4 px-5 py-8">
       <div className="flex items-start justify-between gap-4">
         <div className="grid gap-2">
           <Badge variant="outline" className="w-fit">{t('applications.badge')}</Badge>

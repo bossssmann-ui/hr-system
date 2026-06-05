@@ -23,10 +23,10 @@ export function AnalyticsPage() {
   const { t } = useTranslation('analytics')
   if (!user) {
     return (
-      <div style={{ padding: '2rem' }}>
+      <section className="mx-auto grid w-full max-w-6xl gap-3 px-5 py-12">
         <h1>{t('title')}</h1>
         <p>{t('signInPrompt')}</p>
-      </div>
+      </section>
     )
   }
   return <AnalyticsContent />
@@ -56,8 +56,8 @@ function AnalyticsContent() {
   })
 
   return (
-    <div style={{ padding: '2rem' }}>
-      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+    <section className="mx-auto grid w-full max-w-6xl gap-8 px-5 py-12">
+      <header className="flex items-center justify-between gap-3">
         <h1>{t('title')}</h1>
         <button
           type="button"
@@ -68,14 +68,14 @@ function AnalyticsContent() {
         </button>
       </header>
 
-      <section style={{ marginTop: '1.5rem' }}>
+      <section className="grid gap-3">
         <h2>{t('todayKpis')}</h2>
         {dashboard.isLoading ? (
           <p>{t('loading')}</p>
         ) : dashboard.isError ? (
           <p style={{ color: 'crimson' }}>{t('loadFailed')}</p>
         ) : dashboard.data ? (
-          <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))' }}>
+          <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(180px,1fr))]">
             <Kpi label={t('kpi.headcount')} value={dashboard.data.headcount} />
             <Kpi label={t('kpi.hiresMtd')} value={dashboard.data.hiredMtd} />
             <Kpi label={t('kpi.terminatedMtd')} value={dashboard.data.terminatedMtd} />
@@ -96,7 +96,7 @@ function AnalyticsContent() {
         ) : null}
       </section>
 
-      <section style={{ marginTop: '2rem' }}>
+      <section className="grid gap-3">
         <h2>{t('rosterTitle')}</h2>
         <p>{t('rosterDescription')}</p>
         <label>
@@ -116,7 +116,7 @@ function AnalyticsContent() {
         </a>
       </section>
 
-      <section style={{ marginTop: '2rem' }}>
+      <section className="grid gap-3">
         <h2>{t('snapshots.title')}</h2>
         {snapshots.isLoading ? (
           <p>{t('loading')}</p>
@@ -149,7 +149,7 @@ function AnalyticsContent() {
       </section>
 
       <SignalsSection />
-    </div>
+    </section>
   )
 }
 
@@ -176,8 +176,8 @@ function SignalsSection() {
   })
 
   return (
-    <section style={{ marginTop: '2rem' }}>
-      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+    <section className="grid gap-3">
+      <header className="flex items-center justify-between gap-3">
         <h2>{t('signals.title')}</h2>
         <button type="button" onClick={() => recompute.mutate()} disabled={recompute.isPending}>
           {recompute.isPending ? t('signals.recomputing') : t('signals.recompute')}
@@ -238,9 +238,9 @@ function SignalsSection() {
 
 function Kpi({ label, value }: { label: string; value: number | string }) {
   return (
-    <div style={{ border: '1px solid #ddd', padding: '0.75rem 1rem', borderRadius: 4 }}>
-      <div style={{ fontSize: '0.85rem', color: '#666' }}>{label}</div>
-      <div style={{ fontSize: '1.5rem', fontWeight: 600 }}>{value}</div>
+    <div className="rounded-md border px-4 py-3">
+      <div className="text-sm text-muted-foreground">{label}</div>
+      <div className="text-2xl font-semibold">{value}</div>
     </div>
   )
 }
