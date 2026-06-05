@@ -27,6 +27,11 @@ RUN printf '%s\n' \
     '  listen 4321;' \
     '  root /usr/share/nginx/html;' \
     '  index index.html;' \
+    '  # Prevent nginx from leaking the internal :4321 port in 301 redirects' \
+    '  # (e.g. /careers → /careers/) when sitting behind a reverse proxy.' \
+    '  absolute_redirect off;' \
+    '  port_in_redirect off;' \
+    '  server_name_in_redirect off;' \
     '  # Astro built /careers as a SPA shell — fall back to careers/index.html' \
     '  # so dynamic URLs like /careers/eng-1/apply serve the same bundle.' \
     '  location /careers { try_files $uri $uri/ $uri.html /careers/index.html; }' \

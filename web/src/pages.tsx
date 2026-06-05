@@ -35,7 +35,7 @@ export function RootLayout() {
   useRealtime()
 
   return (
-    <main className="min-h-svh bg-background text-foreground">
+    <main className="min-h-svh overflow-x-hidden bg-background text-foreground">
       <header className="border-b bg-background/95 backdrop-blur">
         <div className="mx-auto flex min-h-16 w-full max-w-6xl flex-wrap items-center gap-3 px-5 py-3">
           <Typography asChild variant="h6">
