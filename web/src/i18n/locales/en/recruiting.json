@@ -91,6 +91,15 @@
     "publish": "Publish",
     "unpublish": "Unpublish",
     "viewApplications": "View applications",
+    "roleLabel": "Selection role",
+    "rolePlaceholder": "Not selected (fallback to keyword inference)",
+    "roleSaved": "Selection role updated",
+    "roleSaveFailed": "Failed to update selection role",
+    "roles": {
+      "logist_domestic": "Logistics — domestic transport in Russia",
+      "logist": "Logistics — international/multimodal",
+      "sales_manager": "Sales manager"
+    },
     "back": "← Back",
     "notFound": "Vacancy not found",
     "loadFailed": "Could not load vacancies",

@@ -70,6 +70,16 @@ type SelectionSummary = {
   hrNotes: string | null
 }
 
+const SUPPORTED_ROLES = ['logist_domestic', 'logist', 'sales_manager'] as const
+
+function parseVacancyRole(value: string | null): Vacancy['role'] {
+  if (!value) return null
+  if ((SUPPORTED_ROLES as readonly string[]).includes(value)) {
+    return value as Vacancy['role']
+  }
+  return null
+}
+
 function toDto(
   row: RawApplication,
   env: AppEnv,
@@ -291,6 +301,7 @@ export function createApplicationsRoutes() {
         tenantId: row.vacancy.tenantId,
         title: row.vacancy.title,
         description: row.vacancy.description,
+        role: parseVacancyRole(row.vacancy.role),
         isPublished: row.vacancy.isPublished,
         requisitionId: row.vacancy.requisitionId,
         orgUnitId: row.vacancy.orgUnitId,
