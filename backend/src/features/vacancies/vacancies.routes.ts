@@ -13,6 +13,7 @@ import { requireRole, type RoleGuardBindings } from '../../auth/requireRole'
 import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
 import { AppError } from '../../http/errors'
+import { parseVacancyRole } from './vacancy-role'
 import { generateSlug } from './slug'
 
 type RouteBindings = RoleGuardBindings & {
@@ -21,16 +22,6 @@ type RouteBindings = RoleGuardBindings & {
     prisma: DbClient
     auditEntry?: unknown
   }
-}
-
-const SUPPORTED_ROLES = ['logist_domestic', 'logist', 'sales_manager'] as const
-
-function parseVacancyRole(value: string | null): Vacancy['role'] {
-  if (!value) return null
-  if ((SUPPORTED_ROLES as readonly string[]).includes(value)) {
-    return value as Vacancy['role']
-  }
-  return null
 }
 
 function toDto(row: {

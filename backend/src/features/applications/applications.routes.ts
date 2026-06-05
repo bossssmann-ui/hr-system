@@ -33,6 +33,7 @@ import { generateInterviewQuestions } from '../assessments/assessments.service'
 import { createFromApplication } from '../employees/employees.service'
 import { enqueueApplicationScoringJob } from '../scoring/scoring.queue'
 import { withScoringPresentation } from '../scoring/scoring.service'
+import { parseVacancyRole } from '../vacancies/vacancy-role'
 import { computeUnifiedScore } from './application-score-aggregate'
 
 type RouteBindings = RoleGuardBindings & {
@@ -68,16 +69,6 @@ type SelectionSummary = {
   totalWeightedScore: Prisma.Decimal | number | null
   retentionPrediction: Record<string, unknown> | null
   hrNotes: string | null
-}
-
-const SUPPORTED_ROLES = ['logist_domestic', 'logist', 'sales_manager'] as const
-
-function parseVacancyRole(value: string | null): Vacancy['role'] {
-  if (!value) return null
-  if ((SUPPORTED_ROLES as readonly string[]).includes(value)) {
-    return value as Vacancy['role']
-  }
-  return null
 }
 
 function toDto(
