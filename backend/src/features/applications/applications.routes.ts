@@ -33,6 +33,7 @@ import { generateInterviewQuestions } from '../assessments/assessments.service'
 import { createFromApplication } from '../employees/employees.service'
 import { enqueueApplicationScoringJob } from '../scoring/scoring.queue'
 import { withScoringPresentation } from '../scoring/scoring.service'
+import { parseVacancyRole } from '../vacancies/vacancy-role'
 import { computeUnifiedScore } from './application-score-aggregate'
 
 type RouteBindings = RoleGuardBindings & {
@@ -291,6 +292,7 @@ export function createApplicationsRoutes() {
         tenantId: row.vacancy.tenantId,
         title: row.vacancy.title,
         description: row.vacancy.description,
+        role: parseVacancyRole(row.vacancy.role),
         isPublished: row.vacancy.isPublished,
         requisitionId: row.vacancy.requisitionId,
         orgUnitId: row.vacancy.orgUnitId,

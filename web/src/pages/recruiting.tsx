@@ -5,7 +5,7 @@
 import { useForm } from "@tanstack/react-form"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate, useParams } from "@tanstack/react-router"
-import type { Application, ApplicationStage, AssessmentTemplate, Interview, OrgUnit, RequisitionStatus, Vacancy } from "@web-app-demo/contracts"
+import type { Application, ApplicationStage, AssessmentTemplate, Interview, OrgUnit, RequisitionStatus, Vacancy, VacancyRole } from "@web-app-demo/contracts"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import type { TFunction } from "i18next"
@@ -81,6 +81,12 @@ const REQUISITION_TRANSITIONS: Array<{ from: RequisitionStatus[]; to: Requisitio
   { from: ["hr_approved"], to: "approved", roles: ["hr_admin", "owner"] },
   { from: ["approved"], to: "in_recruitment", roles: ["recruiter", "hr_admin", "owner"] },
   { from: ["in_recruitment"], to: "closed", roles: ["recruiter", "hr_admin", "owner"] },
+]
+
+const VACANCY_ROLE_OPTIONS: Array<{ value: VacancyRole; labelKey: string }> = [
+  { value: "logist_domestic", labelKey: "vacancies.roles.logist_domestic" },
+  { value: "logist", labelKey: "vacancies.roles.logist" },
+  { value: "sales_manager", labelKey: "vacancies.roles.sales_manager" },
 ]
 
 // ─── Requisitions List ────────────────────────────────────────────────────────
@@ -435,8 +441,20 @@ function VacancyDetail() {
   const { t } = useTranslation('recruiting')
   const params = useParams({ strict: false }) as { vacancyId?: string }
   const vacancyId = params.vacancyId ?? ""
+  const queryClient = useQueryClient()
 
   const query = useQuery({ queryKey: ["vacancies", vacancyId], queryFn: () => api.getVacancy(vacancyId), enabled: Boolean(vacancyId) })
+  const roleMutation = useMutation({
+    mutationFn: (role: VacancyRole | null) => api.updateVacancyRole(vacancyId, { role }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["vacancies", vacancyId] })
+      await queryClient.invalidateQueries({ queryKey: ["vacancies"] })
+      toast.success(t('vacancies.roleSaved'))
+    },
+    onError: (error: unknown) => {
+      toast.error(error instanceof ApiRequestError ? error.message : t('vacancies.roleSaveFailed'))
+    },
+  })
 
   if (query.isPending) return <LoadingCard />
   if (query.isError) return <ErrorCard message={t('vacancies.notFound')} />
@@ -455,6 +473,21 @@ function VacancyDetail() {
       <Card>
         <CardContent className="grid gap-4 pt-6">
           <Typography>{v.description}</Typography>
+          <div className="border-t pt-4">
+            <Typography tone="muted" variant="bodySm">{t('vacancies.roleLabel')}</Typography>
+            <select
+              value={v.role ?? ""}
+              onChange={(e) => roleMutation.mutate((e.target.value || null) as VacancyRole | null)}
+              className="mt-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              disabled={roleMutation.isPending}
+              data-testid="vacancy-role-select"
+            >
+              <option value="">{t('vacancies.rolePlaceholder')}</option>
+              {VACANCY_ROLE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{t(option.labelKey)}</option>
+              ))}
+            </select>
+          </div>
           <div className="border-t pt-4">
             <Typography tone="muted" variant="bodySm">{t('requisitions.fields.created')} {new Date(v.createdAt).toLocaleDateString()}</Typography>
           </div>

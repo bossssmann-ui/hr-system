@@ -573,6 +573,19 @@ maybeDescribe('Phase 1B recruiting routes', () => {
       expect((await res.json()).isPublished).toBe(true)
     })
 
+    test('recruiter can set explicit vacancy selection role', async () => {
+      const res = await app.request(`/api/vacancies/${vacancyId}/role`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + recruiterToken,
+        },
+        body: JSON.stringify({ role: 'logist_domestic' }),
+      })
+      expect(res.status).toBe(200)
+      expect((await res.json()).role).toBe('logist_domestic')
+    })
+
     test('hiring manager cannot publish vacancy', async () => {
       const res = await app.request(`/api/vacancies/${vacancyId}/publish`, {
         method: 'PATCH',
@@ -581,6 +594,18 @@ maybeDescribe('Phase 1B recruiting routes', () => {
           Authorization: `Bearer ${hiringManagerToken}`,
         },
         body: JSON.stringify({ isPublished: true }),
+      })
+      expect(res.status).toBe(403)
+    })
+
+    test('hiring manager cannot update vacancy role', async () => {
+      const res = await app.request(`/api/vacancies/${vacancyId}/role`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + hiringManagerToken,
+        },
+        body: JSON.stringify({ role: 'logist' }),
       })
       expect(res.status).toBe(403)
     })
