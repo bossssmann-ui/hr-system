@@ -42,6 +42,11 @@ Key values to change:
 - `BOOTSTRAP_OWNER_EMAIL` / `BOOTSTRAP_OWNER_PASSWORD` — your first admin account
 - `CORS_ORIGINS` — must be `https://career.pacificstar.ru`
 - `COOKIE_SECURE=true`
+- If `AI_SCORING_ENABLED=true`:
+  - Anthropic: `LLM_SCORING_PROVIDER=anthropic`, set `LLM_SCORING_API_KEY` and `LLM_SCORING_MODEL`
+  - OpenAI-compatible (DeepSeek / self-hosted vLLM): `LLM_SCORING_PROVIDER=openai_compatible`, set `LLM_SCORING_BASE_URL`, `LLM_SCORING_API_KEY`, `LLM_SCORING_MODEL`
+    - DeepSeek example: `LLM_SCORING_BASE_URL=https://api.deepseek.com/v1`, `LLM_SCORING_MODEL=deepseek-chat`
+    - Self-hosted Qwen example: `LLM_SCORING_BASE_URL=http://127.0.0.1:8000/v1`, `LLM_SCORING_MODEL=qwen2.5-72b-instruct`
 
 ### 3. Run the deploy script
 ```bash
