@@ -1,11 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
-  applyChosenTrap,
   getAllStagesContent,
   getStageContent,
-  getTrapPool,
-  pickRandomTrapKey,
   scoreStage2,
   type QuestionnaireStageContent,
   type TestStageContent,
@@ -25,15 +22,16 @@ describe('getStageContent — shape validation', () => {
       }
     })
 
-    test(`stage 1 (${role}) is a questionnaire with stop_* keys and a trap pool`, () => {
+    test(`stage 1 (${role}) is a questionnaire with required screening/trap keys`, () => {
       const s = getStageContent(role, 1) as QuestionnaireStageContent
       expect(s.type).toBe('questionnaire')
       const keys = s.questions.map((q) => q.key)
-      for (const k of ['stop_salary', 'stop_experience', 'stop_location', 'stop_format', 'trap_answer_1']) {
+      for (const k of ['stop_experience', 'trap_answer_1']) {
         expect(keys).toContain(k)
       }
-      expect(s.trapPool?.questionKey).toBe('trap_answer_1')
-      expect(s.trapPool?.options.length).toBeGreaterThanOrEqual(3)
+      if (role === 'sales_manager') {
+        expect(keys).toContain('q_remote_ready')
+      }
     })
 
     test(`stage 2 (${role}) has 15 questions and weights summing to maxScore`, () => {
@@ -43,6 +41,9 @@ describe('getStageContent — shape validation', () => {
       expect(s.questions).toHaveLength(15)
       const sumWeights = s.questions.reduce((acc, q) => acc + (q.weight ?? 0), 0)
       expect(sumWeights).toBe(s.maxScore)
+      expect(s.passThreshold).toBe(role === 'logist' ? 23 : 25)
+      expect(s.passThreshold / s.maxScore).toBeGreaterThanOrEqual(0.6)
+      expect(s.passThreshold / s.maxScore).toBeLessThanOrEqual(0.63)
       // every radio has a correct value
       for (const q of s.questions) {
         if (q.type === 'radio') {
@@ -81,24 +82,19 @@ describe('getStageContent — shape validation', () => {
   })
 })
 
-describe('trap randomisation', () => {
-  for (const role of ROLES) {
-    test(`pickRandomTrapKey(${role}) always returns a pool member`, () => {
-      const pool = getTrapPool(role)
-      for (let i = 0; i < 30; i += 1) {
-        expect(pool).toContain(pickRandomTrapKey(role))
-      }
-    })
-  }
-
-  test('applyChosenTrap renames placeholder and strips the pool', () => {
+describe('stage 1 trap content', () => {
+  test('logist trap checks rail gauge expertise', () => {
     const s = getStageContent('logist', 1) as QuestionnaireStageContent
-    const applied = applyChosenTrap(s, 'CargoSoft NextGen')
-    const trapQ = applied.questions.find((q) => q.key === 'trap_answer_1')
-    expect(trapQ?.text).toContain('CargoSoft NextGen')
-    expect(trapQ?.text).not.toContain('[TRAP]')
-    // pool must NOT be returned to the candidate
-    expect(applied.trapPool).toBeUndefined()
+    const trapQ = s.questions.find((q) => q.key === 'trap_answer_1')
+    expect(trapQ?.text).toContain('Забайкальск–Маньчжурия')
+    expect(trapQ?.correct).toContain('1435 мм')
+  })
+
+  test('sales_manager trap checks FOB-for-containers misconception', () => {
+    const s = getStageContent('sales_manager', 1) as QuestionnaireStageContent
+    const trapQ = s.questions.find((q) => q.key === 'trap_answer_1')
+    expect(trapQ?.text).toContain('FOB')
+    expect(trapQ?.correct).toContain('FCA/CPT/CIP')
   })
 })
 

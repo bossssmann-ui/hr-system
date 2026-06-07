@@ -40,8 +40,6 @@ export interface StageContentBase {
 export interface QuestionnaireStageContent extends StageContentBase {
   type: 'questionnaire'
   questions: BaseQuestion[]
-  /** Pool of traps (Stage 1). Each entry is the visible option value. */
-  trapPool?: { key: 'trap_answer_1'; questionKey: string; options: string[] }
 }
 
 export interface TestStageContent extends StageContentBase {
@@ -70,34 +68,6 @@ export type StageContent =
   | TestStageContent
   | PsychologyStageContent
   | AssignmentStageContent
-
-// ─── Trap pools (Stage 1) ────────────────────────────────────────────────────
-
-const TRAP_POOL_LOGIST = [
-  'LogiTrack PRO X7',
-  'CargoSoft NextGen',
-  'TransOptima 4D',
-]
-
-const TRAP_POOL_SALES = [
-  'TransLogic Северо-Запад',
-  'FreightPro Analytics',
-  'SalesBoost TMS',
-]
-
-export function getTrapPool(role: Role): string[] {
-  return role === 'logist' ? [...TRAP_POOL_LOGIST] : [...TRAP_POOL_SALES]
-}
-
-/**
- * Pick one trap option from the pool for this session. Stored in
- * `session.flags.chosen_trap_key` so cross-check can verify later.
- */
-export function pickRandomTrapKey(role: Role): string {
-  const pool = getTrapPool(role)
-  const idx = Math.floor(Math.random() * pool.length)
-  return pool[idx] ?? pool[0]!
-}
 
 // ─── Stage 3 — shared L-scale & scale labels ─────────────────────────────────
 
@@ -128,7 +98,6 @@ const LOGIST_STAGE_1: QuestionnaireStageContent = {
   title: 'Анкета-скрининг (Логист-экспедитор)',
   timeLimitMin: null,
   questions: [
-    { key: 'stop_salary', text: 'Ожидаемый уровень дохода (фикс, на руки, руб.)', type: 'number' },
     {
       key: 'stop_experience',
       text: 'Сколько лет в транспортной логистике?',
@@ -139,19 +108,15 @@ const LOGIST_STAGE_1: QuestionnaireStageContent = {
       key: 'q_formats',
       text: 'Форматы перевозок с практическим опытом',
       type: 'checkbox',
-      options: ['Авто (FTL/LTL)', 'Ж/д', 'Авиа', 'Море (FCL/LCL)', 'Мультимодаль', 'Таможня', 'СНГ', 'Дальнее зарубежье'],
-    },
-    {
-      key: 'stop_location',
-      text: 'Город проживания и готовность к офису',
-      type: 'radio',
-      options: ['5/5 офис', 'Гибрид', 'Только удалённо'],
-    },
-    {
-      key: 'stop_format',
-      text: 'Готовность к командировкам 2–4 раза/мес',
-      type: 'radio',
-      options: ['Да', 'Редкие (≤1/мес)', 'Нет'],
+      options: [
+        'Авто (FTL/LTL) Китай–Россия',
+        'Ж/д (контейнер, погранпереходы)',
+        'Море (FCL/LCL) из портов Китая',
+        'Мультимодаль (море+ж/д+авто)',
+        'Таможенное оформление (импорт ЕАЭС)',
+        'Транзит через Казахстан (Достык–Алашанькоу)',
+        'Транзит через Монголию (Наушки–Эрлянь)',
+      ],
     },
     {
       key: 'q_customs',
@@ -163,14 +128,27 @@ const LOGIST_STAGE_1: QuestionnaireStageContent = {
       key: 'q_docs',
       text: 'Транспортные документы, с которыми работали',
       type: 'checkbox',
-      options: ['CMR', 'ТТН', 'СМГС', 'Коносамент', 'TIR/Carnet', 'Авиа AWB', 'Ни одним'],
+      options: [
+        'Накладная СМГС',
+        'Коносамент (B/L)',
+        'Авианакладная AWB',
+        'CMR (доставка по РФ/ЕАЭС)',
+        'TIR Carnet (МДП)',
+        'Декларация на товары (ДТ)',
+        'Ни с одним',
+      ],
     },
     {
-      // Trap question — options replaced per-session by `applyChosenTrap()`.
       key: 'trap_answer_1',
-      text: 'Опыт работы с TMS-системой [TRAP]',
+      text: 'При прямой ж/д перевозке из Китая в Россию через Забайкальск–Маньчжурия груз едет в одном вагоне на всём маршруте — перегруз не требуется, колея единая. Согласны?',
       type: 'radio',
-      options: ['Активно использовал', 'Частично использовал', 'Не работал'],
+      options: [
+        'Да, перегруза нет',
+        'Нет: в Китае колея 1435 мм, в России 1520 мм — нужен перегруз/смена тележек',
+        'Перегруз нужен только для опасных грузов',
+        'Зависит от типа вагона',
+      ],
+      correct: 'Нет: в Китае колея 1435 мм, в России 1520 мм — нужен перегруз/смена тележек',
     },
     {
       key: 'q_emergency',
@@ -184,11 +162,6 @@ const LOGIST_STAGE_1: QuestionnaireStageContent = {
       options: ['Только оклад', 'Оклад + KPI', 'Оклад + %', 'Любой'],
     },
   ],
-  trapPool: {
-    key: 'trap_answer_1',
-    questionKey: 'trap_answer_1',
-    options: [...TRAP_POOL_LOGIST],
-  },
 }
 
 const LOGIST_STAGE_2: TestStageContent = {
@@ -197,7 +170,7 @@ const LOGIST_STAGE_2: TestStageContent = {
   title: 'Профессиональный тест (Логист-экспедитор)',
   timeLimitMin: 30,
   maxScore: 37,
-  passThreshold: 22,
+  passThreshold: 23,
   questions: [
     {
       key: 'q1',
@@ -227,15 +200,15 @@ const LOGIST_STAGE_2: TestStageContent = {
     },
     {
       key: 'q3',
-      text: 'При ж/д перевозке из Китая в РФ на границе...',
+      text: 'Что верно для ж/д маршрутов Китай→Россия (включая Достык–Алашанькоу)?',
       type: 'radio',
       options: [
-        'Переоформляется СМГС на ЦИМ',
-        'СМГС не переоформляется',
-        'Оформляется CMR',
-        'Оформляется коносамент',
+        'Колея единая, перегруз не требуется',
+        'Из-за разной колеи (1435/1520) на стыке обычно требуется перегруз/смена тележек',
+        'Перегруз нужен только для опасных грузов',
+        'На границе всегда оформляется только коносамент',
       ],
-      correct: 'СМГС не переоформляется',
+      correct: 'Из-за разной колеи (1435/1520) на стыке обычно требуется перегруз/смена тележек',
       weight: 3,
     },
     {
@@ -266,21 +239,21 @@ const LOGIST_STAGE_2: TestStageContent = {
     },
     {
       key: 'q6',
-      text: 'Открытый вопрос: как вы действуете, если груз застрял на таможне из-за неверно указанного кода ТН ВЭД?',
+      text: 'Открытый вопрос: груз из Китая остановлен на импортном оформлении из-за ошибки в коде ТН ВЭД ЕАЭС. Ваши действия?',
       type: 'textarea',
       weight: 4,
     },
     {
       key: 'q7',
-      text: 'FOR — это условие Инкотермс...',
+      text: 'Базовый документ для расчёта ЖД-тарифов по РФ — это:',
       type: 'radio',
       options: [
-        '2020',
-        '2010',
-        'Устаревшее, не входит в Инкотермс',
-        'Используется только для авиа',
+        'Прейскурант 10-01 РЖД',
+        'Только тарифы морских линий',
+        'CMR-тарифы',
+        'Единый тариф ICC по Инкотермс',
       ],
-      correct: 'Устаревшее, не входит в Инкотермс',
+      correct: 'Прейскурант 10-01 РЖД',
       weight: 3,
     },
     {
@@ -311,20 +284,20 @@ const LOGIST_STAGE_2: TestStageContent = {
     },
     {
       key: 'q10',
-      text: 'При FCL-перевозке контейнер...',
+      text: 'Для контейнерных поставок из Китая корректнее использовать условия:',
       type: 'radio',
       options: [
-        'Загружается несколькими грузоотправителями',
-        'Загружается одним грузоотправителем',
-        'Всегда является рефрижераторным',
-        'Используется только для авиа',
+        'FOB/CIF во всех случаях',
+        'Только EXW',
+        'FCA/CPT/CIP (в зависимости от распределения рисков и плеч)',
+        'Только DDP',
       ],
-      correct: 'Загружается одним грузоотправителем',
+      correct: 'FCA/CPT/CIP (в зависимости от распределения рисков и плеч)',
       weight: 1,
     },
     {
       key: 'q11',
-      text: 'Открытый вопрос: опишите процесс организации мультимодальной перевозки Китай→Москва ж/д + авто',
+      text: 'Открытый вопрос: опишите процесс организации импорта Китай→РФ через погранпереход (например, Забайкальск–Маньчжурия) с выпуском ДТ.',
       type: 'textarea',
       weight: 5,
     },
@@ -351,21 +324,21 @@ const LOGIST_STAGE_2: TestStageContent = {
     },
     {
       key: 'q14',
-      text: 'Открытый вопрос: поставщик срывает отгрузку за 2 дня до дедлайна. Ваши действия?',
+      text: 'Открытый вопрос: при импорте из Китая выяснилось, что для товара требуется сертификация/декларация соответствия ЕАЭС, а документы не готовы. Ваши действия?',
       type: 'textarea',
       weight: 4,
     },
     {
       key: 'q15',
-      text: 'Сертификат EUR.1 необходим для...',
+      text: 'При импорте из Китая в ЕАЭС сертификат/декларация соответствия обычно нужны для:',
       type: 'radio',
       options: [
-        'Подтверждения страны происхождения для льготного тарифа',
-        'Разрешения на перевозку опасных грузов',
-        'Таможенной очистки',
-        'Страхования груза',
+        'Подтверждения выполнения обязательных требований техрегламентов для ввоза/обращения',
+        'Оформления авианакладной AWB',
+        'Получения TIR Carnet',
+        'Замены инвойса',
       ],
-      correct: 'Подтверждения страны происхождения для льготного тарифа',
+      correct: 'Подтверждения выполнения обязательных требований техрегламентов для ввоза/обращения',
       weight: 1,
     },
   ],
@@ -401,12 +374,12 @@ const LOGIST_STAGE_4: AssignmentStageContent = {
   timeLimitMin: 45,
   timeEstimate: '35–45 минут',
   description:
-    'Вы — логист-экспедитор компании. Клиент сообщает, что завтра в 9:00 ему нужен груз 5 паллет (общий вес 2 200 кг, объём 8 м³) из Владивостока в Москву. Стандартный транзит ж/д — 7 суток, авиа — 1,5 суток, автомобиль — 12 суток. Клиент утверждает, что ранее использовал для подобных перевозок систему "FastCargo Direct" (несуществующая компания — ловушка №1) и ему обещали доставку за 2 дня ж/д.\n\nДополнительные условия:\n- Груз относится к классу опасных грузов 8 (коррозионные вещества) — ловушка №2: кандидат должен упомянуть особые требования\n- Страхование груза клиент считает необязательным — ловушка №3: кандидат должен рекомендовать страхование\n\nЗадание: составьте план действий и ответ клиенту. Укажите: какой вид доставки предложите и почему, стоимость (примерную), сроки, необходимые документы, и что ответите на утверждение про "FastCargo Direct".',
+    'Вы — логист-экспедитор. Клиенту нужен регулярный импорт из Китая (Гуанчжоу/Шэньчжэнь → РФ): сравнить два маршрута и дать обоснованное КП по цене/срокам.\n\nМаршруты:\n1) Ж/д через погранпереход (например, Забайкальск–Маньчжурия);\n2) Море из порта Китая + ж/д/авто до склада в РФ.\n\nЗадание: предложите оптимальный вариант(ы), ориентир по стоимости и срокам, перечень документов и рисков. Отдельно опишите, как будете действовать при задержках на границе/терминале.',
   answerKey: 'stage4_answer',
   traps: [
-    { id: 1, description: 'Кандидат не должен подтверждать существование FastCargo Direct' },
-    { id: 2, description: 'Кандидат должен упомянуть требования ДОПОГ для класса 8' },
-    { id: 3, description: 'Кандидат должен рекомендовать страхование' },
+    { id: 1, description: 'Кандидат учитывает разрыв колеи 1435/1520 и влияние перегруза на срок' },
+    { id: 2, description: 'Кандидат указывает необходимость сертификата/декларации соответствия ЕАЭС для ввоза' },
+    { id: 3, description: 'Кандидат учитывает необходимость перевода инвойса с китайского для оформления' },
   ],
 }
 
@@ -418,7 +391,6 @@ const SALES_STAGE_1: QuestionnaireStageContent = {
   title: 'Анкета-скрининг (Менеджер по продажам ТЭУ)',
   timeLimitMin: null,
   questions: [
-    { key: 'stop_salary', text: 'Ожидаемый уровень дохода (оклад + бонус, руб.)', type: 'number' },
     {
       key: 'stop_experience',
       text: 'Опыт активных продаж в транспортной логистике',
@@ -432,16 +404,10 @@ const SALES_STAGE_1: QuestionnaireStageContent = {
       options: ['Производители', 'Ритейл', 'FMCG', 'Сырьё/металлы', 'Стройматериалы', 'Другое'],
     },
     {
-      key: 'stop_location',
-      text: 'Готовность к работе в офисе',
+      key: 'q_remote_ready',
+      text: 'Готовность работать полностью удалённо (без обязательных командировок)',
       type: 'radio',
-      options: ['5/5 офис', 'Гибрид', 'Только удалённо'],
-    },
-    {
-      key: 'stop_format',
-      text: 'Готовность к командировкам к клиентам',
-      type: 'radio',
-      options: ['Да, регулярно', 'Редко', 'Нет'],
+      options: ['Да, комфортно работать удалённо', 'Требуется офис/гибрид'],
     },
     {
       key: 'q_cycle',
@@ -450,11 +416,15 @@ const SALES_STAGE_1: QuestionnaireStageContent = {
       options: ['До 1 недели', '1–4 недели', '1–3 месяца', 'Более 3 месяцев'],
     },
     {
-      // Trap question — options replaced per-session by `applyChosenTrap()`.
       key: 'trap_answer_1',
-      text: 'Опыт работы с CRM/системой [TRAP]',
+      text: 'При контейнерных поставках из Китая всегда корректно работать на FOB — верно?',
       type: 'radio',
-      options: ['Активно использовал', 'Частично использовал', 'Не работал'],
+      options: [
+        'Да, FOB универсален для контейнеров',
+        'Нет: для контейнеров обычно используют FCA/CPT/CIP; FOB/CIF — в основном для неконтейнерных морских грузов',
+      ],
+      correct:
+        'Нет: для контейнеров обычно используют FCA/CPT/CIP; FOB/CIF — в основном для неконтейнерных морских грузов',
     },
     {
       key: 'q_deal_size',
@@ -473,11 +443,6 @@ const SALES_STAGE_1: QuestionnaireStageContent = {
       type: 'textarea',
     },
   ],
-  trapPool: {
-    key: 'trap_answer_1',
-    questionKey: 'trap_answer_1',
-    options: [...TRAP_POOL_SALES],
-  },
 }
 
 const SALES_STAGE_2: TestStageContent = {
@@ -486,7 +451,7 @@ const SALES_STAGE_2: TestStageContent = {
   title: 'Профессиональный тест (Менеджер по продажам ТЭУ)',
   timeLimitMin: 30,
   maxScore: 40,
-  passThreshold: 22,
+  passThreshold: 25,
   questions: [
     {
       key: 'q1',
@@ -529,15 +494,15 @@ const SALES_STAGE_2: TestStageContent = {
     },
     {
       key: 'q4',
-      text: 'Крупнейшие игроки рынка ТЭУ в России — это...',
+      text: 'Какая группа состоит из реальных операторов маршрутов Китай–Россия?',
       type: 'radio',
       options: [
-        'Деловые Линии, СДЭК, DHL',
-        'Fesco, Globaltrans, РЖД Логистика',
-        'Яндекс.Доставка, Ozon',
-        'Только иностранные компании',
+        'ТрансКонтейнер, FESCO, РЖД Логистика, ОТЛК ЕРА, Рускон',
+        'ТрансЛогик Северо-Запад, SinoCargo Express, Рускон',
+        'Только DHL, Maersk и FedEx',
+        'Яндекс.Доставка, Ozon, Wildberries Logistics',
       ],
-      correct: 'Fesco, Globaltrans, РЖД Логистика',
+      correct: 'ТрансКонтейнер, FESCO, РЖД Логистика, ОТЛК ЕРА, Рускон',
       weight: 2,
     },
     {
@@ -683,12 +648,12 @@ const SALES_STAGE_4: AssignmentStageContent = {
   timeLimitMin: 45,
   timeEstimate: '35–45 минут',
   description:
-    'Клиент — производитель строительных материалов, объём перевозок ~200 тонн/мес из Новосибирска в Москву и Санкт-Петербург. Сейчас работает с другим перевозчиком, доволен, но «иногда бывают задержки».\n\nОн попросил КП. В разговоре упомянул, что ранее сотрудничал с компанией "ЛогистПро Альянс" (несуществующая — ловушка №1) и они якобы давали гарантию доставки 24 часа Новосибирск–Москва автотранспортом.\n\nДополнительно: клиент везёт часть грузов без страхования — ловушка №2. Клиент хочет постоплату 30 дней — ловушка №3: нужно предложить альтернативу (например, частичная предоплата или аккредитив).\n\nЗадание:\n1. Составьте структуру КП (что включите, какие аргументы).\n2. Напишите ответ на возражение «у вас дороже, чем у текущего перевозчика».\n3. Как отреагируете на упоминание "ЛогистПро Альянс" и их обещание 24 часов?',
+    'Клиент делает регулярный импорт из Китая (например, Шэньчжэнь → Челябинск), 2–3 поставки в месяц. Сейчас покупает перевозку разово и жалуется на скачки ставок/сроков.\n\nЗадание:\n1. Составьте структуру КП под регулярные поставки (маршрут, SLA, риски, KPI, формат отчётности).\n2. Предложите модель контракта с фиксированными ставками/коридорами, а не разовую spot-цену.\n3. Отработайте возражения клиента по предоплате и предложите безопасную альтернативу.',
   answerKey: 'stage4_answer',
   traps: [
-    { id: 1, description: 'Кандидат не должен подтверждать существование ЛогистПро Альянс или реалистичность 24ч Нск-Мск авто' },
-    { id: 2, description: 'Кандидат должен упомянуть важность страхования груза' },
-    { id: 3, description: 'Кандидат должен предложить альтернативу постоплате 30 дней' },
+    { id: 1, description: 'Кандидат выделяет таможню и сертификацию ЕАЭС отдельной строкой в КП' },
+    { id: 2, description: 'Кандидат предлагает страхование груза и аргументирует ценность' },
+    { id: 3, description: 'Кандидат предлагает альтернативу предоплате (аккредитив/частичная предоплата)' },
   ],
 }
 
@@ -715,29 +680,6 @@ export function getStageContent(role: Role, stage: number): StageContent {
 
 export function getAllStagesContent(role: Role): StageContent[] {
   return CONTENT[role].map((s) => structuredClone(s))
-}
-
-// ─── Trap application ────────────────────────────────────────────────────────
-
-/**
- * Replace the placeholder in the Stage 1 trap question with the chosen trap
- * value. After this call, the candidate sees a single, unambiguous trap
- * question — the other trap pool members are not exposed.
- */
-export function applyChosenTrap(
-  stage1: QuestionnaireStageContent,
-  chosenTrapValue: string,
-): QuestionnaireStageContent {
-  const pool = stage1.trapPool
-  if (!pool) return stage1
-  const question = stage1.questions.find((q) => q.key === pool.questionKey)
-  if (question) {
-    question.text = question.text.replace(/\[TRAP\]/g, `"${chosenTrapValue}"`)
-  }
-  // Remove the pool from the returned shape — the candidate must not see it.
-  const { trapPool: _drop, ...rest } = stage1
-  void _drop
-  return { ...rest, questions: stage1.questions, type: stage1.type } as QuestionnaireStageContent
 }
 
 // ─── Stage 2 server-side auto-scoring ────────────────────────────────────────

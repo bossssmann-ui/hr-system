@@ -44,15 +44,12 @@ export function computeCrossCheckFlags(
   const flags: CrossCheckFlag[] = []
 
   if (stageNumber === 1) {
-    // Stop-criteria on Stage 1 (salary / location / experience / format).
+    // Stop-criteria on Stage 1.
     // Any "fail" answer to these screening questions is itself a RED flag
     // and triggers auto-rejection without invoking the AI evaluator.
     // The questionnaire UI exposes these as `stop_*` keys.
     const stopChecks: Array<{ key: string; description: string }> = [
-      { key: 'stop_salary', description: 'Стоп-критерий: ожидаемая зарплата выходит за рамки вакансии' },
-      { key: 'stop_location', description: 'Стоп-критерий: локация не соответствует требованию вакансии' },
       { key: 'stop_experience', description: 'Стоп-критерий: профильный опыт ниже минимального порога' },
-      { key: 'stop_format', description: 'Стоп-критерий: формат работы (офис/удалёнка/гибрид) не совпадает' },
     ]
     let nextStopId = 100
     for (const sc of stopChecks) {
@@ -67,39 +64,25 @@ export function computeCrossCheckFlags(
       }
     }
 
-    // RED-1: Trap question — candidate claimed to know a non-existent TMS/CRM.
-    // The candidate sees a randomly chosen trap value from the pool (see
-    // `stage-content.ts::pickRandomTrapKey`). They answer with one of three
-    // radio options; anything other than "Не работал" is a positive hit.
+    // RED-1: Stage-1 expertise trap.
     const trapAnswer1 = answers['trap_answer_1'] ?? answers['trap_answer']
-    const trapAnswer1IsHit =
-      trapAnswer1 === true ||
-      trapAnswer1 === 'active' ||
-      trapAnswer1 === 'partial' ||
-      trapAnswer1 === 'Активно использовал' ||
-      trapAnswer1 === 'Частично использовал'
+    const trapAnswer1IsHit = (() => {
+      if (role === 'logist') {
+        return trapAnswer1 === 'Да, перегруза нет' || trapAnswer1 === 'Перегруз нужен только для опасных грузов'
+      }
+      if (role === 'sales_manager') {
+        return trapAnswer1 === 'Да, FOB универсален для контейнеров'
+      }
+      return false
+    })()
     if (trapAnswer1IsHit) {
       flags.push({
         id: 1,
         type: 'RED',
         description:
           role === 'logist'
-            ? 'Кандидат подтвердил знание несуществующей TMS (ловушка №1)'
-            : 'Кандидат подтвердил знание несуществующей CRM/системы (ловушка №1)',
-        triggeredAt: 1,
-      })
-    }
-
-    // RED-2: Second trap — non-existent Incoterms term FOR (logist) or fake competitor (sales_manager)
-    const trapAnswer2 = answers['trap_answer_2']
-    if (trapAnswer2 === true || trapAnswer2 === 'regular' || trapAnswer2 === 'rare') {
-      flags.push({
-        id: 2,
-        type: 'RED',
-        description:
-          role === 'logist'
-            ? 'Кандидат заявил использование устаревшего термина FOR (Инкотермс) как рабочего (ловушка №2)'
-            : 'Кандидат описал деятельность несуществующей компании «ТрансЛогик Северо-Запад» (ловушка №2)',
+            ? 'Кандидат ошибся в ловушке про разрыв колеи Китай–Россия (1435/1520)'
+            : 'Кандидат ошибся в ловушке по условиям поставки FOB для контейнерных перевозок',
         triggeredAt: 1,
       })
     }
