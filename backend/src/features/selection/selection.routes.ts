@@ -27,10 +27,8 @@ import {
   type CrossCheckFlag,
 } from './selection.queue'
 import {
-  applyChosenTrap,
   getAllStagesContent,
   scoreStage2,
-  type QuestionnaireStageContent,
   type Role,
   type StageContent,
 } from './stage-content'
@@ -196,21 +194,6 @@ export function createSelectionRoutes() {
     }
     let currentStage: StageContent | null =
       stageNum !== null ? stages[stageNum - 1] ?? null : null
-
-    // Stage 1: apply the per-session chosen trap so the candidate sees only
-    // the trap question they were randomly assigned (other trap pool members
-    // must never be revealed to avoid trivial workarounds).
-    if (currentStage && currentStage.stage === 1 && currentStage.type === 'questionnaire') {
-      const flags = (session.flags ?? {}) as Record<string, unknown>
-      const rawChosen = flags['chosen_trap_key']
-      const chosen = typeof rawChosen === 'string' ? rawChosen : null
-      if (chosen) {
-        currentStage = applyChosenTrap(
-          currentStage as QuestionnaireStageContent,
-          chosen,
-        )
-      }
-    }
 
     return c.json({
       sessionId: session.id,

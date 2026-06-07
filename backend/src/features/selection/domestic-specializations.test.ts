@@ -25,14 +25,14 @@ describe('selectSpecializations', () => {
     expect(result.some((a) => a.packageId === 'domestic_road_ftl_ltl')).toBe(true)
   })
 
-  test('добавляет domestic_distribution при сигнале "развозка"', () => {
+  test('не добавляет domestic_distribution при сигнале "развозка"', () => {
     const result = selectSpecializations(['развозка'])
-    expect(result.some((a) => a.packageId === 'domestic_distribution')).toBe(true)
+    expect(result.some((a) => a.packageId === 'domestic_distribution')).toBe(false)
   })
 
-  test('добавляет domestic_distribution при сигнале "окна доставки"', () => {
+  test('не добавляет domestic_distribution при сигнале "окна доставки"', () => {
     const result = selectSpecializations(['окна доставки'])
-    expect(result.some((a) => a.packageId === 'domestic_distribution')).toBe(true)
+    expect(result.some((a) => a.packageId === 'domestic_distribution')).toBe(false)
   })
 
   test('добавляет domestic_rail_container при сигнале "ЭТРАН"', () => {

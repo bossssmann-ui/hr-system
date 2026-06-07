@@ -2,7 +2,6 @@ import { Prisma } from '../../generated/prisma/client'
 
 import type { DbClient } from '../../db'
 import { buildStagesForRole, isDomesticRole, type SupportedRole } from './selection-role-adapter'
-import { pickRandomTrapKey, type Role } from './stage-content'
 
 const TERMINAL_SESSION_STATUSES = ['completed', 'rejected', 'expired'] as const
 
@@ -46,7 +45,6 @@ export async function createSelectionSession(input: CreateSelectionSessionInput)
     })
   }
 
-  const chosenTrapKey = isDomesticRole(input.role) ? null : pickRandomTrapKey(input.role as Role)
   try {
     const session = await input.prisma.selectionSession.create({
       data: {
@@ -55,7 +53,7 @@ export async function createSelectionSession(input: CreateSelectionSessionInput)
         applicationId,
         status: 'pending',
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        flags: { chosen_trap_key: chosenTrapKey } as Prisma.InputJsonValue,
+        flags: {} as Prisma.InputJsonValue,
       },
     })
     return { session, created: true as const }
