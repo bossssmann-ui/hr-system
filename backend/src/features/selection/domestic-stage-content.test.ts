@@ -173,6 +173,12 @@ describe('getDomesticStageContent', () => {
     expect(result.questions.some((q) => q.key === 'q_hardest_shipment')).toBe(true)
   })
 
+  it('domestic_core_operations: stage=1 не содержит q_docs, но сохраняет q_document_flow', () => {
+    const result = getDomesticStageContent('domestic_core_operations', 1) as QuestionnaireStageContent
+    expect(result.questions.some((q) => q.key === 'q_docs')).toBe(false)
+    expect(result.questions.some((q) => q.key === 'q_document_flow')).toBe(true)
+  })
+
   it('domestic_core_operations: stage=2 passThreshold обновлён под новый maxScore', () => {
     const result = getDomesticStageContent('domestic_core_operations', 2) as TestStageContent
     expect(result.maxScore).toBe(21)
