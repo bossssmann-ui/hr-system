@@ -22,13 +22,12 @@ describe('getStageContent — shape validation', () => {
       }
     })
 
-    test(`stage 1 (${role}) is a questionnaire with required screening/trap keys`, () => {
+    test(`stage 1 (${role}) is a questionnaire with required screening keys`, () => {
       const s = getStageContent(role, 1) as QuestionnaireStageContent
       expect(s.type).toBe('questionnaire')
       const keys = s.questions.map((q) => q.key)
-      for (const k of ['stop_experience', 'trap_answer_1']) {
-        expect(keys).toContain(k)
-      }
+      expect(keys).toContain('stop_experience')
+      expect(keys).toContain(role === 'logist' ? 'q_route_choice' : 'trap_answer_1')
       if (role === 'sales_manager') {
         expect(keys).toContain('q_remote_ready')
       }
@@ -82,12 +81,15 @@ describe('getStageContent — shape validation', () => {
   })
 })
 
-describe('stage 1 trap content', () => {
-  test('logist trap checks rail gauge expertise', () => {
+describe('stage 1 role-specific content', () => {
+  test('logist stage 1 includes the open route-choice question', () => {
     const s = getStageContent('logist', 1) as QuestionnaireStageContent
-    const trapQ = s.questions.find((q) => q.key === 'trap_answer_1')
-    expect(trapQ?.text).toContain('Забайкальск–Маньчжурия')
-    expect(trapQ?.correct).toContain('1435 мм')
+    const routeQ = s.questions.find((q) => q.key === 'q_route_choice')
+    expect(routeQ?.text).toContain('Выбор оптимального маршрута')
+    expect(routeQ?.text).toContain('автотранспортом')
+    expect(routeQ?.type).toBe('textarea')
+    expect(routeQ?.options).toBeUndefined()
+    expect(routeQ?.correct).toBeUndefined()
   })
 
   test('sales_manager trap checks FOB-for-containers misconception', () => {
