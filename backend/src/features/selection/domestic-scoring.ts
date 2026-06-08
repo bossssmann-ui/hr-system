@@ -80,19 +80,6 @@ function hasSecondary(profile: DomesticAssessmentProfile): boolean {
   return profile.specializations.some((s) => s.level === 'secondary')
 }
 
-const DOCUMENT_FLOW_OPTIONS = [
-  'ТТН/ТрН',
-  'договор-заявка',
-  'ЭДО',
-  'доверенности',
-  'акты',
-  'счета-фактуры',
-  'экспедиторская расписка',
-  'поручение экспедитору',
-  'отчёт экспедитора',
-] as const
-const DOCUMENT_FLOW_OPTION_SET = new Set<string>(DOCUMENT_FLOW_OPTIONS)
-
 const CARGO_TYPE_OPTIONS = [
   'тент',
   'рефрижератор/изотерм',
@@ -134,12 +121,6 @@ export function scoreDomesticHardSkillFactology(
     if (usesRegistryCheck) counterpartyScore += 1
   }
 
-  const documentCoverage = Math.min(
-    4,
-    asNonEmptyStringArray(answers['q_document_flow']).filter((item) =>
-      DOCUMENT_FLOW_OPTION_SET.has(item),
-    ).length,
-  )
   const cargoCoverage = Math.min(
     4,
     asNonEmptyStringArray(answers['q_cargo_types']).filter((item) =>
@@ -148,8 +129,8 @@ export function scoreDomesticHardSkillFactology(
   )
 
   return {
-    rawScore: oneCScore + counterpartyScore + documentCoverage + cargoCoverage,
-    maxScore: 17,
+    rawScore: oneCScore + counterpartyScore + cargoCoverage,
+    maxScore: 13,
     passed1CThreshold:
       oneCExperience === 'уверенно (ТТН, ТрН, путевые листы)' ||
       oneCExperience === 'администрирование',
