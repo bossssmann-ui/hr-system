@@ -64,12 +64,9 @@ export function computeCrossCheckFlags(
       }
     }
 
-    // RED-1: Stage-1 expertise trap.
+    // RED-1: Stage-1 expertise trap (sales_manager only).
     const trapAnswer1 = answers['trap_answer_1'] ?? answers['trap_answer']
     const trapAnswer1IsHit = (() => {
-      if (role === 'logist') {
-        return trapAnswer1 === 'Да, перегруза нет' || trapAnswer1 === 'Перегруз нужен только для опасных грузов'
-      }
       if (role === 'sales_manager') {
         return trapAnswer1 === 'Да, FOB универсален для контейнеров'
       }
@@ -80,9 +77,7 @@ export function computeCrossCheckFlags(
         id: 1,
         type: 'RED',
         description:
-          role === 'logist'
-            ? 'Кандидат ошибся в ловушке про разрыв колеи Китай–Россия (1435/1520)'
-            : 'Кандидат ошибся в ловушке по условиям поставки FOB для контейнерных перевозок',
+          'Кандидат ошибся в ловушке по условиям поставки FOB для контейнерных перевозок',
         triggeredAt: 1,
       })
     }

@@ -23,16 +23,14 @@ describe('computeCrossCheckFlags', () => {
     expect(flags.every((f) => f.id >= 100)).toBe(true)
   })
 
-  test('flags wrong rail-gauge trap answer on stage 1 for logist', () => {
+  test('does not flag the new logist route-choice open answer on stage 1', () => {
     const flags = computeCrossCheckFlags(
       1,
-      { trap_answer_1: 'Да, перегруза нет' },
+      { q_route_choice: 'Через Казахстан, но только после согласования пограничных рисков с клиентом.' },
       'logist',
       [],
     )
-    expect(flags.map((f) => f.id).sort()).toEqual([1])
-    expect(flags.every((f) => f.type === 'RED')).toBe(true)
-    expect(flags[0]?.description).toContain('разрыв колеи')
+    expect(flags).toEqual([])
   })
 
   test('uses sales-manager wording for traps when role=sales_manager', () => {
@@ -44,16 +42,6 @@ describe('computeCrossCheckFlags', () => {
     )
     expect(flags).toHaveLength(1)
     expect(flags[0]?.description).toContain('FOB')
-  })
-
-  test('does not flag logist trap when candidate selected correct gauge answer', () => {
-    const flags = computeCrossCheckFlags(
-      1,
-      { trap_answer_1: 'Нет: в Китае колея 1435 мм, в России 1520 мм — нужен перегруз/смена тележек' },
-      'logist',
-      [],
-    )
-    expect(flags).toEqual([])
   })
 
   test('does not flag sales trap when candidate selected correct Incoterms answer', () => {
