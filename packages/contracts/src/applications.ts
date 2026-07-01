@@ -61,6 +61,31 @@ export const aiScoreFeedbackSchema = z.object({
 
 export const unifiedScoreStatusSchema = z.enum(['preliminary', 'final'])
 
+export const compositeScoreBreakdownSchema = z.object({
+  resume: z.number().min(0).max(100).nullable(),
+  selection: z.object({
+    stage1: z.number().nullable(),
+    stage2: z.number().nullable(),
+    stage3: z.number().nullable(),
+    stage4: z.number().nullable(),
+    total: z.number().nullable(),
+  }).nullable(),
+  assessment: z.object({
+    score: z.number().nullable(),
+    trust: z.number().nullable(),
+  }).nullable(),
+  retention: z.number().min(0).max(100).nullable(),
+})
+
+export const compositeScoreSchema = z.object({
+  overall: z.number().min(0).max(100),
+  breakdown: compositeScoreBreakdownSchema,
+  weights: z.record(z.string(), z.number()),
+  updatedAt: z.string().datetime(),
+})
+
+export type CompositeScore = z.infer<typeof compositeScoreSchema>
+
 export const applicationSchema = z.object({
   id: z.string(),
   tenantId: z.string(),
@@ -76,6 +101,7 @@ export const applicationSchema = z.object({
   aiVerdict: z.string().nullable().optional(),
   aiAssessedAt: z.string().datetime().nullable().optional(),
   aiFlags: z.record(z.string(), z.unknown()).nullable().optional(),
+  compositeScore: compositeScoreSchema.nullable().optional(),
   unifiedScore: z.object({
     value: z.number().nullable(),
     status: unifiedScoreStatusSchema.nullable(),

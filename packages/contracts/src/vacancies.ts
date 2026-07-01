@@ -8,6 +8,7 @@ export const vacancySchema = z.object({
   title: z.string(),
   description: z.string(),
   role: vacancyRoleSchema.nullable().optional(),
+  requiredAssessmentTemplateIds: z.array(z.string()).default([]),
   isPublished: z.boolean(),
   tenantId: z.string(),
   requisitionId: z.string(),

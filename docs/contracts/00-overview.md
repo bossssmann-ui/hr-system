@@ -23,6 +23,8 @@ The roadmap is split into **12 phases**. This document only covers the **active 
 | `web/` | active | Recruiter UI: login, requisitions, vacancies, applications Kanban, admin (users + audit log). |
 | `packages/contracts` | active | Zod schemas shared between backend and web. |
 
+Phase 18 introduces the auto-pipeline foundation (feature flags + contracts + schema fields) in additive mode; business logic remains in follow-up PRs.
+
 ## Deferred surfaces
 
 | Surface | Notes |

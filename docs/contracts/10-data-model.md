@@ -53,6 +53,17 @@ Self-referential tree representing departments / divisions / teams.
 Invariants:
 - A unit cannot be its own ancestor (enforced at the service layer with a recursive CTE check).
 
+### `TenantSettings`
+
+Tenant-level runtime and product configuration. Used for additive feature rollout without changing tenant defaults.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `tenant_id` | UUID | PK, FK → `Tenant`. |
+| `feature_flags` | jsonb | Tenant feature toggles map. |
+| `scoring_weights` | jsonb? | Phase 18 auto-pipeline scoring weights payload (nullable until configured). |
+| `created_at` / `updated_at` | timestamp | |
+
 ### `HiringRequisition`
 
 The request to hire. Drives the funnel: a requisition must be approved before its `Vacancy` may be published.
@@ -91,6 +102,7 @@ The externally-visible posting for an approved requisition.
 | `slug` | string? | URL-safe slug for the public careers page (e.g. `frontend-engineer`). Auto-generated from `title` on first publish. Unique per tenant (partial unique index on `(tenant_id, slug) WHERE slug IS NOT NULL`). Nullable until published. |
 | `title` | string | May differ from the requisition title (job-board friendly wording). |
 | `description` | text | Job-board friendly description. |
+| `required_assessment_template_ids` | `text[]` | Phase 18 auto-pipeline requirement list. Default `[]`; empty means no required templates. |
 | `is_published` | bool | |
 | `created_at` / `updated_at` | timestamp | |
 
@@ -152,6 +164,7 @@ A candidate's pursuit of a specific vacancy. The Kanban funnel operates on this 
 | `notes` | text? | Free-text recruiter notes. |
 | `ai_scoring` | jsonb? | Phase 1C advisory score payload: `{status, input_hash, result?, failure?}`. |
 | `ai_score_feedback` | jsonb? | Phase 1C recruiter feedback payload: `{user_id, agrees, note, created_at}`. |
+| `composite_score` | jsonb? | Phase 18 composite score snapshot (`overall`, `breakdown`, `weights`, `updatedAt`). Nullable/optional for backward compatibility. |
 | `external_ids` | jsonb | Integration ids, e.g. `{"hh_negotiation_id":"..."}`. |
 | `created_at` / `updated_at` | timestamp | |
 

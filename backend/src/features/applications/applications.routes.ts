@@ -293,6 +293,7 @@ export function createApplicationsRoutes() {
         title: row.vacancy.title,
         description: row.vacancy.description,
         role: parseVacancyRole(row.vacancy.role),
+        requiredAssessmentTemplateIds: row.vacancy.requiredAssessmentTemplateIds,
         isPublished: row.vacancy.isPublished,
         requisitionId: row.vacancy.requisitionId,
         orgUnitId: row.vacancy.orgUnitId,
