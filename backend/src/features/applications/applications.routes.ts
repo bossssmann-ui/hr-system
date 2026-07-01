@@ -13,6 +13,7 @@ import {
   aiScoringSchema,
   applicationSchema,
   applicationStageSchema,
+  compositeScoreSchema,
   createApplicationRequestSchema,
   listApplicationsResponseSchema,
   moveApplicationStageRequestSchema,
@@ -59,6 +60,7 @@ type RawApplication = {
   aiVerdict: string | null
   aiAssessedAt: Date | null
   aiFlags: unknown
+  compositeScore: unknown
   trustFlagged: boolean
   externalIds: unknown
   createdAt: Date
@@ -104,6 +106,7 @@ function toDto(
     aiVerdict: row.aiVerdict ?? null,
     aiAssessedAt: row.aiAssessedAt ? row.aiAssessedAt.toISOString() : null,
     aiFlags,
+    compositeScore: compositeScoreSchema.nullable().parse(row.compositeScore ?? null),
     unifiedScore,
     trustScore: extra.trustScore,
     retentionPrediction: extra.selectionSummary?.retentionPrediction ?? fallbackRetention,

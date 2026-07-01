@@ -25,6 +25,10 @@ import { requireRole, type RoleGuardBindings } from '../../auth/requireRole'
 import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
 import { AppError } from '../../http/errors'
+import {
+  recomputeCompositeScoreForApplication,
+  recordCompositeScoreRecomputeFailure,
+} from '../applications/composite-score'
 import { enqueueAssessmentOpenAnswerGrading } from './assessments.queue'
 import { computeTrustScore } from './trust-score'
 
@@ -425,6 +429,20 @@ export function createPublicAssessmentRoutes() {
           data: { trustFlagged: redFlagged },
         })
       })
+
+      try {
+        await recomputeCompositeScoreForApplication({
+          prisma,
+          env,
+          applicationId: session.applicationId,
+        })
+      } catch (error) {
+        await recordCompositeScoreRecomputeFailure({
+          prisma,
+          applicationId: session.applicationId,
+          error,
+        })
+      }
 
       if (env.AI_SCORING_ENABLED) {
         void enqueueAssessmentOpenAnswerGrading({
