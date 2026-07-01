@@ -19,6 +19,7 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import { Typography } from "@/components/ui/typography"
+import { CompositeScoreBadge, CompositeScoreDetail } from "@/components/ApplicationCompositeScore"
 import { OfferPanel } from "@/components/OfferPanel"
 import { ApiRequestError } from "@/lib/api"
 import { isAdmin } from "@/lib/roles"
@@ -752,7 +753,10 @@ function KanbanBoard() {
                         data-testid={"application-card-" + app.id} data-stage={app.stage}>
                         <div className="flex items-start justify-between gap-2">
                           <Typography variant="bodySm" className="font-medium">{app.candidateId.slice(0, 8)}</Typography>
-                          <Badge variant="outline" className={cn("text-[11px]", scoreBadge.className)} title={scoreBadge.summary}>{scoreBadge.label}</Badge>
+                          <div className="flex flex-wrap items-center justify-end gap-1">
+                            <CompositeScoreBadge compositeScore={app.compositeScore} t={t} className="text-[11px]" />
+                            <Badge variant="outline" className={cn("text-[11px]", scoreBadge.className)} title={scoreBadge.summary}>{scoreBadge.label}</Badge>
+                          </div>
                         </div>
                         {hasAiVerdict && (
                           <Typography variant="bodySm" tone="muted">
@@ -957,6 +961,7 @@ function ApplicationDetail() {
           <Typography><span className="font-medium">{t('applications.candidateLabel')}</span> {app.candidate.fullName}</Typography>
           <Typography><span className="font-medium">{t('applications.vacancyLabel')}</span> {app.vacancy.title}</Typography>
           <Typography><span className="font-medium">{t('applications.stageLabel')}</span> {t(`applications.stages.${app.stage}`)}</Typography>
+          <CompositeScoreDetail compositeScore={app.compositeScore} t={t} />
           {app.aiVerdict && (
             <Typography>
               <span className="font-medium">AI verdict:</span> {app.aiVerdict}
