@@ -12,6 +12,7 @@ mock.module('@tanstack/react-router', () => ({
 }))
 
 mock.module('react-i18next', () => ({
+  initReactI18next: { type: '3rdParty', init() {} },
   useTranslation: () => ({ t: (key: string) => key }),
 }))
 
