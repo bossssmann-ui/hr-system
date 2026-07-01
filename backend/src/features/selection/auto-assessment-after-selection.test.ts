@@ -231,40 +231,8 @@ describe('runAutoAssessmentAfterSelection', () => {
     expect(failEvents[0]?.diff).toMatchObject({ channel: 'email' })
   })
 
-  test('non-domestic trigger: sessions created from non-domestic path', async () => {
-    // Simulates the non-domestic path: simply calling runAutoAssessmentAfterSelection
-    // with AUTO_ASSESSMENT_ENABLED=true and a vacancy with templates.
-    const state = createState(['tmpl-1'])
-    const invites: Array<{ token: string }> = []
-
-    await runAutoAssessmentAfterSelection({
-      prisma: state.prisma as never,
-      env: baseEnv,
-      applicationId: 'app-1',
-      sendInvite: async (invite) => {
-        invites.push({ token: invite.token })
-      },
-    })
-
-    expect(state.assessmentSessions).toHaveLength(1)
-    expect(invites).toHaveLength(1)
-  })
-
-  test('domestic trigger: sessions created from domestic path', async () => {
-    // Simulates the domestic path: same function called after finalizeDomesticStage4.
-    const state = createState(['tmpl-1'])
-    const invites: Array<{ token: string }> = []
-
-    await runAutoAssessmentAfterSelection({
-      prisma: state.prisma as never,
-      env: baseEnv,
-      applicationId: 'app-1',
-      sendInvite: async (invite) => {
-        invites.push({ token: invite.token })
-      },
-    })
-
-    expect(state.assessmentSessions).toHaveLength(1)
-    expect(invites).toHaveLength(1)
-  })
+  // Both the domestic path (domestic-stage-scoring.ts → finalizeDomesticStage4 ДОПУСТИТЬ
+  // branch) and the non-domestic path (selection.queue.ts → runEvaluation ДОПУСТИТЬ branch)
+  // call runAutoAssessmentAfterSelection with the same interface. The shared function is
+  // exercised by all tests above; the trigger hook sites are verified by integration tests.
 })
