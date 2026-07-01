@@ -45,6 +45,12 @@ export const linkVacancyToHhRequestSchema = z.object({
 
 export type LinkVacancyToHhRequest = z.infer<typeof linkVacancyToHhRequestSchema>
 
+export const updateVacancyAssessmentTemplatesRequestSchema = z.object({
+  requiredAssessmentTemplateIds: z.array(z.string()).optional(),
+})
+
+export type UpdateVacancyAssessmentTemplatesRequest = z.infer<typeof updateVacancyAssessmentTemplatesRequestSchema>
+
 // ─── Public careers API contracts ────────────────────────────────────────────
 
 /** Public-safe vacancy fields — no internal ids, no salary, no requisition details. */

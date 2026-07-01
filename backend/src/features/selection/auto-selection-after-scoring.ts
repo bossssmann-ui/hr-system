@@ -158,7 +158,7 @@ export async function sendAutoSelectionInvite(input: SendAutoSelectionInviteInpu
   }
 }
 
-function resolvePreferredChannel(applicationExternalIds: unknown, candidateExternalIds: unknown): 'hh_chat' | 'email' {
+export function resolvePreferredChannel(applicationExternalIds: unknown, candidateExternalIds: unknown): 'hh_chat' | 'email' {
   const appIds = asRecord(applicationExternalIds)
   if (typeof appIds.hh_negotiation_id === 'string' && appIds.hh_negotiation_id.length > 0) {
     return 'hh_chat'
@@ -174,7 +174,7 @@ function resolvePreferredChannel(applicationExternalIds: unknown, candidateExter
   return 'email'
 }
 
-function resolveDestination(
+export function resolveDestination(
   channel: 'hh_chat' | 'email',
   applicationExternalIds: unknown,
   candidateExternalIds: unknown,
@@ -186,13 +186,13 @@ function resolveDestination(
   return firstString(candidateIds.hh_messages_url, appIds.hh_messages_url)
 }
 
-function buildSelectionLink(env: AppEnv, token: string) {
+export function buildSelectionLink(env: AppEnv, token: string) {
   const origin = env.CORS_ORIGINS[0]
   if (!origin) return `/selection/${token}`
   return `${origin.replace(/\/$/, '')}/selection/${token}`
 }
 
-async function resolveHhAccessToken(prisma: DbClient, env: AppEnv, tenantId: string): Promise<string | null> {
+export async function resolveHhAccessToken(prisma: DbClient, env: AppEnv, tenantId: string): Promise<string | null> {
   if (!env.HH_TOKEN_ENCRYPTION_KEY) return null
   const connection = await prisma.hhConnection.findUnique({
     where: { tenantId },

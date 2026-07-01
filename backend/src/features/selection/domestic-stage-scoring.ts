@@ -16,6 +16,7 @@ import type { AppEnv } from '../../env'
 import { createAssessmentProvider, isAiScoringConfigured } from '../../integrations/llm'
 import { canTransition, type ApplicationStage } from '../applications/applications.fsm'
 import { notifyRecruitersAboutSelectionReady } from '../applications/application-notifications'
+import { runAutoAssessmentAfterSelection } from './auto-assessment-after-selection'
 import { asNonEmptyString } from './domestic-answer-helpers'
 import {
   computeDomesticCrossCheckFlags,
@@ -765,6 +766,11 @@ export async function finalizeDomesticStage4(
       tenantId: session.tenantId,
       applicationId: session.applicationId,
       totalScore: Number(computation.totalScore.toFixed(1)),
+    })
+    void runAutoAssessmentAfterSelection({
+      prisma,
+      env,
+      applicationId: session.applicationId,
     })
   }
 
