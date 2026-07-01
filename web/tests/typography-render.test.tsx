@@ -91,8 +91,20 @@ mock.module('radix-ui', () => ({
     Value: span,
     Viewport: div,
   },
+  Label: {
+    Root: div,
+  },
+  Separator: {
+    Root: div,
+  },
   Slot: {
     Root: SlotRoot,
+  },
+  Tabs: {
+    Content: div,
+    List: div,
+    Root,
+    Trigger: Primitive('button'),
   },
 }))
 
