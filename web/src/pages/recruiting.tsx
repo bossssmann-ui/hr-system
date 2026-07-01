@@ -754,7 +754,7 @@ function KanbanBoard() {
                         <div className="flex items-start justify-between gap-2">
                           <Typography variant="bodySm" className="font-medium">{app.candidateId.slice(0, 8)}</Typography>
                           <div className="flex flex-wrap items-center justify-end gap-1">
-                            <CompositeScoreBadge compositeScore={app.compositeScore} t={t} />
+                            <CompositeScoreBadge compositeScore={app.compositeScore} t={t} className="text-[11px]" />
                             <Badge variant="outline" className={cn("text-[11px]", scoreBadge.className)} title={scoreBadge.summary}>{scoreBadge.label}</Badge>
                           </div>
                         </div>

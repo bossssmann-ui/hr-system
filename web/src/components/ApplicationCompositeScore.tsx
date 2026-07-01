@@ -4,6 +4,7 @@ import type { TFunction } from "i18next"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Badge } from "@/components/ui/badge"
 import { Typography } from "@/components/ui/typography"
+import { cn } from "@/lib/utils"
 
 type CompositeScoreValue = Application["compositeScore"]
 
@@ -16,10 +17,18 @@ function formatWeightValue(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, "")
 }
 
-export function CompositeScoreBadge({ compositeScore, t }: { compositeScore: CompositeScoreValue; t: TFunction }) {
+export function CompositeScoreBadge({
+  compositeScore,
+  t,
+  className,
+}: {
+  compositeScore: CompositeScoreValue
+  t: TFunction
+  className?: string
+}) {
   if (!compositeScore) return null
   return (
-    <Badge variant="outline" data-testid="composite-score-badge">
+    <Badge variant="outline" className={cn(className)} data-testid="composite-score-badge">
       {t("applications.composite.badge", { score: formatScoreValue(compositeScore.overall) })}
     </Badge>
   )
