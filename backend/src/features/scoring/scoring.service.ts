@@ -10,6 +10,7 @@ import {
 } from '../../integrations/llm'
 import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
+import { runAutoSelectionAfterScoring } from '../selection/auto-selection-after-scoring'
 
 const NOT_CONFIGURED_PAYLOAD = {
   status: 'not_configured',
@@ -102,6 +103,14 @@ export async function scoreApplication(input: ScoreApplicationInput) {
           status: 'scored',
         } as Prisma.InputJsonValue,
       },
+    })
+
+    await runAutoSelectionAfterScoring({
+      prisma,
+      env,
+      applicationId: snapshot.id,
+      actorUserId,
+      relevanceScore: result.relevance_score,
     })
 
     return { skipped: false as const, status: 'scored' as const, result }
