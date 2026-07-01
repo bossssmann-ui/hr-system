@@ -29,6 +29,7 @@ function toDto(row: {
   title: string
   description: string
   role: string | null
+  requiredAssessmentTemplateIds: string[]
   isPublished: boolean
   tenantId: string
   requisitionId: string
@@ -43,6 +44,7 @@ function toDto(row: {
     title: row.title,
     description: row.description,
     role: parseVacancyRole(row.role),
+    requiredAssessmentTemplateIds: row.requiredAssessmentTemplateIds,
     isPublished: row.isPublished,
     tenantId: row.tenantId,
     requisitionId: row.requisitionId,

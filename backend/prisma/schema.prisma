@@ -128,6 +128,7 @@ model TenantSettings {
   timezone      String   @default("Europe/Moscow")
   locale        String   @default("ru-RU")
   featureFlags  Json     @default("{}") @map("feature_flags")
+  scoringWeights Json?   @map("scoring_weights")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
@@ -314,6 +315,7 @@ model Vacancy {
   title         String
   description   String
   role          String?
+  requiredAssessmentTemplateIds String[] @default([]) @map("required_assessment_template_ids")
   isPublished   Boolean  @default(false) @map("is_published")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
@@ -388,6 +390,7 @@ model Application {
   aiVerdict            String?          @map("ai_verdict")
   aiAssessedAt         DateTime?        @map("ai_assessed_at")
   aiFlags              Json?            @map("ai_flags")
+  compositeScore       Json?            @map("composite_score")
   trustFlagged         Boolean          @default(false) @map("trust_flagged")
   externalIds          Json             @default("{}") @map("external_ids")
   createdAt            DateTime         @default(now()) @map("created_at")

@@ -90,6 +90,13 @@ const envSchema = z.object({
   ASSESSMENTS_ENABLED: booleanStringSchema,
   // Phase 2 / Phase 14 — Automated selection system (Onboardix 4-stage screening)
   ASSESSMENT_SYSTEM_ENABLED: booleanStringSchema,
+  // Phase 18 — Auto-pipeline foundations (all flags are opt-in and default disabled)
+  AUTO_SELECTION_ENABLED: booleanStringSchema,
+  AUTO_ASSESSMENT_ENABLED: booleanStringSchema,
+  COMPOSITE_SCORE_ENABLED: booleanStringSchema,
+  RECRUITER_NOTIFICATIONS_ENABLED: booleanStringSchema,
+  AUTO_SELECTION_THRESHOLD: z.coerce.number().int().min(0).max(100).default(70),
+  AUTO_REJECT_THRESHOLD: z.coerce.number().int().min(0).max(100).default(30),
   // Gemini 2.0 Flash AI evaluator for Phase 14 selection verdicts.
   // Called via fetch on generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent.
   GEMINI_API_KEY: optionalStringSchema,
