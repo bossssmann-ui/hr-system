@@ -14,6 +14,10 @@ import { Prisma } from '../../generated/prisma/client'
 import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
 import { createAssessmentProvider, isAiScoringConfigured } from '../../integrations/llm'
+import {
+  recomputeCompositeScoreForApplication,
+  recordCompositeScoreRecomputeFailure,
+} from '../applications/composite-score'
 import { canTransition, type ApplicationStage } from '../applications/applications.fsm'
 import { notifyRecruitersAboutSelectionReady } from '../applications/application-notifications'
 import { runAutoAssessmentAfterSelection } from './auto-assessment-after-selection'
@@ -758,6 +762,22 @@ export async function finalizeDomesticStage4(
     recruiterChecklistFlags: mergedChecklistFlags,
     retentionPrediction: computation.retentionPrediction as unknown as Prisma.InputJsonValue,
   })
+
+  if (session.applicationId && env?.COMPOSITE_SCORE_ENABLED) {
+    try {
+      await recomputeCompositeScoreForApplication({
+        prisma,
+        env,
+        applicationId: session.applicationId,
+      })
+    } catch (error) {
+      await recordCompositeScoreRecomputeFailure({
+        prisma,
+        applicationId: session.applicationId,
+        error,
+      })
+    }
+  }
 
   if (env && computation.verdictLabel === VERDICT_ADMIT) {
     void notifyRecruitersAboutSelectionReady({

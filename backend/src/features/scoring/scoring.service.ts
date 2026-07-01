@@ -10,6 +10,10 @@ import {
 } from '../../integrations/llm'
 import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
+import {
+  recomputeCompositeScoreForApplication,
+  recordCompositeScoreRecomputeFailure,
+} from '../applications/composite-score'
 import { runAutoSelectionAfterScoring } from '../selection/auto-selection-after-scoring'
 
 const NOT_CONFIGURED_PAYLOAD = {
@@ -104,6 +108,20 @@ export async function scoreApplication(input: ScoreApplicationInput) {
         } as Prisma.InputJsonValue,
       },
     })
+
+    try {
+      await recomputeCompositeScoreForApplication({
+        prisma,
+        env,
+        applicationId: snapshot.id,
+      })
+    } catch (error) {
+      await recordCompositeScoreRecomputeFailure({
+        prisma,
+        applicationId: snapshot.id,
+        error,
+      })
+    }
 
     await runAutoSelectionAfterScoring({
       prisma,

@@ -8,6 +8,10 @@
 import { Prisma } from '../../generated/prisma/client'
 import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
+import {
+  recomputeCompositeScoreForApplication,
+  recordCompositeScoreRecomputeFailure,
+} from '../applications/composite-score'
 import { callGeminiGenerateContent, GeminiApiError } from '../../integrations/llm/gemini'
 import { createInMemoryQueue } from '../../queues'
 import { notifyRecruitersAboutSelectionReady } from '../applications/application-notifications'
@@ -384,6 +388,21 @@ async function runEvaluation({ prisma, env, sessionId }: EvaluateJob): Promise<v
         create: { sessionId, ...baseData },
         update: baseData,
       })
+    }
+    if (session.applicationId) {
+      try {
+        await recomputeCompositeScoreForApplication({
+          prisma,
+          env,
+          applicationId: session.applicationId,
+        })
+      } catch (error) {
+        await recordCompositeScoreRecomputeFailure({
+          prisma,
+          applicationId: session.applicationId,
+          error,
+        })
+      }
     }
     const normalizedVerdict = aiVerdict.toUpperCase()
     if (!isDomestic && normalizedVerdict.includes('ДОПУСТИТЬ')) {
