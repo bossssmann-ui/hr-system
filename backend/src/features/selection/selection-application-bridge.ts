@@ -6,11 +6,10 @@ import { getChannelAdapter } from '../messaging/messaging.service'
 import { decryptHhSecret } from '../../integrations/hh/crypto'
 import { getRealtimeBus } from '../../services/realtime'
 import { notifyRecruitersAboutApplicationCreated } from '../applications/application-notifications'
-import type { SupportedRole } from './selection-role-adapter'
+import { parseSupportedRole, type SupportedRole } from './selection-role-adapter'
 import { createSelectionSession } from './selection-session.service'
 
 type ApplicationSource = 'public_apply' | 'hh_sync' | 'hh_sourcing' | 'manual'
-const SUPPORTED_ROLES = ['logist', 'sales_manager', 'logist_domestic'] as const
 type SelectionBridgeJob = {
   prisma: DbClient
   env: AppEnv
@@ -188,12 +187,6 @@ async function inferSupportedRole(input: {
   if (haystack.includes('sales') || haystack.includes('продаж')) {
     return 'sales_manager'
   }
-  return null
-}
-
-function parseSupportedRole(value: unknown): SupportedRole | null {
-  if (typeof value !== 'string') return null
-  if ((SUPPORTED_ROLES as readonly string[]).includes(value)) return value as SupportedRole
   return null
 }
 

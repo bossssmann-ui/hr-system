@@ -1,5 +1,18 @@
 import { describe, it, expect } from 'bun:test'
-import { buildStagesForRole, isDomesticRole } from './selection-role-adapter'
+import { buildStagesForRole, isDomesticRole, parseSupportedRole } from './selection-role-adapter'
+
+describe('parseSupportedRole', () => {
+  it('returns role for supported values', () => {
+    expect(parseSupportedRole('logist')).toBe('logist')
+    expect(parseSupportedRole('sales_manager')).toBe('sales_manager')
+    expect(parseSupportedRole('logist_domestic')).toBe('logist_domestic')
+  })
+
+  it('returns null for unsupported values', () => {
+    expect(parseSupportedRole('frontend')).toBeNull()
+    expect(parseSupportedRole(null)).toBeNull()
+  })
+})
 
 describe('isDomesticRole', () => {
   it('logist_domestic → true', () => expect(isDomesticRole('logist_domestic')).toBe(true))

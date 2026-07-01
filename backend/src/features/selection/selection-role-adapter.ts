@@ -3,6 +3,13 @@ import { buildDomesticStages } from './domestic-stage-content'
 import { selectSpecializations, type SpecializationAssignment } from './domestic-specializations'
 
 export type SupportedRole = 'logist' | 'sales_manager' | 'logist_domestic'
+const SUPPORTED_ROLES = ['logist', 'sales_manager', 'logist_domestic'] as const
+
+export function parseSupportedRole(value: unknown): SupportedRole | null {
+  if (typeof value !== 'string') return null
+  if ((SUPPORTED_ROLES as readonly string[]).includes(value)) return value as SupportedRole
+  return null
+}
 
 export function isDomesticRole(role: string): role is 'logist_domestic' {
   return role === 'logist_domestic'
