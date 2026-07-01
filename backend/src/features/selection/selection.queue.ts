@@ -15,6 +15,7 @@ import {
 import { callGeminiGenerateContent, GeminiApiError } from '../../integrations/llm/gemini'
 import { createInMemoryQueue } from '../../queues'
 import { notifyRecruitersAboutSelectionReady } from '../applications/application-notifications'
+import { notifyRecipientsForEvent } from '../notifications/recruiter-event-notifications'
 import { computeDomesticCrossCheckFlags } from './domestic-cross-check'
 import type { DomesticAssessmentProfile } from './domestic-scoring'
 import { runAutoAssessmentAfterSelection } from './auto-assessment-after-selection'
@@ -405,12 +406,30 @@ async function runEvaluation({ prisma, env, sessionId }: EvaluateJob): Promise<v
       }
     }
     const normalizedVerdict = aiVerdict.toUpperCase()
+    const totalScoreRaw = parsed['total_weighted_score']
+    const totalScore =
+      totalScoreRaw !== null && totalScoreRaw !== undefined && !Number.isNaN(Number(totalScoreRaw))
+        ? Number(totalScoreRaw)
+        : null
+    if (
+      env.RECRUITER_NOTIFICATIONS_ENABLED &&
+      session.applicationId &&
+      (normalizedVerdict.includes('ДОПУСТИТЬ') || normalizedVerdict.includes('ОТКЛОНИТЬ'))
+    ) {
+      await notifyRecipientsForEvent({
+        prisma,
+        env,
+        tenantId: session.tenantId,
+        applicationId: session.applicationId,
+        template: 'selection.completed',
+        eventKey: `selection_session.completed:${session.id}`,
+        payload: {
+          verdict: aiVerdict,
+          totalScore,
+        },
+      })
+    }
     if (!isDomestic && normalizedVerdict.includes('ДОПУСТИТЬ')) {
-      const totalScoreRaw = parsed['total_weighted_score']
-      const totalScore =
-        totalScoreRaw !== null && totalScoreRaw !== undefined && !Number.isNaN(Number(totalScoreRaw))
-          ? Number(totalScoreRaw)
-          : null
       void notifyRecruitersAboutSelectionReady({
         prisma,
         env,

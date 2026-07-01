@@ -3,6 +3,7 @@ import type { AppEnv } from '../../env'
 import { Prisma } from '../../generated/prisma/client'
 import { enqueueApplicationScoringJob } from '../../features/scoring/scoring.queue'
 import { enqueueSelectionBridgeJob } from '../../features/selection/selection-application-bridge'
+import { notifyRecipientsForEvent } from '../../features/notifications/recruiter-event-notifications'
 import { createInMemoryQueue } from '../../queues'
 import { createHhClient } from './client'
 import { decryptHhSecret, encryptHhSecret } from './crypto'
@@ -375,6 +376,20 @@ export async function upsertNegotiationFromHh(
       },
     },
   })
+
+  if (input.env?.RECRUITER_NOTIFICATIONS_ENABLED && applicationIdForScoring) {
+    await notifyRecipientsForEvent({
+      prisma,
+      env: input.env,
+      tenantId: input.tenantId,
+      applicationId: applicationIdForScoring,
+      template: 'application.new',
+      eventKey: `hh.sync.candidate_imported:${input.negotiation.id}`,
+      payload: {
+        source: 'hh_sync',
+      },
+    })
+  }
 
   if (input.env && applicationIdForScoring) {
     void enqueueApplicationScoringJob({

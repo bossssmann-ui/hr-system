@@ -136,7 +136,7 @@ describe('runAutoSelectionAfterScoring', () => {
 
     await runAutoSelectionAfterScoring({
       prisma: state.prisma as never,
-      env: baseEnv,
+      env: { ...baseEnv, RECRUITER_NOTIFICATIONS_ENABLED: true },
       applicationId: 'app-1',
       relevanceScore: 10,
       sendInvite: async () => undefined,
@@ -149,6 +149,14 @@ describe('runAutoSelectionAfterScoring', () => {
     expect(event?.diff).toMatchObject({
       reason: 'auto_reject_low_relevance',
       relevance_score: 10,
+    })
+    expect(state.notifications).toHaveLength(1)
+    expect(state.notifications[0]).toMatchObject({
+      template: 'application.auto_rejected',
+      recipientUserId: 'recruiter-1',
+      payload: expect.objectContaining({
+        applicationId: 'app-1',
+      }),
     })
   })
 
@@ -181,6 +189,7 @@ describe('runAutoSelectionAfterScoring', () => {
     expect(state.sessions).toHaveLength(0)
     expect(state.application.stage).toBe('new')
     expect(state.auditEvents).toHaveLength(0)
+    expect(state.notifications).toHaveLength(0)
   })
 
   test('delivery failure does not rollback created session', async () => {
@@ -207,12 +216,14 @@ function createState() {
   const sessions: Array<Record<string, unknown>> = []
   const templates: Array<Record<string, unknown>> = []
   const auditEvents: Array<Record<string, unknown>> = []
+  const notifications: Array<Record<string, unknown>> = []
 
   const application = {
     id: 'app-1',
     tenantId: 'tenant-1',
     candidateId: 'cand-1',
     vacancyId: 'vac-1',
+    assignedToUserId: 'recruiter-1',
     stage: 'new',
     externalIds: {},
     candidate: {
@@ -266,7 +277,38 @@ function createState() {
     hhConnection: {
       findUnique: async () => null,
     },
+    userRole: {
+      findMany: async () => [{ userId: 'admin-1' }],
+    },
+    notification: {
+      findMany: async ({ where }: { where: Record<string, unknown> }) =>
+        notifications
+          .filter((row) => {
+            if (row.tenantId !== where.tenantId) return false
+            if (row.recipientUserId !== where.recipientUserId) return false
+            if (row.channel !== where.channel) return false
+            if (row.template !== where.template) return false
+            if (where.readAt === null && row.readAt !== null) return false
+            const createdAtGte = (where.createdAt as { gte?: Date } | undefined)?.gte
+            if (createdAtGte && row.createdAt instanceof Date && row.createdAt < createdAtGte) return false
+            return true
+          })
+          .map((row) => ({ payload: row.payload })),
+      create: async ({ data }: { data: Record<string, unknown> }) => {
+        const row = {
+          id: `notification-${notifications.length + 1}`,
+          ...data,
+          readAt: null,
+          createdAt: new Date(),
+        }
+        notifications.push(row)
+        return row
+      },
+    },
+    deviceToken: {
+      findMany: async () => [],
+    },
   }
 
-  return { prisma, sessions, templates, auditEvents, application }
+  return { prisma, sessions, templates, auditEvents, application, notifications }
 }

@@ -20,6 +20,7 @@ type ApplicationRow = {
   candidateId: string
   vacancyId: string
   externalIds: Record<string, unknown>
+  assignedToUserId?: string | null
 }
 
 describe('hh sync mapper', () => {
@@ -33,6 +34,12 @@ describe('hh sync mapper', () => {
       candidates: [] as CandidateRow[],
       applications: [] as ApplicationRow[],
       auditEvents: [] as Array<Record<string, unknown>>,
+      notifications: [] as Array<Record<string, unknown>>,
+      userRoles: [{ tenantId: 'tenant-1', userId: 'admin-1', role: 'hr_admin' }] as Array<{
+        tenantId: string
+        userId: string
+        role: string
+      }>,
     }
 
     const prisma = createFakePrisma(state)
@@ -44,6 +51,10 @@ describe('hh sync mapper', () => {
       negotiation,
       resume: resumeFixture,
       actorUserId: 'user-1',
+      env: {
+        RECRUITER_NOTIFICATIONS_ENABLED: true,
+        MOBILE_PUSH_ENABLED: false,
+      } as never,
     })
 
     expect(state.candidates).toHaveLength(1)
@@ -58,11 +69,16 @@ describe('hh sync mapper', () => {
       negotiation,
       resume: resumeFixture,
       actorUserId: 'user-1',
+      env: {
+        RECRUITER_NOTIFICATIONS_ENABLED: true,
+        MOBILE_PUSH_ENABLED: false,
+      } as never,
     })
 
     expect(state.candidates).toHaveLength(1)
     expect(state.applications).toHaveLength(1)
     expect(state.auditEvents).toHaveLength(2)
+    expect(state.notifications).toHaveLength(1)
   })
 
   test('dedups candidates by email/phone when hh id is absent', async () => {
@@ -87,6 +103,8 @@ describe('hh sync mapper', () => {
       ],
       applications: [] as ApplicationRow[],
       auditEvents: [] as Array<Record<string, unknown>>,
+      notifications: [] as Array<Record<string, unknown>>,
+      userRoles: [] as Array<{ tenantId: string; userId: string; role: string }>,
     }
 
     const prisma = createFakePrisma(state)
@@ -105,6 +123,117 @@ describe('hh sync mapper', () => {
     expect(state.candidates[0]?.id).toBe('cand-existing')
     expect((state.candidates[0]?.externalIds as any).hh_resume_id).toBe('resume-502')
     expect(state.applications).toHaveLength(1)
+  })
+
+  test('sends application.new to assigned recruiter when feature flag enabled', async () => {
+    const resumeFixture = await readFixture<any>('resume-501.json')
+    const negotiationsFixture = await readFixture<any>('negotiations-response-page-0.json')
+
+    const state = {
+      candidateSeq: 0,
+      applicationSeq: 0,
+      candidates: [
+        {
+          id: 'cand-1',
+          tenantId: 'tenant-1',
+          fullName: 'Existing Candidate',
+          source: 'hh_ru' as const,
+          email: 'alice@example.com',
+          phone: '+79990001122',
+          location: 'Moscow',
+          externalIds: { hh_resume_id: 'resume-501' },
+          consentContext: null,
+        },
+      ] as CandidateRow[],
+      applications: [
+        {
+          id: 'app-1',
+          tenantId: 'tenant-1',
+          candidateId: 'cand-1',
+          vacancyId: 'vacancy-1',
+          assignedToUserId: 'user-assigned',
+          externalIds: { hh_negotiation_id: 'neg-legacy' },
+        },
+      ] as ApplicationRow[],
+      auditEvents: [] as Array<Record<string, unknown>>,
+      notifications: [] as Array<Record<string, unknown>>,
+      userRoles: [] as Array<{ tenantId: string; userId: string; role: string }>,
+    }
+
+    await upsertNegotiationFromHh(createFakePrisma(state) as never, {
+      tenantId: 'tenant-1',
+      vacancyId: 'vacancy-1',
+      negotiation: negotiationsFixture.items[0]!,
+      resume: resumeFixture,
+      actorUserId: 'user-1',
+      env: {
+        RECRUITER_NOTIFICATIONS_ENABLED: true,
+        MOBILE_PUSH_ENABLED: false,
+      } as never,
+    })
+
+    expect(state.notifications).toHaveLength(1)
+    expect(state.notifications[0]).toMatchObject({
+      template: 'application.new',
+      recipientUserId: 'user-assigned',
+      payload: expect.objectContaining({
+        applicationId: 'app-1',
+      }),
+    })
+  })
+
+  test('falls back to hr_admin recipients when assignee is empty', async () => {
+    const resumeFixture = await readFixture<any>('resume-501.json')
+    const negotiationsFixture = await readFixture<any>('negotiations-response-page-0.json')
+
+    const state = {
+      candidateSeq: 0,
+      applicationSeq: 0,
+      candidates: [
+        {
+          id: 'cand-1',
+          tenantId: 'tenant-1',
+          fullName: 'Existing Candidate',
+          source: 'hh_ru' as const,
+          email: 'alice@example.com',
+          phone: '+79990001122',
+          location: 'Moscow',
+          externalIds: { hh_resume_id: 'resume-501' },
+          consentContext: null,
+        },
+      ] as CandidateRow[],
+      applications: [
+        {
+          id: 'app-1',
+          tenantId: 'tenant-1',
+          candidateId: 'cand-1',
+          vacancyId: 'vacancy-1',
+          assignedToUserId: null,
+          externalIds: { hh_negotiation_id: 'neg-legacy' },
+        },
+      ] as ApplicationRow[],
+      auditEvents: [] as Array<Record<string, unknown>>,
+      notifications: [] as Array<Record<string, unknown>>,
+      userRoles: [
+        { tenantId: 'tenant-1', userId: 'admin-1', role: 'hr_admin' },
+        { tenantId: 'tenant-1', userId: 'admin-2', role: 'hr_admin' },
+        { tenantId: 'tenant-1', userId: 'recruiter-1', role: 'recruiter' },
+      ] as Array<{ tenantId: string; userId: string; role: string }>,
+    }
+
+    await upsertNegotiationFromHh(createFakePrisma(state) as never, {
+      tenantId: 'tenant-1',
+      vacancyId: 'vacancy-1',
+      negotiation: negotiationsFixture.items[0]!,
+      resume: resumeFixture,
+      actorUserId: 'user-1',
+      env: {
+        RECRUITER_NOTIFICATIONS_ENABLED: true,
+        MOBILE_PUSH_ENABLED: false,
+      } as never,
+    })
+
+    expect(state.notifications.map((item) => item.recipientUserId).sort()).toEqual(['admin-1', 'admin-2'])
   })
 
   test('incremental filter accepts only newer negotiations', () => {
@@ -180,6 +309,8 @@ function createFakePrisma(state: {
   candidates: CandidateRow[]
   applications: ApplicationRow[]
   auditEvents: Array<Record<string, unknown>>
+  notifications: Array<Record<string, unknown>>
+  userRoles: Array<{ tenantId: string; userId: string; role: string }>
 }) {
   return {
     candidate: {
@@ -231,6 +362,7 @@ function createFakePrisma(state: {
       },
       create: async ({ data }: { data: Omit<ApplicationRow, 'id'> }) => {
         const row: ApplicationRow = {
+          assignedToUserId: null,
           ...data,
           id: `app-${++state.applicationSeq}`,
         }
@@ -249,6 +381,38 @@ function createFakePrisma(state: {
         state.auditEvents.push(data)
         return data
       },
+    },
+    userRole: {
+      findMany: async ({ where }: { where: { tenantId: string; role: { in: string[] } } }) =>
+        state.userRoles
+          .filter((row) => row.tenantId === where.tenantId && where.role.in.includes(row.role))
+          .map((row) => ({ userId: row.userId })),
+    },
+    notification: {
+      findMany: async ({ where }: { where: Record<string, unknown> }) =>
+        state.notifications.filter((row) => {
+          if (row.tenantId !== where.tenantId) return false
+          if (row.recipientUserId !== where.recipientUserId) return false
+          if (row.channel !== where.channel) return false
+          if (row.template !== where.template) return false
+          if (where.readAt === null && row.readAt !== null) return false
+          const createdAtGte = (where.createdAt as { gte?: Date } | undefined)?.gte
+          if (createdAtGte && row.createdAt instanceof Date && row.createdAt < createdAtGte) return false
+          return true
+        }).map((row) => ({ payload: row.payload })),
+      create: async ({ data }: { data: Record<string, unknown> }) => {
+        const row = {
+          id: `notification-${state.notifications.length + 1}`,
+          ...data,
+          readAt: null,
+          createdAt: new Date(),
+        }
+        state.notifications.push(row)
+        return row
+      },
+    },
+    deviceToken: {
+      findMany: async () => [],
     },
   }
 }
