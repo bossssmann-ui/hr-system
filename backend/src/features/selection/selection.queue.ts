@@ -13,6 +13,7 @@ import { createInMemoryQueue } from '../../queues'
 import { notifyRecruitersAboutSelectionReady } from '../applications/application-notifications'
 import { computeDomesticCrossCheckFlags } from './domestic-cross-check'
 import type { DomesticAssessmentProfile } from './domestic-scoring'
+import { runAutoAssessmentAfterSelection } from './auto-assessment-after-selection'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -397,6 +398,11 @@ async function runEvaluation({ prisma, env, sessionId }: EvaluateJob): Promise<v
         tenantId: session.tenantId,
         applicationId: session.applicationId,
         totalScore,
+      })
+      void runAutoAssessmentAfterSelection({
+        prisma,
+        env,
+        applicationId: session.applicationId,
       })
     }
   } catch (err) {
