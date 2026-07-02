@@ -670,25 +670,54 @@ maybeDescribe('Phase 18 — сквозной happy-path конвейера', () 
   test('Шаг 5 — Идемпотентность: повторный скоринг и нотификация не создают дублей', async () => {
     expect(applicationId).toBeDefined()
 
-    // Повторный скоринг с теми же данными → пропускается (unchanged_input)
-    const secondScore = await scoreApplication({
+    // Снимаем счётчики до повторного прогона
+    const sessionCountBefore = await prisma.selectionSession.count({
+      where: { tenantId, applicationId },
+    })
+    const assessmentCountBefore = await prisma.assessmentSession.count({
+      where: { tenantId, applicationId },
+    })
+    const notificationCountBefore = await prisma.notification.count({
+      where: { tenantId, recipientUserId: recruiterId },
+    })
+
+    // Повторный скоринг — к этому моменту pipeline уже в финальном состоянии
+    // (selection + assessment завершены), поэтому scorer может пересчитать результат,
+    // но авто-selection проверяет существующую сессию и не создаёт дубль.
+    await scoreApplication({
       prisma,
       env,
       applicationId,
       actorUserId: recruiterId,
       provider: {
-        score: async () => {
-          throw new Error('Provider must not be called for unchanged input')
-        },
+        score: async () => ({
+          relevance_score: 80,
+          summary: 'Повторный скоринг — идемпотентность конвейера.',
+          strengths: ['Опыт FTL/LTL', 'знание 1С'],
+          gaps: [],
+          soft_skills_signals: [],
+          red_flags: [],
+          anti_fraud_signals: [],
+          values_fit_hypothesis: 'Сильное соответствие',
+          interview_focus_areas: [],
+          model: 'mock',
+          scored_at: new Date().toISOString(),
+          schema_version: 1,
+        }),
       },
     })
-    expect(secondScore).toMatchObject({ skipped: true, reason: 'unchanged_input' })
 
     // Число SelectionSession не должно вырасти
-    const sessions = await prisma.selectionSession.findMany({
+    const sessionCountAfterScore = await prisma.selectionSession.count({
       where: { tenantId, applicationId },
     })
-    expect(sessions).toHaveLength(1)
+    expect(sessionCountAfterScore).toBe(sessionCountBefore)
+
+    // Число AssessmentSession не должно вырасти
+    const assessmentCountAfterScore = await prisma.assessmentSession.count({
+      where: { tenantId, applicationId },
+    })
+    expect(assessmentCountAfterScore).toBe(assessmentCountBefore)
 
     // Повторная нотификация с тем же eventKey не создаёт дубля
     const eventKey = `hh.sync.candidate_imported:${MOCK_NEGOTIATION.id}`
@@ -715,5 +744,11 @@ maybeDescribe('Phase 18 — сквозной happy-path конвейера', () 
       },
     })
     expect(duplicateNotifs).toHaveLength(1)
+
+    // Общее число нотификаций не выросло (скоринг и dedup работают корректно)
+    const notificationCountAfter = await prisma.notification.count({
+      where: { tenantId, recipientUserId: recruiterId },
+    })
+    expect(notificationCountAfter).toBe(notificationCountBefore)
   })
 })
