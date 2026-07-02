@@ -155,7 +155,7 @@ async function loginAs(app: ReturnType<typeof createApp>, email: string, passwor
 }
 
 // Stage answers that guarantee a ДОПУСТИТЬ verdict for logist_domestic:
-//   • Stage 1: hard-skill factology answers (no stop-criterion)
+//   • Stage 1: hard-skill factology answers (no stop criterion)
 //   • Stage 2: correct radio answers for core_operations + road_ftl_ltl
 //   • Stage 3: neutral psychology answers (no L-scale penalty)
 //   • Stage 4: practical assignment text (non-empty)
