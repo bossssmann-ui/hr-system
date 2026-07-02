@@ -1,0 +1,102 @@
+{
+  "title": "Performance",
+  "tabs": {
+    "oneOnOne": "1:1",
+    "reviews": "Reviews / 360°",
+    "okr": "OKR",
+    "idp": "IDP"
+  },
+  "loading": "Loading…",
+  "loadFailed": "Failed to load data",
+  "empty": "No data",
+  "actions": {
+    "schedule": "Schedule",
+    "complete": "Complete",
+    "open": "Open cycle",
+    "close": "Close cycle",
+    "submit": "Submit",
+    "update": "Update",
+    "cancel": "Cancel",
+    "save": "Save"
+  },
+  "oneOnOne": {
+    "title": "1:1 Meetings",
+    "empty": "No meetings found",
+    "schedule": "Schedule meeting",
+    "complete": "Complete meeting",
+    "employeeId": "Employee (ID)",
+    "managerUserId": "Manager (ID)",
+    "scheduledAt": "Date & time",
+    "agenda": "Agenda",
+    "notes": "Notes",
+    "actionItems": "Action items (one per line)",
+    "status": {
+      "scheduled": "Scheduled",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    }
+  },
+  "reviews": {
+    "title": "Review cycles",
+    "empty": "No cycles found",
+    "cycleStatus": {
+      "draft": "Draft",
+      "open": "Open",
+      "closed": "Closed"
+    },
+    "completion": "Completed: {{submitted}} / {{total}}",
+    "myRequests": "My reviews",
+    "myRequestsEmpty": "No pending reviews",
+    "requestStatus": {
+      "pending": "Pending",
+      "submitted": "Submitted",
+      "declined": "Declined"
+    },
+    "submitReview": "Submit review",
+    "closesAt": "Closes"
+  },
+  "okr": {
+    "title": "OKR",
+    "empty": "No OKRs found",
+    "quarter": "Quarter",
+    "progress": "Progress",
+    "status": {
+      "draft": "Draft",
+      "active": "Active",
+      "achieved": "Achieved",
+      "missed": "Missed"
+    },
+    "keyResults": "Key results",
+    "krStatus": {
+      "open": "Open",
+      "on_track": "On track",
+      "at_risk": "At risk",
+      "achieved": "Achieved"
+    },
+    "current": "Current",
+    "target": "Target",
+    "unit": "Unit",
+    "updateValue": "Update value",
+    "newValue": "New value"
+  },
+  "idp": {
+    "title": "Individual Development Plan",
+    "empty": "No development plans found",
+    "quarter": "Quarter",
+    "progress": "Progress",
+    "status": {
+      "draft": "Draft",
+      "active": "Active",
+      "completed": "Completed"
+    },
+    "items": "Plan items",
+    "itemStatus": {
+      "planned": "Planned",
+      "in_progress": "In progress",
+      "completed": "Completed",
+      "dropped": "Dropped"
+    },
+    "changeStatus": "Change status",
+    "dueDate": "Due date"
+  }
+}

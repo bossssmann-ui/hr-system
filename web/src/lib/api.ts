@@ -1,4 +1,32 @@
 import {
+  listOneOnOnesResponseSchema,
+  oneOnOneResponseSchema,
+  type CreateOneOnOneRequest,
+  type CompleteOneOnOneRequest,
+  type ListOneOnOnesResponse,
+  type OneOnOneResponse,
+  reviewCycleWithStatsResponseSchema,
+  reviewRequestResponseSchema,
+  type OpenReviewCycleRequest,
+  type SubmitReviewRequest,
+  type ReviewCycleWithStatsResponse,
+  type ReviewRequestResponse,
+  listPerformanceOkrsResponseSchema,
+  performanceOkrResponseSchema,
+  performanceOkrKeyResultResponseSchema,
+  type ListPerformanceOkrsResponse,
+  type PerformanceOkrResponse,
+  type PerformanceOkrKeyResultResponse,
+  type PatchOkrKeyResultRequest,
+  listPerformanceIdpsResponseSchema,
+  performanceIdpResponseSchema,
+  performanceIdpItemResponseSchema,
+  type ListPerformanceIdpsResponse,
+  type PerformanceIdpResponse,
+  type PerformanceIdpItemResponse,
+  type PatchIdpItemRequest,
+} from '@web-app-demo/contracts'
+import {
   apiErrorSchema,
   applicationDetailSchema,
   applicationSchema,
@@ -1040,6 +1068,162 @@ export class ApiClient {
       method: 'DELETE',
       auth: true,
     })
+  }
+
+  // ─── Performance: 1:1 ───────────────────────────────────────────────────
+
+  listOneOnOnes(params?: {
+    employeeId?: string
+    managerUserId?: string
+    status?: 'scheduled' | 'completed' | 'cancelled'
+    page?: number
+    pageSize?: number
+  }): Promise<ListOneOnOnesResponse> {
+    const qs = new URLSearchParams()
+    if (params?.employeeId) qs.set('employeeId', params.employeeId)
+    if (params?.managerUserId) qs.set('managerUserId', params.managerUserId)
+    if (params?.status) qs.set('status', params.status)
+    if (params?.page != null) qs.set('page', String(params.page))
+    if (params?.pageSize != null) qs.set('pageSize', String(params.pageSize))
+    const query = qs.toString()
+    return this.request(
+      `/api/one-on-ones${query ? `?${query}` : ''}`,
+      listOneOnOnesResponseSchema,
+      { auth: true },
+    )
+  }
+
+  createOneOnOne(body: CreateOneOnOneRequest): Promise<OneOnOneResponse> {
+    return this.request('/api/one-on-ones', oneOnOneResponseSchema, {
+      method: 'POST',
+      body,
+      auth: true,
+    })
+  }
+
+  completeOneOnOne(id: string, body: CompleteOneOnOneRequest): Promise<OneOnOneResponse> {
+    return this.request(`/api/one-on-ones/${id}/complete`, oneOnOneResponseSchema, {
+      method: 'POST',
+      body,
+      auth: true,
+    })
+  }
+
+  // ─── Performance: Reviews / 360 ─────────────────────────────────────────
+
+  listReviewCycles(): Promise<{ items: ReviewCycleWithStatsResponse[] }> {
+    return this.request(
+      '/api/reviews/cycles',
+      z.object({ items: z.array(reviewCycleWithStatsResponseSchema) }),
+      { auth: true },
+    )
+  }
+
+  openReviewCycle(id: string, body: OpenReviewCycleRequest): Promise<ReviewCycleWithStatsResponse> {
+    return this.request(`/api/reviews/cycles/${id}/open`, reviewCycleWithStatsResponseSchema, {
+      method: 'POST',
+      body,
+      auth: true,
+    })
+  }
+
+  closeReviewCycle(id: string): Promise<ReviewCycleWithStatsResponse> {
+    return this.request(`/api/reviews/cycles/${id}/close`, reviewCycleWithStatsResponseSchema, {
+      method: 'POST',
+      body: {},
+      auth: true,
+    })
+  }
+
+  listMyReviewRequests(params: {
+    reviewerUserId: string
+    status?: 'pending' | 'submitted' | 'declined'
+  }): Promise<{ items: ReviewRequestResponse[] }> {
+    const qs = new URLSearchParams({ reviewerUserId: params.reviewerUserId })
+    if (params.status) qs.set('status', params.status)
+    return this.request(
+      `/api/reviews/requests?${qs.toString()}`,
+      z.object({ items: z.array(reviewRequestResponseSchema) }),
+      { auth: true },
+    )
+  }
+
+  submitReviewRequest(id: string, body: SubmitReviewRequest): Promise<ReviewRequestResponse> {
+    return this.request(`/api/reviews/requests/${id}/submit`, reviewRequestResponseSchema, {
+      method: 'POST',
+      body,
+      auth: true,
+    })
+  }
+
+  // ─── Performance: OKR ───────────────────────────────────────────────────
+
+  listOkrs(params?: {
+    employeeId?: string
+    quarter?: string
+    status?: 'draft' | 'active' | 'achieved' | 'missed'
+  }): Promise<ListPerformanceOkrsResponse> {
+    const qs = new URLSearchParams()
+    if (params?.employeeId) qs.set('employeeId', params.employeeId)
+    if (params?.quarter) qs.set('quarter', params.quarter)
+    if (params?.status) qs.set('status', params.status)
+    const query = qs.toString()
+    return this.request(
+      `/api/okrs${query ? `?${query}` : ''}`,
+      listPerformanceOkrsResponseSchema,
+      { auth: true },
+    )
+  }
+
+  getOkr(id: string): Promise<PerformanceOkrResponse> {
+    return this.request(`/api/okrs/${id}`, performanceOkrResponseSchema, { auth: true })
+  }
+
+  patchOkrKeyResult(
+    okrId: string,
+    krId: string,
+    body: PatchOkrKeyResultRequest,
+  ): Promise<PerformanceOkrKeyResultResponse> {
+    return this.request(
+      `/api/okrs/${okrId}/key-results/${krId}`,
+      performanceOkrKeyResultResponseSchema,
+      { method: 'PATCH', body, auth: true },
+    )
+  }
+
+  // ─── Performance: IDP ───────────────────────────────────────────────────
+
+  listIdps(params?: {
+    employeeId?: string
+    quarter?: string
+    status?: 'draft' | 'active' | 'completed'
+  }): Promise<ListPerformanceIdpsResponse> {
+    const qs = new URLSearchParams()
+    if (params?.employeeId) qs.set('employeeId', params.employeeId)
+    if (params?.quarter) qs.set('quarter', params.quarter)
+    if (params?.status) qs.set('status', params.status)
+    const query = qs.toString()
+    return this.request(
+      `/api/idps${query ? `?${query}` : ''}`,
+      listPerformanceIdpsResponseSchema,
+      { auth: true },
+    )
+  }
+
+  getIdp(id: string): Promise<PerformanceIdpResponse> {
+    return this.request(`/api/idps/${id}`, performanceIdpResponseSchema, { auth: true })
+  }
+
+  patchIdpItem(
+    idpId: string,
+    itemId: string,
+    body: PatchIdpItemRequest,
+  ): Promise<PerformanceIdpItemResponse> {
+    return this.request(
+      `/api/idps/${idpId}/items/${itemId}`,
+      performanceIdpItemResponseSchema,
+      { method: 'PATCH', body, auth: true },
+    )
   }
 
   /**
