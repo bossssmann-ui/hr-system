@@ -366,7 +366,7 @@ maybeDescribe('OKR routes', () => {
     expect(auditActions.some((item) => item.action === 'key_result.updated')).toBe(true)
   })
 
-  test('access control: unrelated employee cannot access чужой OKR; manager can read', async () => {
+  test("access control: unrelated employee cannot access another employee's OKR; manager can read", async () => {
     const createRes = await app.request('/api/okrs', {
       method: 'POST',
       headers: authHeaders(ownerToken),
