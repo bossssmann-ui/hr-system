@@ -15,7 +15,7 @@ import { createCandidatesRoutes } from './features/candidates/candidates.routes'
 import { createDevicesRoutes } from './features/devices/devices.routes'
 import { createEmployeesRoutes } from './features/employees/employees.routes'
 import { createKnowledgeRoutes } from './features/knowledge/knowledge.routes'
-import { createLearningRoutes, createOkrsRoutes } from './features/learning/learning.routes'
+import { createLearningRoutes } from './features/learning/learning.routes'
 import { createOrgUnitsRoutes } from './features/org-units/org-units.routes'
 import { createPublicCareersRoutes } from './features/public/public.routes'
 import { createPortalRoutes } from './features/portal/portal.routes'
@@ -52,6 +52,7 @@ import {
   createTenantSettingsRoutes,
 } from './features/tenant/tenant.routes'
 import { createOneOnOneRoutes } from './features/performance/one-on-one.routes'
+import { createOkrRoutes } from './features/performance/okr.routes'
 import { createReviewRoutes } from './features/performance/review.routes'
 import { createAuditMiddleware } from './http/audit'
 import { errorResponse, handleError } from './http/errors'
@@ -134,7 +135,7 @@ export function createApp({ env, prisma }: CreateAppOptions) {
   app.route('/api/learning', createLearningRoutes())
   app.route('/api/one-on-ones', createOneOnOneRoutes())
   app.route('/api/reviews', createReviewRoutes())
-  app.route('/api/okrs', createOkrsRoutes())
+  app.route('/api/okrs', createOkrRoutes())
   app.route('/api/alumni', createAlumniRoutes())
   app.route('/api/portal', createPortalRoutes())
   app.route('/api/applications', createApplicationsRoutes())
