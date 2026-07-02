@@ -234,7 +234,7 @@ export async function patchIdpItem({
   const data: Record<string, unknown> = {}
   if (title !== undefined) data.title = title
   if (description !== undefined) data.description = description
-  if (dueDate !== undefined) data.dueDate = new Date(dueDate)
+  if (dueDate !== undefined) data.dueDate = dueDate ? new Date(dueDate) : null
 
   if (status !== undefined) {
     if (!canIdpItemTransition(existing.status as IdpItemStatus, status as IdpItemStatus)) {
