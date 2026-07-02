@@ -223,3 +223,84 @@ export const reviewSubjectResultsResponseSchema = z.object({
   questionAggregates: z.array(reviewSubjectQuestionAggregateSchema),
 })
 export type ReviewSubjectResultsResponse = z.infer<typeof reviewSubjectResultsResponseSchema>
+
+// ─── OKR ──────────────────────────────────────────────────────────────────────
+
+export const performanceOkrStatusSchema = z.enum(['draft', 'active', 'achieved', 'missed'])
+export type PerformanceOkrStatus = z.infer<typeof performanceOkrStatusSchema>
+
+export const performanceKeyResultStatusSchema = z.enum(['open', 'on_track', 'at_risk', 'achieved'])
+export type PerformanceKeyResultStatus = z.infer<typeof performanceKeyResultStatusSchema>
+
+export const createOkrRequestSchema = z.object({
+  employeeId: z.string().uuid(),
+  quarter: z.string().regex(/^\d{4}-Q[1-4]$/, 'quarter must look like 2026-Q1'),
+  objective: z.string().min(1),
+  description: z.string().optional(),
+  parentOkrId: z.string().uuid().optional(),
+})
+export type CreateOkrRequest = z.infer<typeof createOkrRequestSchema>
+
+export const patchOkrRequestSchema = z.object({
+  objective: z.string().min(1).optional(),
+  description: z.string().optional(),
+  parentOkrId: z.string().uuid().nullable().optional(),
+})
+export type PatchOkrRequest = z.infer<typeof patchOkrRequestSchema>
+
+export const closeOkrRequestSchema = z.object({
+  finalStatus: z.enum(['achieved', 'missed']).optional(),
+})
+export type CloseOkrRequest = z.infer<typeof closeOkrRequestSchema>
+
+export const createOkrKeyResultRequestSchema = z.object({
+  title: z.string().min(1),
+  unit: z.string().optional(),
+  startValue: z.number().optional(),
+  targetValue: z.number(),
+})
+export type CreateOkrKeyResultRequest = z.infer<typeof createOkrKeyResultRequestSchema>
+
+export const patchOkrKeyResultRequestSchema = z.object({
+  title: z.string().min(1).optional(),
+  unit: z.string().optional(),
+  targetValue: z.number().optional(),
+  currentValue: z.number().optional(),
+})
+export type PatchOkrKeyResultRequest = z.infer<typeof patchOkrKeyResultRequestSchema>
+
+export const performanceOkrKeyResultResponseSchema = z.object({
+  id: z.string(),
+  okrId: z.string(),
+  title: z.string(),
+  unit: z.string().nullable(),
+  startValue: z.number(),
+  targetValue: z.number(),
+  currentValue: z.number(),
+  status: performanceKeyResultStatusSchema,
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+})
+export type PerformanceOkrKeyResultResponse = z.infer<typeof performanceOkrKeyResultResponseSchema>
+
+export const performanceOkrResponseSchema = z.object({
+  id: z.string(),
+  tenantId: z.string(),
+  employeeId: z.string(),
+  parentOkrId: z.string().nullable(),
+  quarter: z.string(),
+  objective: z.string(),
+  description: z.string().nullable(),
+  status: performanceOkrStatusSchema,
+  progressPercent: z.number().int().min(0).max(100),
+  createdByUserId: z.string(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  keyResults: z.array(performanceOkrKeyResultResponseSchema).optional(),
+})
+export type PerformanceOkrResponse = z.infer<typeof performanceOkrResponseSchema>
+
+export const listPerformanceOkrsResponseSchema = z.object({
+  items: z.array(performanceOkrResponseSchema),
+})
+export type ListPerformanceOkrsResponse = z.infer<typeof listPerformanceOkrsResponseSchema>
