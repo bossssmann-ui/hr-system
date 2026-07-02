@@ -304,3 +304,72 @@ export const listPerformanceOkrsResponseSchema = z.object({
   items: z.array(performanceOkrResponseSchema),
 })
 export type ListPerformanceOkrsResponse = z.infer<typeof listPerformanceOkrsResponseSchema>
+
+// ─── IDP ──────────────────────────────────────────────────────────────────────
+
+export const performanceIdpStatusSchema = z.enum(['draft', 'active', 'completed'])
+export type PerformanceIdpStatus = z.infer<typeof performanceIdpStatusSchema>
+
+export const performanceIdpItemStatusSchema = z.enum(['planned', 'in_progress', 'completed', 'dropped'])
+export type PerformanceIdpItemStatus = z.infer<typeof performanceIdpItemStatusSchema>
+
+export const createIdpRequestSchema = z.object({
+  employeeId: z.string().uuid(),
+  quarter: z.string().regex(/^\d{4}-Q[1-4]$/, 'quarter must look like 2026-Q1'),
+  summary: z.string().optional(),
+})
+export type CreateIdpRequest = z.infer<typeof createIdpRequestSchema>
+
+export const patchIdpRequestSchema = z.object({
+  summary: z.string().optional(),
+  status: performanceIdpStatusSchema.optional(),
+})
+export type PatchIdpRequest = z.infer<typeof patchIdpRequestSchema>
+
+export const createIdpItemRequestSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().optional(),
+  dueDate: z.string().date().optional(),
+})
+export type CreateIdpItemRequest = z.infer<typeof createIdpItemRequestSchema>
+
+export const patchIdpItemRequestSchema = z.object({
+  title: z.string().min(1).optional(),
+  description: z.string().optional(),
+  dueDate: z.string().date().optional(),
+  status: performanceIdpItemStatusSchema.optional(),
+})
+export type PatchIdpItemRequest = z.infer<typeof patchIdpItemRequestSchema>
+
+export const performanceIdpItemResponseSchema = z.object({
+  id: z.string(),
+  idpId: z.string(),
+  title: z.string(),
+  description: z.string().nullable(),
+  status: performanceIdpItemStatusSchema,
+  dueDate: z.string().nullable(),
+  completedAt: z.string().datetime().nullable(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+})
+export type PerformanceIdpItemResponse = z.infer<typeof performanceIdpItemResponseSchema>
+
+export const performanceIdpResponseSchema = z.object({
+  id: z.string(),
+  tenantId: z.string(),
+  employeeId: z.string(),
+  quarter: z.string(),
+  summary: z.string().nullable(),
+  status: performanceIdpStatusSchema,
+  createdByUserId: z.string(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  items: z.array(performanceIdpItemResponseSchema).optional(),
+  progress: z.number().int().min(0).max(100).optional(),
+})
+export type PerformanceIdpResponse = z.infer<typeof performanceIdpResponseSchema>
+
+export const listPerformanceIdpsResponseSchema = z.object({
+  items: z.array(performanceIdpResponseSchema),
+})
+export type ListPerformanceIdpsResponse = z.infer<typeof listPerformanceIdpsResponseSchema>
