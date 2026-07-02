@@ -54,6 +54,7 @@ import {
 import { createOneOnOneRoutes } from './features/performance/one-on-one.routes'
 import { createOkrRoutes } from './features/performance/okr.routes'
 import { createReviewRoutes } from './features/performance/review.routes'
+import { createIdpRoutes } from './features/performance/idp.routes'
 import { createAuditMiddleware } from './http/audit'
 import { errorResponse, handleError } from './http/errors'
 import { createStorageServiceFromEnv, type StorageService } from './storage/service'
@@ -136,6 +137,7 @@ export function createApp({ env, prisma }: CreateAppOptions) {
   app.route('/api/one-on-ones', createOneOnOneRoutes())
   app.route('/api/reviews', createReviewRoutes())
   app.route('/api/okrs', createOkrRoutes())
+  app.route('/api/idps', createIdpRoutes())
   app.route('/api/alumni', createAlumniRoutes())
   app.route('/api/portal', createPortalRoutes())
   app.route('/api/applications', createApplicationsRoutes())
