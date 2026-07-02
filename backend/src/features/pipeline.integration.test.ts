@@ -480,12 +480,10 @@ maybeDescribe('Phase 18 — сквозной happy-path конвейера', () 
     const app = await prisma.application.findUniqueOrThrow({ where: { id: applicationId } })
     const composite = app.compositeScore as Record<string, unknown>
     expect(composite).not.toBeNull()
-    // overall — взвешенная величина; гарантируем лишь диапазон
-    expect(composite.overall).toBeGreaterThan(0)
-    expect(composite.overall).toBeLessThanOrEqual(100)
     const breakdown = composite.breakdown as Record<string, unknown>
-    // resume-компонент должен точно равняться relevance_score
+    // resume-компонент должен точно равняться relevance_score (детерминированная проверка)
     expect(breakdown.resume).toBe(80)
+    // overall проверяем на финальном шаге, когда присутствуют все компоненты
 
     // SelectionSession должна быть создана (AUTO_SELECTION_ENABLED + score > threshold)
     const session = await prisma.selectionSession.findFirst({
