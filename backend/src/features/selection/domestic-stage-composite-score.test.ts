@@ -5,6 +5,7 @@ const recomputeCompositeScoreForApplication = mock(async () => {
 })
 const recordCompositeScoreRecomputeFailure = mock(async () => undefined)
 const notifyRecruitersAboutSelectionReady = mock(async () => undefined)
+const notifyRecipientsForEvent = mock(async () => undefined)
 const runAutoAssessmentAfterSelection = mock(async () => undefined)
 
 mock.module('../applications/composite-score', () => ({
@@ -14,6 +15,10 @@ mock.module('../applications/composite-score', () => ({
 
 mock.module('../applications/application-notifications', () => ({
   notifyRecruitersAboutSelectionReady,
+}))
+
+mock.module('../notifications/recruiter-event-notifications', () => ({
+  notifyRecipientsForEvent,
 }))
 
 mock.module('./auto-assessment-after-selection', () => ({
@@ -47,11 +52,16 @@ describe('finalizeDomesticStage4 composite score isolation', () => {
     const result = await finalizeDomesticStage4(
       prisma as never,
       'sess-1',
-      { COMPOSITE_SCORE_ENABLED: true } as never,
+      { COMPOSITE_SCORE_ENABLED: true, RECRUITER_NOTIFICATIONS_ENABLED: true } as never,
     )
 
     expect(result).not.toBeNull()
     expect(recordCompositeScoreRecomputeFailure).toHaveBeenCalledTimes(1)
+    expect(notifyRecipientsForEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        template: 'selection.completed',
+      }),
+    )
   })
 })
 

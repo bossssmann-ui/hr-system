@@ -5,6 +5,7 @@ import { decryptHhSecret } from '../../integrations/hh/crypto'
 import { getChannelAdapter } from '../messaging/messaging.service'
 import { createSelectionSession } from './selection-session.service'
 import { parseSupportedRole } from './selection-role-adapter'
+import { notifyRecipientsForEvent } from '../notifications/recruiter-event-notifications'
 
 type SendAutoSelectionInviteInput = {
   prisma: DbClient
@@ -116,6 +117,21 @@ export async function runAutoSelectionAfterScoring(input: RunAutoSelectionAfterS
           } as Prisma.InputJsonValue,
         },
       })
+
+      if (env.RECRUITER_NOTIFICATIONS_ENABLED) {
+        await notifyRecipientsForEvent({
+          prisma,
+          env,
+          tenantId: application.tenantId,
+          applicationId: application.id,
+          template: 'application.auto_rejected',
+          eventKey: `application.auto_rejected:${application.id}`,
+          payload: {
+            reason: 'auto_reject_low_relevance',
+            relevanceScore,
+          },
+        })
+      }
 
       return { applied: true as const, action: 'auto_rejected' as const }
     }

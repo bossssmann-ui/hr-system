@@ -29,6 +29,7 @@ import {
   recomputeCompositeScoreForApplication,
   recordCompositeScoreRecomputeFailure,
 } from '../applications/composite-score'
+import { notifyRecipientsForEvent } from '../notifications/recruiter-event-notifications'
 import { enqueueAssessmentOpenAnswerGrading } from './assessments.queue'
 import { computeTrustScore } from './trust-score'
 
@@ -449,6 +450,22 @@ export function createPublicAssessmentRoutes() {
           prisma,
           env,
           sessionId: session.id,
+        })
+      }
+
+      if (env.RECRUITER_NOTIFICATIONS_ENABLED) {
+        await notifyRecipientsForEvent({
+          prisma,
+          env,
+          tenantId: session.tenantId,
+          applicationId: session.applicationId,
+          template: 'assessment.completed',
+          eventKey: `assessment_session.completed:${session.id}`,
+          payload: {
+            trust: trustScore,
+            score: null,
+            redFlagged,
+          },
         })
       }
 

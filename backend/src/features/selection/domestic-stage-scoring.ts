@@ -20,6 +20,7 @@ import {
 } from '../applications/composite-score'
 import { canTransition, type ApplicationStage } from '../applications/applications.fsm'
 import { notifyRecruitersAboutSelectionReady } from '../applications/application-notifications'
+import { notifyRecipientsForEvent } from '../notifications/recruiter-event-notifications'
 import { runAutoAssessmentAfterSelection } from './auto-assessment-after-selection'
 import { asNonEmptyString } from './domestic-answer-helpers'
 import {
@@ -791,6 +792,25 @@ export async function finalizeDomesticStage4(
       prisma,
       env,
       applicationId: session.applicationId,
+    })
+  }
+
+  if (
+    env?.RECRUITER_NOTIFICATIONS_ENABLED &&
+    session.applicationId &&
+    (computation.verdictLabel === VERDICT_ADMIT || computation.verdictLabel === VERDICT_REJECT)
+  ) {
+    await notifyRecipientsForEvent({
+      prisma,
+      env,
+      tenantId: session.tenantId,
+      applicationId: session.applicationId,
+      template: 'selection.completed',
+      eventKey: `selection_session.completed:${session.id}`,
+      payload: {
+        verdict: computation.verdictLabel,
+        totalScore: Number(computation.totalScore.toFixed(1)),
+      },
     })
   }
 

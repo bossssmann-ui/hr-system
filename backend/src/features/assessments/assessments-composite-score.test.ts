@@ -15,13 +15,15 @@ const { createPublicAssessmentRoutes } = await import('./assessments.routes')
 
 describe('public assessment composite score isolation', () => {
   test('does not fail assessment submit when composite score recomputation throws', async () => {
-    const prisma = createPrismaMock()
+    const state = createPrismaMock()
     const app = new Hono<{ Variables: { prisma: unknown; env: unknown } }>()
     app.use('*', async (c, next) => {
-      c.set('prisma', prisma)
+      c.set('prisma', state.prisma)
       c.set('env', {
         ASSESSMENTS_ENABLED: true,
         AI_SCORING_ENABLED: false,
+        RECRUITER_NOTIFICATIONS_ENABLED: true,
+        MOBILE_PUSH_ENABLED: false,
         TRUST_WEIGHT_PASTE: 0.35,
         TRUST_WEIGHT_FOCUS: 0.4,
         TRUST_WEIGHT_KEYSTROKE: 0.25,
@@ -46,10 +48,20 @@ describe('public assessment composite score isolation', () => {
 
     expect(response.status).toBe(200)
     expect(recordCompositeScoreRecomputeFailure).toHaveBeenCalledTimes(1)
+    expect(state.notifications).toHaveLength(1)
+    expect(state.notifications[0]).toMatchObject({
+      template: 'assessment.completed',
+      recipientUserId: 'user-assigned',
+      payload: expect.objectContaining({
+        applicationId: 'app-1',
+        trust: expect.any(Number),
+      }),
+    })
   })
 })
 
 function createPrismaMock() {
+  const notifications: Array<Record<string, unknown>> = []
   const session = {
     id: 'session-1',
     tenantId: 'tenant-1',
@@ -89,9 +101,50 @@ function createPrismaMock() {
   }
 
   return {
+    prisma: {
     assessmentSession: {
       findUnique: async () => session,
     },
+    application: {
+      findFirst: async () => ({
+        id: 'app-1',
+        tenantId: 'tenant-1',
+        assignedToUserId: 'user-assigned',
+      }),
+    },
+    userRole: {
+      findMany: async () => [{ userId: 'admin-1' }],
+    },
+    notification: {
+      findMany: async ({ where }: { where: Record<string, unknown> }) =>
+        notifications
+          .filter((row) => {
+            if (row.tenantId !== where.tenantId) return false
+            if (row.recipientUserId !== where.recipientUserId) return false
+            if (row.channel !== where.channel) return false
+            if (row.template !== where.template) return false
+            if (where.readAt === null && row.readAt !== null) return false
+            const createdAtGte = (where.createdAt as { gte?: Date } | undefined)?.gte
+            if (createdAtGte && row.createdAt instanceof Date && row.createdAt < createdAtGte) return false
+            return true
+          })
+          .map((row) => ({ payload: row.payload })),
+      create: async ({ data }: { data: Record<string, unknown> }) => {
+        const row = {
+          id: `notification-${notifications.length + 1}`,
+          ...data,
+          readAt: null,
+          createdAt: new Date(),
+        }
+        notifications.push(row)
+        return row
+      },
+    },
+    deviceToken: {
+      findMany: async () => [],
+    },
     $transaction: async (fn: (transaction: typeof tx) => Promise<unknown>) => fn(tx),
+    },
+    notifications,
   }
 }
