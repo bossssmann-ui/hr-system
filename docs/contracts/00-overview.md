@@ -25,6 +25,62 @@ The roadmap is split into **12 phases**. This document only covers the **active 
 
 Phase 18 introduces the auto-pipeline foundation (feature flags + contracts + schema fields) in additive mode; business logic remains in follow-up PRs.
 
+## Phase 18 — Авто-конвейер (Горизонт 1, полностью реализован)
+
+Phase 18 реализует полный сквозной авто-конвейер рекрутинга. Каждый этап управляется feature-флагом и может быть включён независимо.
+
+### Флаги конвейера
+
+| Флаг | Описание |
+| --- | --- |
+| `RECRUITER_NOTIFICATIONS_ENABLED` | Уведомления рекрутеру по событиям конвейера |
+| `AI_SCORING_ENABLED` + `LLM_SCORING_*` | LLM-скоринг резюме |
+| `AUTO_SELECTION_ENABLED` + `AUTO_SELECTION_THRESHOLD` | Авто-создание SelectionSession при score ≥ порога |
+| `AUTO_ASSESSMENT_ENABLED` | Авто-создание AssessmentSession после ДОПУСТИТЬ |
+| `COMPOSITE_SCORE_ENABLED` | Пересчёт compositeScore по всем источникам |
+
+### Поток данных (все флаги включены)
+
+```
+HH negotiation
+  └─▶ upsertNegotiationFromHh
+        ├─▶ Candidate + Application созданы
+        ├─▶ Notification(template='application.new') → рекрутеру   [RECRUITER_NOTIFICATIONS_ENABLED]
+        └─▶ enqueueApplicationScoringJob (void, durable queue)
+
+scoreApplication (LLM provider)
+  ├─▶ Application.aiScoring обновлён (status='scored', input_hash)
+  ├─▶ compositeScore.breakdown.resume заполнен                     [COMPOSITE_SCORE_ENABLED]
+  └─▶ runAutoSelectionAfterScoring                                  [AUTO_SELECTION_ENABLED, score ≥ threshold]
+        ├─▶ SelectionSession создана (idempotent)
+        └─▶ Приглашение кандидату (email / hh_chat)
+
+finalizeDomesticStage4 (verdict = ДОПУСТИТЬ)
+  ├─▶ SelectionVerdict записан
+  ├─▶ writeBackVerdictToApplication
+  ├─▶ compositeScore.breakdown.selection заполнен                  [COMPOSITE_SCORE_ENABLED]
+  ├─▶ Notification(template='selection.completed') → рекрутеру     [RECRUITER_NOTIFICATIONS_ENABLED]
+  └─▶ runAutoAssessmentAfterSelection (void)                        [AUTO_ASSESSMENT_ENABLED]
+        ├─▶ AssessmentSession × N (по requiredAssessmentTemplateIds, idempotent)
+        └─▶ Приглашения кандидату
+
+assessmentSubmit (public API)
+  ├─▶ AssessmentSession завершена (trust_score пересчитан)
+  ├─▶ compositeScore.breakdown.assessment заполнен                 [COMPOSITE_SCORE_ENABLED]
+  └─▶ Notification(template='assessment.completed') → рекрутеру   [RECRUITER_NOTIFICATIONS_ENABLED]
+```
+
+### Идемпотентность
+
+- **Скоринг**: повторный вызов с тем же `input_hash` возвращает `{ skipped: true, reason: 'unchanged_input' }`.
+- **SelectionSession**: создаётся один раз per applicationId; повторный вызов пропускается.
+- **AssessmentSession**: проверка `findFirst({ status: { notIn: ['expired'] } })` per (applicationId, templateId).
+- **Notifications**: `hasRecentUnreadDuplicate` блокирует дубли одного eventKey в 10-минутном окне.
+
+### Сквозной интеграционный тест
+
+`backend/src/features/pipeline.integration.test.ts` — проверяет все 5 стыков конвейера на чистом тенанте с мок-провайдерами (без реальных сетевых вызовов). Запускается в `bun run test:integration`.
+
 ## Deferred surfaces
 
 | Surface | Notes |
