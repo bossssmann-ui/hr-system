@@ -88,17 +88,25 @@ export async function createIdp({
     throw new AppError(409, 'CONFLICT', `IDP for employee ${employeeId} in ${quarter} already exists`)
   }
 
-  const row = await prisma.idp.create({
-    data: {
-      tenantId,
-      employeeId,
-      quarter,
-      summary: summary ?? null,
-      status: 'draft',
-      createdByUserId: actorUserId,
-    },
-  })
-  return toIdpDto(row)
+  try {
+    const row = await prisma.idp.create({
+      data: {
+        tenantId,
+        employeeId,
+        quarter,
+        summary: summary ?? null,
+        status: 'draft',
+        createdByUserId: actorUserId,
+      },
+    })
+    return toIdpDto(row)
+  } catch (error) {
+    const code = typeof error === 'object' && error !== null && 'code' in error ? (error as { code?: string }).code : null
+    if (code === 'P2002') {
+      throw new AppError(409, 'CONFLICT', `IDP for employee ${employeeId} in ${quarter} already exists`)
+    }
+    throw error
+  }
 }
 
 export async function patchIdp({
