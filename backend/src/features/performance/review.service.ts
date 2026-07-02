@@ -531,6 +531,10 @@ export async function getReviewSubjectResults({
     byRelationshipMap.set(request.relationship, current)
   }
 
+  const submissions = submitted.filter(
+    (request): request is (typeof request & { submittedAt: Date }) => request.submittedAt instanceof Date,
+  )
+
   const questions = toReviewQuestionArray(cycle.questions)
   const questionAggregates = questions.map((question) => {
     const values = submitted
@@ -545,12 +549,20 @@ export async function getReviewSubjectResults({
         ? numericValues.reduce((sum, value) => sum + value, 0) / numericValues.length
         : null
 
-    const type =
-      numericValues.length > 0 && textResponses.length > 0
-        ? 'mixed'
-        : question.type === 'text' || textResponses.length > 0
-          ? 'text'
-          : 'rating'
+    const hasNumeric = numericValues.length > 0
+    const hasText = textResponses.length > 0
+    let type: 'rating' | 'text' | 'mixed'
+    if (question.type === 'rating') {
+      type = hasText ? 'mixed' : 'rating'
+    } else if (question.type === 'text') {
+      type = hasNumeric ? 'mixed' : 'text'
+    } else if (hasNumeric && hasText) {
+      type = 'mixed'
+    } else if (hasText) {
+      type = 'text'
+    } else {
+      type = 'rating'
+    }
 
     return {
       questionId: question.id,
@@ -574,12 +586,12 @@ export async function getReviewSubjectResults({
       submitted: stats.submitted,
       total: stats.total,
     })),
-    submissions: submitted.map((request) => ({
+    submissions: submissions.map((request) => ({
       requestId: request.id,
       reviewerUserId: request.reviewerUserId,
       relationship: request.relationship,
       response: request.response ?? {},
-      submittedAt: request.submittedAt?.toISOString() ?? new Date(0).toISOString(),
+      submittedAt: request.submittedAt.toISOString(),
     })),
     questionAggregates,
   }

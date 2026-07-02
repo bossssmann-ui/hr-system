@@ -236,7 +236,11 @@ export function createReviewRoutes() {
         return c.json(result)
       }
 
-      throw new AppError(400, 'BAD_REQUEST', 'Either reviewerUserId or cycleId+subjectEmployeeId must be provided')
+      throw new AppError(
+        400,
+        'BAD_REQUEST',
+        'Either reviewerUserId alone, or both cycleId and subjectEmployeeId must be provided',
+      )
     },
   )
 
