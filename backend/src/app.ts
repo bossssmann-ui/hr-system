@@ -51,6 +51,7 @@ import {
   createTenantRegistrationRoutes,
   createTenantSettingsRoutes,
 } from './features/tenant/tenant.routes'
+import { createOneOnOneRoutes } from './features/performance/one-on-one.routes'
 import { createAuditMiddleware } from './http/audit'
 import { errorResponse, handleError } from './http/errors'
 import { createStorageServiceFromEnv, type StorageService } from './storage/service'
@@ -130,6 +131,7 @@ export function createApp({ env, prisma }: CreateAppOptions) {
   app.route('/api/employees', createEmployeesRoutes())
   app.route('/api/employees', createEmployeeSignalsRoutes())
   app.route('/api/learning', createLearningRoutes())
+  app.route('/api/one-on-ones', createOneOnOneRoutes())
   app.route('/api/reviews', createReviewsRoutes())
   app.route('/api/okrs', createOkrsRoutes())
   app.route('/api/alumni', createAlumniRoutes())
