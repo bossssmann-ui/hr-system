@@ -31,7 +31,6 @@ import { upsertNegotiationFromHh } from '../integrations/hh/sync'
 import type { HhNegotiation, HhResume } from '../integrations/hh/types'
 import { notifyRecipientsForEvent } from './notifications/recruiter-event-notifications'
 import { scoreApplication } from './scoring/scoring.service'
-import { runAutoAssessmentAfterSelection } from './selection/auto-assessment-after-selection'
 import { finalizeDomesticStage4 } from './selection/domestic-stage-scoring'
 
 // ─── Test guard ──────────────────────────────────────────────────────────────
@@ -566,31 +565,27 @@ maybeDescribe('Phase 18 — сквозной happy-path конвейера', () 
     expect(computation!.verdictLabel).toBe('ДОПУСТИТЬ')
     expect(Number(computation!.totalScore)).toBeGreaterThanOrEqual(70)
 
-    // Update session status to match what the route would do
-    await prisma.selectionSession.update({
-      where: { id: session.id },
-      data: { status: computation!.status, completedAt: new Date() },
-    })
+    // Do NOT manually update session status here — keeping the session in a
+    // non-terminal state ensures that a re-score in Step 5 finds the existing
+    // session via createSelectionSession and returns session_reused instead of
+    // creating a duplicate (terminal status 'completed' would not be found).
 
-    // Explicitly await runAutoAssessmentAfterSelection (idempotent) so that
-    // AssessmentSessions are guaranteed to exist before assertions,
-    // regardless of whether the void call inside finalizeDomesticStage4 settled.
-    const invitesSent: string[] = []
-    await runAutoAssessmentAfterSelection({
-      prisma,
-      env,
-      applicationId,
-      actorUserId: recruiterId,
-      sendInvite: async (input) => {
-        invitesSent.push(input.token)
-      },
-    })
-
-    // ровно 2 AssessmentSession (t1, t2)
-    const assessmentSessions = await prisma.assessmentSession.findMany({
+    // finalizeDomesticStage4 fires runAutoAssessmentAfterSelection as a void
+    // (fire-and-forget) call.  Calling it explicitly in parallel causes a race
+    // where both coroutines pass the "no existing session" guard for the same
+    // templateId and each creates a session, yielding 3 instead of 2.
+    // Instead, poll the database until exactly 2 sessions appear.
+    let assessmentSessions = await prisma.assessmentSession.findMany({
       where: { tenantId, applicationId },
       orderBy: { createdAt: 'asc' },
     })
+    for (let attempt = 0; attempt < 20 && assessmentSessions.length < 2; attempt++) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 50))
+      assessmentSessions = await prisma.assessmentSession.findMany({
+        where: { tenantId, applicationId },
+        orderBy: { createdAt: 'asc' },
+      })
+    }
     expect(assessmentSessions).toHaveLength(2)
     const templateIds = assessmentSessions.map((s) => s.templateId).sort()
     expect(templateIds).toEqual([templateId1, templateId2].sort())
