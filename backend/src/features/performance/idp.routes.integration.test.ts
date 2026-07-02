@@ -276,7 +276,7 @@ maybeDescribe('IDP routes', () => {
     })
     expect(res2.status).toBe(409)
     const body = await res2.json()
-    expect(body.code).toBe('CONFLICT')
+    expect(body.error.code).toBe('CONFLICT')
   })
 
   test('IDP status only forward: completed is terminal', async () => {
