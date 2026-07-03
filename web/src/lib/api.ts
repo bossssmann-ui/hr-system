@@ -25,6 +25,16 @@ import {
   type PerformanceIdpResponse,
   type PerformanceIdpItemResponse,
   type PatchIdpItemRequest,
+  engagementSurveySchema,
+  enpsResultSchema,
+  surveyResponseSchema,
+  type EngagementSurvey,
+  type EngagementSurveyStatus,
+  type EngagementSurveyKind,
+  type EnpsResult,
+  type SurveyResponse,
+  type CreateEngagementSurveyRequest,
+  type SubmitSurveyResponseRequest,
 } from '@web-app-demo/contracts'
 import {
   apiErrorSchema,
@@ -1223,6 +1233,69 @@ export class ApiClient {
       `/api/idps/${idpId}/items/${itemId}`,
       performanceIdpItemResponseSchema,
       { method: 'PATCH', body, auth: true },
+    )
+  }
+
+  // ─── Engagement: Surveys ────────────────────────────────────────────────
+
+  listSurveys(params?: {
+    status?: EngagementSurveyStatus
+    kind?: EngagementSurveyKind
+  }): Promise<{ items: EngagementSurvey[] }> {
+    const qs = new URLSearchParams()
+    if (params?.status) qs.set('status', params.status)
+    if (params?.kind) qs.set('kind', params.kind)
+    const query = qs.toString()
+    return this.request(
+      `/api/engagement/surveys${query ? `?${query}` : ''}`,
+      z.object({ items: z.array(engagementSurveySchema) }),
+      { auth: true },
+    )
+  }
+
+  getSurvey(id: string): Promise<EngagementSurvey & { responded: number; total: number }> {
+    return this.request(
+      `/api/engagement/surveys/${id}`,
+      engagementSurveySchema.extend({ responded: z.number(), total: z.number() }),
+      { auth: true },
+    )
+  }
+
+  createSurvey(body: CreateEngagementSurveyRequest): Promise<EngagementSurvey> {
+    return this.request(`/api/engagement/surveys`, engagementSurveySchema, {
+      method: 'POST',
+      body,
+      auth: true,
+    })
+  }
+
+  openSurvey(id: string): Promise<EngagementSurvey> {
+    return this.request(`/api/engagement/surveys/${id}/open`, engagementSurveySchema, {
+      method: 'POST',
+      auth: true,
+    })
+  }
+
+  closeSurvey(id: string): Promise<EngagementSurvey> {
+    return this.request(`/api/engagement/surveys/${id}/close`, engagementSurveySchema, {
+      method: 'POST',
+      auth: true,
+    })
+  }
+
+  submitSurveyResponse(id: string, body: SubmitSurveyResponseRequest): Promise<SurveyResponse> {
+    return this.request(`/api/engagement/surveys/${id}/responses`, surveyResponseSchema, {
+      method: 'POST',
+      body,
+      auth: true,
+    })
+  }
+
+  getSurveyResults(id: string): Promise<EnpsResult & { comments: string[] }> {
+    return this.request(
+      `/api/engagement/surveys/${id}/results`,
+      enpsResultSchema.extend({ comments: z.array(z.string()) }),
+      { auth: true },
     )
   }
 

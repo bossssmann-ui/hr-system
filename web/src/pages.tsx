@@ -90,6 +90,11 @@ export function RootLayout() {
               </Typography>
             )}
             <Typography asChild variant="control" tone="muted">
+              <Link to="/engagement" className={navLinkClass}>
+                {t('navigation:nav.engagement')}
+              </Link>
+            </Typography>
+            <Typography asChild variant="control" tone="muted">
               <Link to="/inbox" className={navLinkClass}>
                 {t('navigation:nav.inbox')}
               </Link>
