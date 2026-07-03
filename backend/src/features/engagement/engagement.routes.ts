@@ -25,6 +25,7 @@ import {
 import { requireRole, type RoleGuardBindings } from '../../auth/requireRole'
 import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
+import { AppError } from '../../http/errors'
 import {
   createSurvey,
   patchSurvey,
