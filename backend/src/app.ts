@@ -56,6 +56,7 @@ import { createOkrRoutes } from './features/performance/okr.routes'
 import { createReviewRoutes } from './features/performance/review.routes'
 import { createIdpRoutes } from './features/performance/idp.routes'
 import { createAuditMiddleware } from './http/audit'
+import { createEngagementRoutes } from './features/engagement/engagement.routes'
 import { errorResponse, handleError } from './http/errors'
 import { createStorageServiceFromEnv, type StorageService } from './storage/service'
 
@@ -168,6 +169,7 @@ export function createApp({ env, prisma }: CreateAppOptions) {
   app.route('/api/notifications', createNotificationsRoutes())
   app.route('/api/devices', createDevicesRoutes())
   app.route('/api/realtime', createRealtimeRoutes())
+  app.route('/api/engagement', createEngagementRoutes())
   // Phase 12 — multi-tenancy, compliance, billing
   app.route('/api/register', createTenantRegistrationRoutes())
   app.route('/api/settings/tenant', createTenantSettingsRoutes())
