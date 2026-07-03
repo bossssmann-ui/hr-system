@@ -23,6 +23,7 @@ import { SelectionDashboardPage } from './pages/selection-dashboard'
 import { CompPage } from './pages/comp'
 import { AlumniPage } from './pages/alumni'
 import { AnalyticsPage } from './pages/analytics'
+import { EngagementPage } from './pages/engagement'
 import { KnowledgePage } from './pages/knowledge'
 import { LearningPage } from './pages/learning'
 import { PortalPage } from './pages/portal'
@@ -208,6 +209,12 @@ const analyticsRoute = createRoute({
   component: AnalyticsPage,
 })
 
+const engagementRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/engagement',
+  component: EngagementPage,
+})
+
 const knowledgeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/knowledge',
@@ -243,6 +250,7 @@ const routeTree = rootRoute.addChildren([
   learningRoute,
   reviewsRoute,
   analyticsRoute,
+  engagementRoute,
   knowledgeRoute,
 ])
 

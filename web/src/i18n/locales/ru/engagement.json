@@ -1,0 +1,67 @@
+{
+  "title": "Вовлечённость",
+  "loading": "Загрузка…",
+  "loadFailed": "Не удалось загрузить данные",
+  "empty": "Опросы не найдены",
+  "signInPrompt": "Войдите, чтобы просмотреть опросы",
+  "tabs": {
+    "surveys": "Опросы",
+    "results": "Результаты",
+    "respond": "Ответить"
+  },
+  "actions": {
+    "create": "Создать опрос",
+    "open": "Открыть",
+    "close": "Закрыть",
+    "submit": "Отправить",
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "selectSurvey": "Выберите опрос, чтобы увидеть результаты"
+  },
+  "surveys": {
+    "title": "Опросы",
+    "empty": "Опросы не найдены",
+    "status": {
+      "draft": "Черновик",
+      "open": "Открыт",
+      "closed": "Закрыт"
+    },
+    "kind": {
+      "enps": "eNPS",
+      "pulse": "Пульс"
+    },
+    "closesAt": "Закрывается",
+    "createdAt": "Создан",
+    "responded": "Ответы: {{responded}} / {{total}}"
+  },
+  "create": {
+    "title": "Создать опрос",
+    "titleLabel": "Название",
+    "kindLabel": "Тип",
+    "questionLabel": "Вопрос",
+    "closesAtLabel": "Закрыть (необязательно)"
+  },
+  "results": {
+    "title": "Результаты eNPS",
+    "noSurveySelected": "Выберите опрос, чтобы увидеть результаты",
+    "score": "Индекс eNPS",
+    "scoreRange": "Диапазон: −100 до +100",
+    "promoters": "Промоутеры (9–10)",
+    "passives": "Нейтральные (7–8)",
+    "detractors": "Критики (0–6)",
+    "responses": "Ответы: {{responded}} / {{total}}",
+    "distribution": "Распределение баллов",
+    "comments": "Комментарии",
+    "noComments": "Комментариев нет",
+    "groups": "Группы"
+  },
+  "respond": {
+    "title": "Ваш ответ",
+    "noOpenSurvey": "Нет открытых опросов",
+    "question": "По шкале от 0 до 10, насколько вы готовы рекомендовать эту компанию как работодателя?",
+    "scoreLabel": "Ваш балл",
+    "commentLabel": "Комментарий (необязательно)",
+    "alreadyAnswered": "Вы уже ответили на этот опрос",
+    "success": "Ответ отправлен"
+  }
+}
