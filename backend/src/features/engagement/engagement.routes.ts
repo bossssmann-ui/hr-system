@@ -179,7 +179,7 @@ export function createEngagementRoutes() {
       // Resolve the employee record for the acting user
       const employee = await prisma.employee.findFirst({ where: { userId, tenantId } })
       if (!employee) {
-        throw new Error('Employee record not found for current user')
+        throw new AppError(404, 'NOT_FOUND', 'Employee record not found for current user')
       }
 
       const response = await submitResponse({
