@@ -2,6 +2,7 @@ import i18n from 'i18next'
 import LanguageDetector from 'i18next-browser-languagedetector'
 import { initReactI18next } from 'react-i18next'
 
+import enPerformance from './locales/en/performance.json'
 import enAdmin from './locales/en/admin.json'
 import enAnalytics from './locales/en/analytics.json'
 import enAuth from './locales/en/auth.json'
@@ -19,6 +20,7 @@ import enRecruiting from './locales/en/recruiting.json'
 import enRequisitions from './locales/en/requisitions.json'
 import enSelection from './locales/en/selection.json'
 import enSettings from './locales/en/settings.json'
+import ruPerformance from './locales/ru/performance.json'
 import ruAdmin from './locales/ru/admin.json'
 import ruAnalytics from './locales/ru/analytics.json'
 import ruAuth from './locales/ru/auth.json'
@@ -58,6 +60,7 @@ export const resources = {
     careers: ruCareers,
     selection: ruSelection,
     notifications: ruNotifications,
+    performance: ruPerformance,
   },
   en: {
     common: enCommon,
@@ -77,6 +80,7 @@ export const resources = {
     careers: enCareers,
     selection: enSelection,
     notifications: enNotifications,
+    performance: enPerformance,
   },
 } as const
 
@@ -115,6 +119,7 @@ void i18n
       'careers',
       'selection',
       'notifications',
+      'performance',
     ],
     interpolation: {
       escapeValue: false,
