@@ -1018,6 +1018,7 @@ model Employee {
   reviewRequests        ReviewRequest[]
   okrs                  Okr[]
   idps                  Idp[]
+  surveyResponses       SurveyResponse[]
 
   @@index([tenantId], map: "employees_tenant_id_idx")
   @@index([orgUnitId], map: "employees_org_unit_id_idx")
@@ -1818,4 +1819,68 @@ model TelegramLink {
   @@index([candidateId], map: "telegram_links_candidate_id_idx")
   @@index([employeeId], map: "telegram_links_employee_id_idx")
   @@map("telegram_links")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Horizon 8 — eNPS / Engagement Surveys
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum EngagementSurveyKind {
+  enps
+  pulse
+
+  @@map("engagement_survey_kind")
+}
+
+enum EngagementSurveyStatus {
+  draft
+  open
+  closed
+
+  @@map("engagement_survey_status")
+}
+
+/// An engagement survey (eNPS or pulse). One survey per campaign.
+/// `question` is the main question text (e.g. "Насколько вероятно, что вы
+/// порекомендуете компанию…"; scale 0–10 for eNPS).
+model EngagementSurvey {
+  id              String                 @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId        String                 @map("tenant_id") @db.Uuid
+  title           String
+  kind            EngagementSurveyKind
+  status          EngagementSurveyStatus @default(draft)
+  question        String
+  openedAt        DateTime?              @map("opened_at")
+  closesAt        DateTime?              @map("closes_at")
+  closedAt        DateTime?              @map("closed_at")
+  createdByUserId String                 @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime               @default(now()) @map("created_at")
+  updatedAt       DateTime               @default(now()) @updatedAt @map("updated_at")
+
+  responses SurveyResponse[]
+
+  @@index([tenantId], map: "engagement_surveys_tenant_id_idx")
+  @@index([status], map: "engagement_surveys_status_idx")
+  @@map("engagement_surveys")
+}
+
+/// One response per employee per survey. Score is 0–10 (eNPS scale).
+/// Comments are stored without public attribution — only aggregates are
+/// exposed in the results endpoint.
+model SurveyResponse {
+  id                   String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId             String   @map("tenant_id") @db.Uuid
+  surveyId             String   @map("survey_id") @db.Uuid
+  respondentEmployeeId String   @map("respondent_employee_id") @db.Uuid
+  score                Int
+  comment              String?
+  submittedAt          DateTime @default(now()) @map("submitted_at")
+
+  survey   EngagementSurvey @relation(fields: [surveyId], references: [id], onDelete: Cascade, map: "survey_responses_survey_id_fkey")
+  employee Employee         @relation(fields: [respondentEmployeeId], references: [id], onDelete: Cascade, map: "survey_responses_employee_id_fkey")
+
+  @@unique([surveyId, respondentEmployeeId], map: "survey_responses_survey_employee_uk")
+  @@index([tenantId], map: "survey_responses_tenant_id_idx")
+  @@index([surveyId], map: "survey_responses_survey_id_idx")
+  @@map("survey_responses")
 }
