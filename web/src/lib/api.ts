@@ -35,6 +35,18 @@ import {
   type SurveyResponse,
   type CreateEngagementSurveyRequest,
   type SubmitSurveyResponseRequest,
+  learningCourseSchema,
+  learningPathSchema,
+  learningAssignmentSchema,
+  type LearningCourse,
+  type LearningPath,
+  type LearningAssignment,
+  type LearningCourseCreateRequest,
+  type LearningCourseUpdateRequest,
+  type LearningPathCreateRequest,
+  type LearningPathUpdateRequest,
+  type LearningAssignmentCreateRequest,
+  type LearningAssignmentUpdateRequest,
 } from '@web-app-demo/contracts'
 import {
   apiErrorSchema,
@@ -1297,6 +1309,105 @@ export class ApiClient {
       enpsResultSchema.extend({ comments: z.array(z.string()) }),
       { auth: true },
     )
+  }
+
+  // ─── Learning: Courses ──────────────────────────────────────────────────
+
+  listCourses(): Promise<{ items: LearningCourse[] }> {
+    return this.request(
+      '/api/learning/courses',
+      z.object({ items: z.array(learningCourseSchema) }),
+      { auth: true },
+    )
+  }
+
+  createCourse(body: LearningCourseCreateRequest): Promise<LearningCourse> {
+    return this.request('/api/learning/courses', learningCourseSchema, {
+      method: 'POST',
+      body,
+      auth: true,
+    })
+  }
+
+  updateCourse(id: string, body: LearningCourseUpdateRequest): Promise<LearningCourse> {
+    return this.request(`/api/learning/courses/${id}`, learningCourseSchema, {
+      method: 'PATCH',
+      body,
+      auth: true,
+    })
+  }
+
+  async deleteCourse(id: string): Promise<void> {
+    await this.request(`/api/learning/courses/${id}`, z.object({ ok: z.boolean() }), {
+      method: 'DELETE',
+      auth: true,
+    })
+  }
+
+  // ─── Learning: Paths ────────────────────────────────────────────────────
+
+  listPaths(): Promise<{ items: LearningPath[] }> {
+    return this.request(
+      '/api/learning/paths',
+      z.object({ items: z.array(learningPathSchema) }),
+      { auth: true },
+    )
+  }
+
+  createPath(body: LearningPathCreateRequest): Promise<LearningPath> {
+    return this.request('/api/learning/paths', learningPathSchema, {
+      method: 'POST',
+      body,
+      auth: true,
+    })
+  }
+
+  updatePath(id: string, body: LearningPathUpdateRequest): Promise<LearningPath> {
+    return this.request(`/api/learning/paths/${id}`, learningPathSchema, {
+      method: 'PATCH',
+      body,
+      auth: true,
+    })
+  }
+
+  async deletePath(id: string): Promise<void> {
+    await this.request(`/api/learning/paths/${id}`, z.object({ ok: z.boolean() }), {
+      method: 'DELETE',
+      auth: true,
+    })
+  }
+
+  // ─── Learning: Assignments ──────────────────────────────────────────────
+
+  listAssignments(params?: { employeeId?: string }): Promise<{ items: LearningAssignment[] }> {
+    const qs = params?.employeeId ? `?employeeId=${encodeURIComponent(params.employeeId)}` : ''
+    return this.request(
+      `/api/learning/assignments${qs}`,
+      z.object({ items: z.array(learningAssignmentSchema) }),
+      { auth: true },
+    )
+  }
+
+  createAssignment(
+    employeeId: string,
+    body: LearningAssignmentCreateRequest,
+  ): Promise<LearningAssignment> {
+    return this.request(
+      `/api/learning/employees/${employeeId}/assignments`,
+      learningAssignmentSchema,
+      { method: 'POST', body, auth: true },
+    )
+  }
+
+  updateAssignment(
+    id: string,
+    body: LearningAssignmentUpdateRequest,
+  ): Promise<LearningAssignment> {
+    return this.request(`/api/learning/assignments/${id}`, learningAssignmentSchema, {
+      method: 'PATCH',
+      body,
+      auth: true,
+    })
   }
 
   /**
