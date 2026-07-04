@@ -111,6 +111,9 @@ function createState(templateIds: string[] = ['tmpl-1', 'tmpl-2']) {
         return where.id === application.id ? application : null
       },
     },
+    tenantSettings: {
+      findUnique: async () => null,
+    },
     assessmentSession: {
       findFirst: async ({ where }: { where: { applicationId?: string; templateId?: string; status?: { notIn: string[] } } }) => {
         if (!where.applicationId || !where.templateId) return null

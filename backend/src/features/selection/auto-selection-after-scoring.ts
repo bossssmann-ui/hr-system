@@ -3,6 +3,7 @@ import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
 import { decryptHhSecret } from '../../integrations/hh/crypto'
 import { getChannelAdapter } from '../messaging/messaging.service'
+import { resolvePipelineFlag } from '../tenant/resolve-pipeline-flag'
 import { createSelectionSession } from './selection-session.service'
 import { parseSupportedRole } from './selection-role-adapter'
 import { notifyRecipientsForEvent } from '../notifications/recruiter-event-notifications'
@@ -28,10 +29,6 @@ type RunAutoSelectionAfterScoringInput = {
 export async function runAutoSelectionAfterScoring(input: RunAutoSelectionAfterScoringInput) {
   const { prisma, env, applicationId, actorUserId, relevanceScore } = input
 
-  if (!env.AUTO_SELECTION_ENABLED) {
-    return { applied: false as const, reason: 'disabled' as const }
-  }
-
   const application = await prisma.application.findFirst({
     where: { id: applicationId },
     include: {
@@ -50,8 +47,13 @@ export async function runAutoSelectionAfterScoring(input: RunAutoSelectionAfterS
 
   const tenantSettings = await prisma.tenantSettings.findUnique({
     where: { tenantId: application.tenantId },
-    select: { pipelineThresholds: true },
+    select: { pipelineThresholds: true, featureFlags: true },
   })
+
+  if (!resolvePipelineFlag('autoSelection', tenantSettings?.featureFlags, env)) {
+    return { applied: false as const, reason: 'disabled' as const }
+  }
+
   const thresholds = resolvePipelineThresholds(tenantSettings, env)
 
   try {
@@ -124,7 +126,7 @@ export async function runAutoSelectionAfterScoring(input: RunAutoSelectionAfterS
         },
       })
 
-      if (env.RECRUITER_NOTIFICATIONS_ENABLED) {
+      if (resolvePipelineFlag('recruiterNotifications', tenantSettings?.featureFlags, env)) {
         await notifyRecipientsForEvent({
           prisma,
           env,

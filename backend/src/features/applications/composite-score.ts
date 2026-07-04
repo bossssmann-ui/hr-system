@@ -3,6 +3,7 @@ import { compositeScoreSchema, type CompositeScore } from '@web-app-demo/contrac
 import { Prisma } from '../../generated/prisma/client'
 import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
+import { resolvePipelineFlag } from '../tenant/resolve-pipeline-flag'
 
 type WeightKey = 'resume' | 'selection' | 'assessment' | 'retention'
 type ScoringWeights = Record<WeightKey, number>
@@ -64,8 +65,6 @@ export async function recomputeCompositeScoreForApplication(input: {
   applicationId: string
   tx?: Prisma.TransactionClient
 }) {
-  if (!input.env.COMPOSITE_SCORE_ENABLED) return null
-
   const db: CompositeScoreDb = input.tx ?? input.prisma
   const application = await db.application.findUnique({
     where: { id: input.applicationId },
@@ -81,7 +80,7 @@ export async function recomputeCompositeScoreForApplication(input: {
   const [tenantSettings, selectionSession, assessmentSession] = await Promise.all([
     db.tenantSettings.findUnique({
       where: { tenantId: application.tenantId },
-      select: { scoringWeights: true },
+      select: { scoringWeights: true, featureFlags: true },
     }),
     db.selectionSession.findFirst({
       where: {
@@ -99,6 +98,8 @@ export async function recomputeCompositeScoreForApplication(input: {
       orderBy: { createdAt: 'desc' },
     }),
   ])
+
+  if (!resolvePipelineFlag('compositeScore', tenantSettings?.featureFlags, input.env)) return null
 
   const score = computeCompositeScore({
     resume: readResumeScore(application.aiScoring),

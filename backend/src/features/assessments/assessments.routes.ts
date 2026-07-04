@@ -30,6 +30,7 @@ import {
   recordCompositeScoreRecomputeFailure,
 } from '../applications/composite-score'
 import { notifyRecipientsForEvent } from '../notifications/recruiter-event-notifications'
+import { resolvePipelineFlag } from '../tenant/resolve-pipeline-flag'
 import { enqueueAssessmentOpenAnswerGrading } from './assessments.queue'
 import { computeTrustScore } from './trust-score'
 
@@ -453,20 +454,27 @@ export function createPublicAssessmentRoutes() {
         })
       }
 
-      if (env.RECRUITER_NOTIFICATIONS_ENABLED) {
-        await notifyRecipientsForEvent({
-          prisma,
-          env,
-          tenantId: session.tenantId,
-          applicationId: session.applicationId,
-          template: 'assessment.completed',
-          eventKey: `assessment_session.completed:${session.id}`,
-          payload: {
-            trust: trustScore,
-            score: null,
-            redFlagged,
-          },
+      {
+        const tenantSettingsRow = await prisma.tenantSettings.findUnique({
+          where: { tenantId: session.tenantId },
+          select: { featureFlags: true },
         })
+        const tenantFeatureFlags = tenantSettingsRow?.featureFlags
+        if (resolvePipelineFlag('recruiterNotifications', tenantFeatureFlags, env)) {
+          await notifyRecipientsForEvent({
+            prisma,
+            env,
+            tenantId: session.tenantId,
+            applicationId: session.applicationId,
+            template: 'assessment.completed',
+            eventKey: `assessment_session.completed:${session.id}`,
+            payload: {
+              trust: trustScore,
+              score: null,
+              redFlagged,
+            },
+          })
+        }
       }
 
       c.set('auditEntry', {

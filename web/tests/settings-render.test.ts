@@ -37,6 +37,25 @@ describe("settings pipeline helpers", () => {
     expect(form.weights.retention).toBe("0.1")
   })
 
+  test("flags are null when featureFlags is empty", () => {
+    const form = tenantSettingsToPipelineForm(tenantSettingsFixture)
+    expect(form.flags.autoSelection).toBeNull()
+    expect(form.flags.autoAssessment).toBeNull()
+    expect(form.flags.compositeScore).toBeNull()
+    expect(form.flags.recruiterNotifications).toBeNull()
+  })
+
+  test("flags are loaded from featureFlags when set", () => {
+    const settings = {
+      ...tenantSettingsFixture,
+      featureFlags: { autoSelection: true, recruiterNotifications: false },
+    }
+    const form = tenantSettingsToPipelineForm(settings)
+    expect(form.flags.autoSelection).toBe(true)
+    expect(form.flags.recruiterNotifications).toBe(false)
+    expect(form.flags.autoAssessment).toBeNull()
+  })
+
   test("invalid thresholds block save payload generation", () => {
     const form = tenantSettingsToPipelineForm(tenantSettingsFixture)
     form.autoSelection = "40"
@@ -71,6 +90,21 @@ describe("settings pipeline helpers", () => {
         assessment: 0.15,
         retention: 0.1,
       },
+      featureFlags: {},
+    })
+  })
+
+  test("pipeline flags are included in patch when set", () => {
+    const form = tenantSettingsToPipelineForm(tenantSettingsFixture)
+    form.flags.autoSelection = true
+    form.flags.recruiterNotifications = false
+
+    const result = buildTenantSettingsPatch(form)
+
+    expect(result.errorKey).toBeNull()
+    expect(result.patch?.featureFlags).toEqual({
+      autoSelection: true,
+      recruiterNotifications: false,
     })
   })
 })
