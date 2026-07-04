@@ -810,7 +810,7 @@ export class ApiClient {
 
   // ─── Phase 9 — Analytics signals ─────────────────────────────────────────
 
-  listAnalyticsSignals(params?: { status?: 'open' | 'reviewed' | 'dismissed'; type?: 'flight_risk' | 'burnout'; limit?: number }) {
+  listSignals(params?: { status?: AnalyticsSignal['status']; type?: AnalyticsSignal['type']; limit?: number }) {
     const qs = new URLSearchParams()
     if (params?.status) qs.set('status', params.status)
     if (params?.type) qs.set('type', params.type)
@@ -819,12 +819,20 @@ export class ApiClient {
     return this.request(`/api/analytics/signals${qStr}`, listAnalyticsSignalsResponseSchema, { auth: true })
   }
 
-  updateAnalyticsSignal(id: string, status: 'open' | 'reviewed' | 'dismissed'): Promise<AnalyticsSignal> {
+  reviewSignal(id: string, patch: Pick<AnalyticsSignal, 'status'>): Promise<AnalyticsSignal> {
     return this.request(`/api/analytics/signals/${id}`, analyticsSignalSchema, {
       method: 'PATCH',
-      body: { status },
+      body: patch,
       auth: true,
     })
+  }
+
+  listAnalyticsSignals(params?: { status?: 'open' | 'reviewed' | 'dismissed'; type?: 'flight_risk' | 'burnout'; limit?: number }) {
+    return this.listSignals(params)
+  }
+
+  updateAnalyticsSignal(id: string, status: 'open' | 'reviewed' | 'dismissed'): Promise<AnalyticsSignal> {
+    return this.reviewSignal(id, { status })
   }
 
   computeAnalyticsSignals() {

@@ -2,7 +2,7 @@ import { describe, expect, mock, test } from 'bun:test'
 import * as React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 
-import type { RecruiterFunnelMetrics } from '@web-app-demo/contracts'
+import type { AnalyticsSignal, RecruiterFunnelMetrics } from '@web-app-demo/contracts'
 
 mock.module('react-i18next', () => ({
   initReactI18next: { type: '3rdParty', init: () => {} },
@@ -58,6 +58,48 @@ const emptyFunnelData: RecruiterFunnelMetrics = {
   processedCandidates: [],
 }
 
+const signalData: AnalyticsSignal[] = [
+  {
+    id: '00000000-0000-4000-8000-000000000003',
+    tenantId: '00000000-0000-4000-8000-000000000010',
+    employeeId: '00000000-0000-4000-8000-000000000103',
+    type: 'flight_risk',
+    score: 55,
+    factors: [{ code: 'eng', weight: 20, note: 'Late 1:1' }],
+    status: 'open',
+    computedAt: '2026-07-01T10:00:00.000Z',
+    reviewedAt: null,
+    reviewedBy: null,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000001',
+    tenantId: '00000000-0000-4000-8000-000000000010',
+    employeeId: '00000000-0000-4000-8000-000000000101',
+    type: 'flight_risk',
+    score: 91,
+    factors: [{ code: 'comp', weight: 30, note: 'Comp gap' }],
+    status: 'open',
+    computedAt: '2026-07-01T10:00:00.000Z',
+    reviewedAt: null,
+    reviewedBy: null,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000002',
+    tenantId: '00000000-0000-4000-8000-000000000010',
+    employeeId: '00000000-0000-4000-8000-000000000102',
+    type: 'burnout',
+    score: 12,
+    factors: [],
+    status: 'open',
+    computedAt: '2026-07-01T10:00:00.000Z',
+    reviewedAt: null,
+    reviewedBy: null,
+  },
+]
+
+const reviewSignalCalls: Array<{ id: string; patch: Pick<AnalyticsSignal, 'status'> }> = []
+const capturedMutationFns: Array<(arg?: unknown) => unknown> = []
+
 // ─── Query mock helpers ───────────────────────────────────────────────────────
 
 function makeQueryMock(overrides?: {
@@ -65,10 +107,17 @@ function makeQueryMock(overrides?: {
   funnelError?: boolean
   funnelEmpty?: boolean
   funnelPeriod?: string
+  signalsLoading?: boolean
+  signalsError?: boolean
+  signalsEmpty?: boolean
+  signalsItems?: AnalyticsSignal[]
 }) {
   return {
     useQueryClient: () => ({ invalidateQueries: () => Promise.resolve() }),
-    useMutation: () => ({ mutate: () => {}, isPending: false }),
+    useMutation: ({ mutationFn }: { mutationFn: (arg?: unknown) => unknown }) => {
+      capturedMutationFns.push(mutationFn)
+      return { mutate: () => {}, isPending: false }
+    },
     useQuery: ({ queryKey }: { queryKey: unknown[] }) => {
       const key = queryKey[1]
 
@@ -77,6 +126,13 @@ function makeQueryMock(overrides?: {
         if (overrides?.funnelError) return { isLoading: false, isError: true, data: undefined }
         if (overrides?.funnelEmpty) return { isLoading: false, isError: false, data: emptyFunnelData }
         return { isLoading: false, isError: false, data: funnelData }
+      }
+
+      if (key === 'signals') {
+        if (overrides?.signalsLoading) return { isLoading: true, isError: false, data: undefined }
+        if (overrides?.signalsError) return { isLoading: false, isError: true, data: undefined }
+        if (overrides?.signalsEmpty) return { isLoading: false, isError: false, data: { items: [] } }
+        return { isLoading: false, isError: false, data: { items: overrides?.signalsItems ?? signalData } }
       }
 
       // default: return empty loading state for all other queries
@@ -96,6 +152,11 @@ mock.module('../src/lib/use-auth', () => ({
       listHrSnapshots: async () => ({ items: [] }),
       computeHrSnapshot: async () => null,
       payrollExportCsvUrl: () => '/export',
+      listSignals: async () => ({ items: signalData }),
+      reviewSignal: async (id: string, patch: Pick<AnalyticsSignal, 'status'>) => {
+        reviewSignalCalls.push({ id, patch })
+        return signalData[0]
+      },
       listAnalyticsSignals: async () => ({ items: [] }),
       updateAnalyticsSignal: async () => null,
       computeAnalyticsSignals: async () => null,
@@ -165,6 +226,33 @@ describe('RecruiterFunnelDisplay', () => {
 })
 
 describe('AnalyticsPage funnel section', () => {
+  test('renders signals sorted by score and factors', async () => {
+    reviewSignalCalls.length = 0
+    capturedMutationFns.length = 0
+    mock.module('@tanstack/react-query', () => makeQueryMock({ funnelEmpty: true }))
+    const { AnalyticsPage } = await import('../src/pages/analytics')
+    const html = renderToStaticMarkup(React.createElement(AnalyticsPage))
+
+    expect(html.indexOf('Comp gap')).toBeLessThan(html.indexOf('Late 1:1'))
+    expect(html).toContain('Comp gap')
+    expect(html).toContain('Late 1:1')
+    expect(html).toContain('signals.noFactors')
+  })
+
+  test('review action is wired to api.reviewSignal', async () => {
+    reviewSignalCalls.length = 0
+    capturedMutationFns.length = 0
+    mock.module('@tanstack/react-query', () => makeQueryMock({ funnelEmpty: true }))
+    const { AnalyticsPage } = await import('../src/pages/analytics')
+    renderToStaticMarkup(React.createElement(AnalyticsPage))
+
+    for (const mutationFn of capturedMutationFns) {
+      await mutationFn('00000000-0000-4000-8000-000000000001')
+    }
+
+    expect(reviewSignalCalls.some((call) => call.patch.status === 'reviewed')).toBe(true)
+  })
+
   test('renders funnel section title', async () => {
     mock.module('@tanstack/react-query', () => makeQueryMock())
     const { AnalyticsPage } = await import('../src/pages/analytics')
