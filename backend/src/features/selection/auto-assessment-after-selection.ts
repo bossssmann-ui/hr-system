@@ -12,6 +12,7 @@ import { Prisma } from '../../generated/prisma/client'
 import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
 import { getChannelAdapter } from '../messaging/messaging.service'
+import { resolvePipelineFlag } from '../tenant/resolve-pipeline-flag'
 import {
   resolvePreferredChannel,
   resolveDestination,
@@ -71,9 +72,6 @@ function buildAssessmentLink(env: AppEnv, token: string) {
 export async function runAutoAssessmentAfterSelection(input: RunAutoAssessmentAfterSelectionInput): Promise<void> {
   const { prisma, env, applicationId, actorUserId } = input
 
-  if (!env.AUTO_ASSESSMENT_ENABLED) {
-    return
-  }
   if (!applicationId) {
     return
   }
@@ -87,6 +85,15 @@ export async function runAutoAssessmentAfterSelection(input: RunAutoAssessmentAf
       },
     })
     if (!application) return
+
+    const tenantSettings = await prisma.tenantSettings.findUnique({
+      where: { tenantId: application.tenantId },
+      select: { featureFlags: true },
+    })
+
+    if (!resolvePipelineFlag('autoAssessment', tenantSettings?.featureFlags, env)) {
+      return
+    }
 
     const templateIds = application.vacancy.requiredAssessmentTemplateIds
     if (!templateIds || templateIds.length === 0) return

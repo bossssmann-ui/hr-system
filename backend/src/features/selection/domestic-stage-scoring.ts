@@ -21,6 +21,7 @@ import {
 import { canTransition, type ApplicationStage } from '../applications/applications.fsm'
 import { notifyRecruitersAboutSelectionReady } from '../applications/application-notifications'
 import { notifyRecipientsForEvent } from '../notifications/recruiter-event-notifications'
+import { resolvePipelineFlag } from '../tenant/resolve-pipeline-flag'
 import { runAutoAssessmentAfterSelection } from './auto-assessment-after-selection'
 import { asNonEmptyString } from './domestic-answer-helpers'
 import {
@@ -764,7 +765,7 @@ export async function finalizeDomesticStage4(
     retentionPrediction: computation.retentionPrediction as unknown as Prisma.InputJsonValue,
   })
 
-  if (session.applicationId && env?.COMPOSITE_SCORE_ENABLED) {
+  if (session.applicationId && env) {
     try {
       await recomputeCompositeScoreForApplication({
         prisma,
@@ -796,22 +797,28 @@ export async function finalizeDomesticStage4(
   }
 
   if (
-    env?.RECRUITER_NOTIFICATIONS_ENABLED &&
+    env &&
     session.applicationId &&
     (computation.verdictLabel === VERDICT_ADMIT || computation.verdictLabel === VERDICT_REJECT)
   ) {
-    await notifyRecipientsForEvent({
-      prisma,
-      env,
-      tenantId: session.tenantId,
-      applicationId: session.applicationId,
-      template: 'selection.completed',
-      eventKey: `selection_session.completed:${session.id}`,
-      payload: {
-        verdict: computation.verdictLabel,
-        totalScore: Number(computation.totalScore.toFixed(1)),
-      },
-    })
+    const tenantFeatureFlags = await prisma.tenantSettings.findUnique({
+      where: { tenantId: session.tenantId },
+      select: { featureFlags: true },
+    }).then((s) => s?.featureFlags)
+    if (resolvePipelineFlag('recruiterNotifications', tenantFeatureFlags, env)) {
+      await notifyRecipientsForEvent({
+        prisma,
+        env,
+        tenantId: session.tenantId,
+        applicationId: session.applicationId,
+        template: 'selection.completed',
+        eventKey: `selection_session.completed:${session.id}`,
+        payload: {
+          verdict: computation.verdictLabel,
+          totalScore: Number(computation.totalScore.toFixed(1)),
+        },
+      })
+    }
   }
 
   function buildDomesticHrNotes(input: {

@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
 import { ApiRequestError } from "@/lib/api"
 import { APPLICATION_STAGES, resolveFunnelStages } from "@/lib/funnel-stages"
 import { isAdmin } from "@/lib/roles"
@@ -41,10 +42,15 @@ const SCORING_WEIGHT_KEYS = ["resume", "selection", "assessment", "retention"] a
 
 type ScoringWeightKey = (typeof SCORING_WEIGHT_KEYS)[number]
 
+export const PIPELINE_FLAG_KEYS = ["autoSelection", "autoAssessment", "compositeScore", "recruiterNotifications"] as const
+
+export type PipelineFlagKey = (typeof PIPELINE_FLAG_KEYS)[number]
+
 type PipelineScoringForm = {
   autoSelection: string
   autoReject: string
   weights: Record<ScoringWeightKey, string>
+  flags: Record<PipelineFlagKey, boolean | null>
 }
 
 function parseNumberOrNull(value: string): number | null {
@@ -113,6 +119,7 @@ function parseScoringWeights(weights: Record<ScoringWeightKey, string>): {
 }
 
 export function tenantSettingsToPipelineForm(settings: TenantSettings): PipelineScoringForm {
+  const flags = settings.featureFlags ?? {}
   return {
     autoSelection: settings.pipelineThresholds?.autoSelection?.toString() ?? "",
     autoReject: settings.pipelineThresholds?.autoReject?.toString() ?? "",
@@ -122,11 +129,17 @@ export function tenantSettingsToPipelineForm(settings: TenantSettings): Pipeline
       assessment: settings.scoringWeights?.assessment?.toString() ?? "",
       retention: settings.scoringWeights?.retention?.toString() ?? "",
     },
+    flags: {
+      autoSelection: typeof flags.autoSelection === "boolean" ? flags.autoSelection : null,
+      autoAssessment: typeof flags.autoAssessment === "boolean" ? flags.autoAssessment : null,
+      compositeScore: typeof flags.compositeScore === "boolean" ? flags.compositeScore : null,
+      recruiterNotifications: typeof flags.recruiterNotifications === "boolean" ? flags.recruiterNotifications : null,
+    },
   }
 }
 
 export function buildTenantSettingsPatch(form: PipelineScoringForm): {
-  patch: Pick<UpdateTenantSettingsRequest, "pipelineThresholds" | "scoringWeights"> | null
+  patch: Pick<UpdateTenantSettingsRequest, "pipelineThresholds" | "scoringWeights" | "featureFlags"> | null
   errorKey: string | null
 } {
   const thresholds = parseThresholds(form.autoSelection, form.autoReject)
@@ -139,10 +152,18 @@ export function buildTenantSettingsPatch(form: PipelineScoringForm): {
     return { patch: null, errorKey: scoringWeights.errorKey }
   }
 
+  const featureFlags: Record<string, boolean> = {}
+  for (const key of PIPELINE_FLAG_KEYS) {
+    if (form.flags[key] !== null) {
+      featureFlags[key] = form.flags[key] as boolean
+    }
+  }
+
   return {
     patch: {
       pipelineThresholds: thresholds.value,
       scoringWeights: scoringWeights.value,
+      featureFlags,
     },
     errorKey: null,
   }
@@ -309,6 +330,12 @@ function PipelineScoringSettingsCard() {
       assessment: "",
       retention: "",
     },
+    flags: {
+      autoSelection: null,
+      autoAssessment: null,
+      compositeScore: null,
+      recruiterNotifications: null,
+    },
   })
   const [submitErrorKey, setSubmitErrorKey] = useState<string | null>(null)
 
@@ -324,7 +351,7 @@ function PipelineScoringSettingsCard() {
   )
 
   const saveMutation = useMutation({
-    mutationFn: (patch: Pick<UpdateTenantSettingsRequest, "pipelineThresholds" | "scoringWeights">) =>
+    mutationFn: (patch: Pick<UpdateTenantSettingsRequest, "pipelineThresholds" | "scoringWeights" | "featureFlags">) =>
       api.updateTenantSettings(patch),
     onSuccess: () => {
       setSubmitErrorKey(null)
@@ -342,6 +369,16 @@ function PipelineScoringSettingsCard() {
       ...prev,
       weights: {
         ...prev.weights,
+        [key]: value,
+      },
+    }))
+  }
+
+  function updateFlagField(key: PipelineFlagKey, value: boolean) {
+    setForm((prev) => ({
+      ...prev,
+      flags: {
+        ...prev.flags,
         [key]: value,
       },
     }))
@@ -426,6 +463,27 @@ function PipelineScoringSettingsCard() {
                       onChange={(event) => updateWeightField(key, event.target.value)}
                     />
                   </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid gap-3">
+              <Typography variant="h6">{t("pipeline.automations.title")}</Typography>
+              <Typography tone="muted" variant="bodySm">
+                {t("pipeline.automations.hint")}
+              </Typography>
+              <div className="grid gap-3">
+                {PIPELINE_FLAG_KEYS.map((key) => (
+                  <div key={key} className="flex items-center justify-between gap-4">
+                    <div className="grid gap-0.5">
+                      <Typography variant="label">{t(`pipeline.automations.${key}`)}</Typography>
+                    </div>
+                    <Switch
+                      checked={form.flags[key] === true}
+                      onCheckedChange={(checked) => updateFlagField(key, checked)}
+                      data-testid={`pipeline-flag-${key}`}
+                    />
+                  </div>
                 ))}
               </div>
             </div>
