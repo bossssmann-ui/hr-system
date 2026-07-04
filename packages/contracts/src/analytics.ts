@@ -66,6 +66,17 @@ export const recruiterFunnelCandidateSchema = z.object({
 
 export type RecruiterFunnelCandidate = z.infer<typeof recruiterFunnelCandidateSchema>
 
+export const funnelSourceStatsSchema = z.object({
+  applications: z.number(),
+  aiProcessed: z.number(),
+  passedToRecruiter: z.number(),
+  aiRejected: z.number(),
+  manualReview: z.number(),
+  inProgress: z.number(),
+})
+
+export type FunnelSourceStats = z.infer<typeof funnelSourceStatsSchema>
+
 export const recruiterFunnelMetricsSchema = z.object({
   period: recruiterFunnelPeriodSchema,
   newApplications: z.number(),
@@ -75,6 +86,7 @@ export const recruiterFunnelMetricsSchema = z.object({
   manualReview: z.number(),
   inProgress: z.number(),
   processedCandidates: z.array(recruiterFunnelCandidateSchema),
+  bySource: z.record(z.string(), funnelSourceStatsSchema).nullable().optional(),
 })
 
 export type RecruiterFunnelMetrics = z.infer<typeof recruiterFunnelMetricsSchema>

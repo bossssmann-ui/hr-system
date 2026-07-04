@@ -45,6 +45,10 @@ const funnelData: RecruiterFunnelMetrics = {
       createdAt: '2026-07-01T11:00:00.000Z',
     },
   ],
+  bySource: {
+    hh: { applications: 6, aiProcessed: 5, passedToRecruiter: 3, aiRejected: 1, manualReview: 1, inProgress: 1 },
+    direct: { applications: 4, aiProcessed: 3, passedToRecruiter: 2, aiRejected: 1, manualReview: 0, inProgress: 1 },
+  },
 }
 
 const emptyFunnelData: RecruiterFunnelMetrics = {
@@ -222,6 +226,32 @@ describe('RecruiterFunnelDisplay', () => {
 
     expect(html).toContain('funnel.empty')
     expect(html).not.toContain('funnel.tableTitle')
+  })
+
+  test('renders bySource breakdown table when bySource data is present', async () => {
+    const { RecruiterFunnelDisplay } = await import('../src/pages/analytics')
+    const html = renderToStaticMarkup(
+      React.createElement(RecruiterFunnelDisplay, { data: funnelData }),
+    )
+
+    expect(html).toContain('funnel.bySource.title')
+    expect(html).toContain('funnel.bySource.colSource')
+    expect(html).toContain('funnel.bySource.colApplications')
+    expect(html).toContain('funnel.bySource.colConversion')
+    // hh row: 3/5 = 60%
+    expect(html).toContain('60%')
+    // direct row: 2/3 ≈ 67% (rounded)
+    expect(html).toContain('67%')
+  })
+
+  test('does not render bySource section when bySource is absent', async () => {
+    const { RecruiterFunnelDisplay } = await import('../src/pages/analytics')
+    const dataWithoutSource: RecruiterFunnelMetrics = { ...funnelData, bySource: undefined }
+    const html = renderToStaticMarkup(
+      React.createElement(RecruiterFunnelDisplay, { data: dataWithoutSource }),
+    )
+
+    expect(html).not.toContain('funnel.bySource.title')
   })
 })
 
