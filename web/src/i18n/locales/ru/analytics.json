@@ -67,7 +67,15 @@
     "colTrust": "Trust Score",
     "colDate": "Дата",
     "scorePreliminary": "предв.",
-    "scoreFinal": "итог."
+    "scoreFinal": "итог.",
+    "bySource": {
+      "title": "По источнику",
+      "colSource": "Источник",
+      "colApplications": "Заявки",
+      "colConversion": "Конверсия в рекрутер",
+      "hh": "hh.ru",
+      "direct": "Прямой"
+    }
   },
   "table": {
     "month": "Месяц",

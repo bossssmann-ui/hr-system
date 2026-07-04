@@ -67,7 +67,15 @@
     "colTrust": "Trust Score",
     "colDate": "Date",
     "scorePreliminary": "prelim.",
-    "scoreFinal": "final"
+    "scoreFinal": "final",
+    "bySource": {
+      "title": "By source",
+      "colSource": "Source",
+      "colApplications": "Applications",
+      "colConversion": "Conversion to recruiter",
+      "hh": "hh.ru",
+      "direct": "Direct"
+    }
   },
   "table": {
     "month": "Month",

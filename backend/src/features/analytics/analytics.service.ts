@@ -26,6 +26,15 @@ export type RecruiterFunnelCandidate = {
   createdAt: string
 }
 
+export type FunnelSourceStats = {
+  applications: number
+  aiProcessed: number
+  passedToRecruiter: number
+  aiRejected: number
+  manualReview: number
+  inProgress: number
+}
+
 export type RecruiterFunnelMetrics = {
   period: RecruiterFunnelPeriod
   newApplications: number
@@ -35,6 +44,7 @@ export type RecruiterFunnelMetrics = {
   manualReview: number
   inProgress: number
   processedCandidates: RecruiterFunnelCandidate[]
+  bySource: Record<string, FunnelSourceStats>
 }
 
 export type ComputeHrSnapshotInput = {
@@ -105,6 +115,15 @@ function verdictBucket(verdict: string | null | undefined): 'passed' | 'rejected
   return 'other'
 }
 
+function resolveApplicationSource(externalIds: unknown): 'hh' | 'direct' {
+  if (externalIds && typeof externalIds === 'object') {
+    if (Object.keys(externalIds as Record<string, unknown>).some((k) => k.startsWith('hh_'))) {
+      return 'hh'
+    }
+  }
+  return 'direct'
+}
+
 export async function computeRecruiterFunnel({
   prisma,
   tenantId,
@@ -123,8 +142,11 @@ export async function computeRecruiterFunnel({
     ...(from ? { createdAt: { gte: from } } : {}),
   }
 
-  const [newApplications, sessions] = await Promise.all([
-    prisma.application.count({ where: appWhere }),
+  const [allApplications, sessions] = await Promise.all([
+    prisma.application.findMany({
+      where: appWhere,
+      select: { id: true, externalIds: true },
+    }),
     prisma.selectionSession.findMany({
       where: {
         tenantId,
@@ -134,6 +156,13 @@ export async function computeRecruiterFunnel({
       orderBy: { createdAt: 'desc' },
     }),
   ])
+
+  const newApplications = allApplications.length
+
+  const sourceByAppId = new Map<string, 'hh' | 'direct'>()
+  for (const app of allApplications) {
+    sourceByAppId.set(app.id, resolveApplicationSource(app.externalIds))
+  }
 
   const aiProcessed = sessions.filter((session) => session.verdict != null).length
   const inProgress = sessions.filter((session) => session.verdict == null).length
@@ -199,6 +228,34 @@ export async function computeRecruiterFunnel({
       }
     })
 
+  const bySource: Record<string, FunnelSourceStats> = {}
+
+  const ensureSource = (src: string): FunnelSourceStats => {
+    if (!bySource[src]) {
+      bySource[src] = { applications: 0, aiProcessed: 0, passedToRecruiter: 0, aiRejected: 0, manualReview: 0, inProgress: 0 }
+    }
+    return bySource[src]
+  }
+
+  for (const app of allApplications) {
+    const src = sourceByAppId.get(app.id) ?? 'direct'
+    ensureSource(src).applications += 1
+  }
+
+  for (const session of sessions) {
+    const src = (session.applicationId ? sourceByAppId.get(session.applicationId) : undefined) ?? 'direct'
+    const entry = ensureSource(src)
+    if (session.verdict != null) {
+      entry.aiProcessed += 1
+      const bucket = verdictBucket(session.verdict.verdict)
+      if (bucket === 'passed') entry.passedToRecruiter += 1
+      if (bucket === 'rejected') entry.aiRejected += 1
+      if (bucket === 'manual') entry.manualReview += 1
+    } else {
+      entry.inProgress += 1
+    }
+  }
+
   return {
     period,
     newApplications,
@@ -208,6 +265,7 @@ export async function computeRecruiterFunnel({
     manualReview,
     inProgress,
     processedCandidates,
+    bySource,
   }
 }
 

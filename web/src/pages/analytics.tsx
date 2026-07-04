@@ -352,6 +352,36 @@ export function RecruiterFunnelDisplay({ data }: { data: RecruiterFunnelMetrics 
           </table>
         </div>
       )}
+
+      {data.bySource && Object.keys(data.bySource).length > 0 && (
+        <div className="grid gap-2">
+          <h3>{t('funnel.bySource.title')}</h3>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: 'left' }}>{t('funnel.bySource.colSource')}</th>
+                <th>{t('funnel.bySource.colApplications')}</th>
+                <th>{t('funnel.bySource.colConversion')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(data.bySource).map(([src, stats]) => {
+                const pct = stats.aiProcessed > 0 ? Math.round((stats.passedToRecruiter / stats.aiProcessed) * 100) : 0
+                const label = src === 'hh' || src === 'direct'
+                  ? t(`funnel.bySource.${src}`)
+                  : src
+                return (
+                  <tr key={src} style={{ borderTop: '1px solid #eee' }}>
+                    <td>{label}</td>
+                    <td>{stats.applications}</td>
+                    <td>{stats.aiProcessed > 0 ? `${pct}%` : '—'}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }
