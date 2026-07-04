@@ -99,6 +99,10 @@ function AnalyticsContent() {
                   : '—'
               }
             />
+            <Kpi
+              label={t('kpi.enps')}
+              value={dashboard.data.enpsScore != null ? String(dashboard.data.enpsScore) : '—'}
+            />
           </div>
         ) : null}
       </section>

@@ -11,6 +11,7 @@
  */
 
 import type { DbClient } from '../../db'
+import { computeEnps } from '../engagement/engagement.service'
 
 export type RecruiterFunnelPeriod = 'today' | 'week' | 'all'
 
@@ -54,6 +55,7 @@ export type ComputeHrSnapshotResult = {
   terminatedMtd: number
   avgTimeToHireDays: number | null
   probationPassRateQtd: number | null
+  enpsScore: number | null
 }
 
 const ACTIVE_STATUSES = ['pre_onboarding', 'onboarding', 'probation', 'active', 'notice', 'on_leave'] as const
@@ -278,6 +280,24 @@ export async function computeHrSnapshot({
     probationPassRateQtd = roundTo((passed / decidedThisQuarter.length) * 100, 2)
   }
 
+  // ── eNPS — last closed eNPS survey for the tenant ──────────────────────
+  let enpsScore: number | null = null
+  const lastEnpsSurvey = await prisma.engagementSurvey.findFirst({
+    where: { tenantId, kind: 'enps', status: 'closed' },
+    orderBy: { closedAt: 'desc' },
+    select: { id: true },
+  })
+  if (lastEnpsSurvey) {
+    const responses = await prisma.surveyResponse.findMany({
+      where: { surveyId: lastEnpsSurvey.id, tenantId },
+      select: { score: true },
+    })
+    const scores = responses.map((r) => r.score)
+    if (scores.length > 0) {
+      enpsScore = computeEnps(scores).score
+    }
+  }
+
   await prisma.hrSnapshot.upsert({
     where: { tenantId_snapshotDate: { tenantId, snapshotDate } },
     update: {
@@ -289,6 +309,7 @@ export async function computeHrSnapshot({
       terminatedMtd,
       avgTimeToHireDays,
       probationPassRateQtd,
+      enpsScore,
     },
     create: {
       tenantId,
@@ -301,6 +322,7 @@ export async function computeHrSnapshot({
       terminatedMtd,
       avgTimeToHireDays,
       probationPassRateQtd,
+      enpsScore,
     },
   })
 
@@ -314,6 +336,7 @@ export async function computeHrSnapshot({
     terminatedMtd,
     avgTimeToHireDays,
     probationPassRateQtd,
+    enpsScore,
   }
 }
 
