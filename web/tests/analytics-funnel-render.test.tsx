@@ -98,7 +98,7 @@ const signalData: AnalyticsSignal[] = [
 ]
 
 const reviewSignalCalls: Array<{ id: string; patch: Pick<AnalyticsSignal, 'status'> }> = []
-const capturedMutationFns: Array<(arg?: unknown) => unknown> = []
+const capturedReviewMutationFns: Array<(arg?: unknown) => unknown> = []
 
 // ─── Query mock helpers ───────────────────────────────────────────────────────
 
@@ -115,7 +115,7 @@ function makeQueryMock(overrides?: {
   return {
     useQueryClient: () => ({ invalidateQueries: () => Promise.resolve() }),
     useMutation: ({ mutationFn }: { mutationFn: (arg?: unknown) => unknown }) => {
-      capturedMutationFns.push(mutationFn)
+      if (mutationFn.length > 0) capturedReviewMutationFns.push(mutationFn)
       return { mutate: () => {}, isPending: false }
     },
     useQuery: ({ queryKey }: { queryKey: unknown[] }) => {
@@ -228,12 +228,17 @@ describe('RecruiterFunnelDisplay', () => {
 describe('AnalyticsPage funnel section', () => {
   test('renders signals sorted by score and factors', async () => {
     reviewSignalCalls.length = 0
-    capturedMutationFns.length = 0
+    capturedReviewMutationFns.length = 0
     mock.module('@tanstack/react-query', () => makeQueryMock({ funnelEmpty: true }))
     const { AnalyticsPage } = await import('../src/pages/analytics')
     const html = renderToStaticMarkup(React.createElement(AnalyticsPage))
 
-    expect(html.indexOf('Comp gap')).toBeLessThan(html.indexOf('Late 1:1'))
+    expect(html.indexOf('signal-row-00000000-0000-4000-8000-000000000001')).toBeLessThan(
+      html.indexOf('signal-row-00000000-0000-4000-8000-000000000003'),
+    )
+    expect(html.indexOf('signal-row-00000000-0000-4000-8000-000000000003')).toBeLessThan(
+      html.indexOf('signal-row-00000000-0000-4000-8000-000000000002'),
+    )
     expect(html).toContain('Comp gap')
     expect(html).toContain('Late 1:1')
     expect(html).toContain('signals.noFactors')
@@ -241,16 +246,19 @@ describe('AnalyticsPage funnel section', () => {
 
   test('review action is wired to api.reviewSignal', async () => {
     reviewSignalCalls.length = 0
-    capturedMutationFns.length = 0
+    capturedReviewMutationFns.length = 0
     mock.module('@tanstack/react-query', () => makeQueryMock({ funnelEmpty: true }))
     const { AnalyticsPage } = await import('../src/pages/analytics')
     renderToStaticMarkup(React.createElement(AnalyticsPage))
 
-    for (const mutationFn of capturedMutationFns) {
-      await mutationFn('00000000-0000-4000-8000-000000000001')
-    }
-
-    expect(reviewSignalCalls.some((call) => call.patch.status === 'reviewed')).toBe(true)
+    expect(capturedReviewMutationFns).toHaveLength(1)
+    await capturedReviewMutationFns[0]('00000000-0000-4000-8000-000000000001')
+    expect(reviewSignalCalls).toEqual([
+      {
+        id: '00000000-0000-4000-8000-000000000001',
+        patch: { status: 'reviewed' },
+      },
+    ])
   })
 
   test('renders funnel section title', async () => {

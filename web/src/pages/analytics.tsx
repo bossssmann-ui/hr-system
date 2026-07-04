@@ -8,7 +8,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import type { RecruiterFunnelMetrics } from '@web-app-demo/contracts'
@@ -177,7 +177,10 @@ function SignalsSection() {
       void queryClient.invalidateQueries({ queryKey: ['analytics'] })
     },
   })
-  const sortedSignals = [...(signals.data?.items ?? [])].sort((a, b) => b.score - a.score)
+  const sortedSignals = useMemo(
+    () => [...(signals.data?.items ?? [])].sort((a, b) => b.score - a.score),
+    [signals.data?.items],
+  )
 
   return (
     <section className="grid gap-3">
@@ -211,7 +214,7 @@ function SignalsSection() {
           </thead>
           <tbody>
             {sortedSignals.map((s) => (
-              <tr key={s.id} style={{ borderTop: '1px solid #eee' }}>
+              <tr key={s.id} data-testid={`signal-row-${s.id}`} style={{ borderTop: '1px solid #eee' }}>
                 <td><code>{s.employeeId.slice(0, 8)}…</code></td>
                 <td>{s.type}</td>
                 <td>
