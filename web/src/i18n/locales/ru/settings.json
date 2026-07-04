@@ -27,5 +27,35 @@
   },
   "jobBoards": {
     "published": "Опубликованных вакансий: {{count}}"
+  },
+  "pipeline": {
+    "title": "Конвейер и скоринг",
+    "description": "Настройки порогов авто-конвейера и весов composite-скоринга. Доступно только для owner / hr_admin.",
+    "loadFailed": "Не удалось загрузить настройки конвейера.",
+    "empty": "Настройки конвейера пока недоступны.",
+    "saveSuccess": "Настройки конвейера сохранены.",
+    "saveFailed": "Не удалось сохранить настройки конвейера.",
+    "actions": {
+      "save": "Сохранить"
+    },
+    "thresholds": {
+      "title": "Пороги авто-конвейера",
+      "hint": "Если оставить поля пустыми, будут использованы дефолтные значения из окружения.",
+      "autoSelection": "autoSelection (0..100)",
+      "autoReject": "autoReject (0..100)"
+    },
+    "weights": {
+      "title": "Веса composite-скоринга",
+      "resume": "resume",
+      "selection": "selection",
+      "assessment": "assessment",
+      "retention": "retention"
+    },
+    "validation": {
+      "thresholdsBothOrEmpty": "Заполните оба порога или оставьте оба поля пустыми для env-дефолтов.",
+      "thresholdsRange": "Пороги должны быть числами от 0 до 100.",
+      "thresholdsOrder": "autoReject должен быть меньше или равен autoSelection.",
+      "weightsRequired": "Все веса скоринга должны быть заполнены числовыми значениями."
+    }
   }
 }

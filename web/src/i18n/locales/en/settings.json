@@ -27,5 +27,35 @@
   },
   "jobBoards": {
     "published": "Published vacancies: {{count}}"
+  },
+  "pipeline": {
+    "title": "Pipeline and scoring",
+    "description": "Configure auto-pipeline thresholds and composite scoring weights. Owner / hr_admin only.",
+    "loadFailed": "Failed to load pipeline settings.",
+    "empty": "Pipeline settings are currently unavailable.",
+    "saveSuccess": "Pipeline settings saved.",
+    "saveFailed": "Failed to save pipeline settings.",
+    "actions": {
+      "save": "Save"
+    },
+    "thresholds": {
+      "title": "Auto-pipeline thresholds",
+      "hint": "If left empty, environment defaults are used.",
+      "autoSelection": "autoSelection (0..100)",
+      "autoReject": "autoReject (0..100)"
+    },
+    "weights": {
+      "title": "Composite scoring weights",
+      "resume": "resume",
+      "selection": "selection",
+      "assessment": "assessment",
+      "retention": "retention"
+    },
+    "validation": {
+      "thresholdsBothOrEmpty": "Fill both thresholds or leave both empty to use environment defaults.",
+      "thresholdsRange": "Thresholds must be numbers between 0 and 100.",
+      "thresholdsOrder": "autoReject must be less than or equal to autoSelection.",
+      "weightsRequired": "All scoring weights must be filled with numeric values."
+    }
   }
 }
