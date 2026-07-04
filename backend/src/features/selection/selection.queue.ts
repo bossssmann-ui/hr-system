@@ -416,10 +416,11 @@ async function runEvaluation({ prisma, env, sessionId }: EvaluateJob): Promise<v
       session.applicationId &&
       (normalizedVerdict.includes('ДОПУСТИТЬ') || normalizedVerdict.includes('ОТКЛОНИТЬ'))
     ) {
-      const tenantFeatureFlags = await prisma.tenantSettings.findUnique({
+      const tenantSettingsRow = await prisma.tenantSettings.findUnique({
         where: { tenantId: session.tenantId },
         select: { featureFlags: true },
-      }).then((s) => s?.featureFlags)
+      })
+      const tenantFeatureFlags = tenantSettingsRow?.featureFlags
       if (resolvePipelineFlag('recruiterNotifications', tenantFeatureFlags, env)) {
         await notifyRecipientsForEvent({
           prisma,

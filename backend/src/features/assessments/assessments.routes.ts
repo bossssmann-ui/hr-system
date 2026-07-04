@@ -455,10 +455,11 @@ export function createPublicAssessmentRoutes() {
       }
 
       {
-        const tenantFeatureFlags = await prisma.tenantSettings.findUnique({
+        const tenantSettingsRow = await prisma.tenantSettings.findUnique({
           where: { tenantId: session.tenantId },
           select: { featureFlags: true },
-        }).then((s) => s?.featureFlags)
+        })
+        const tenantFeatureFlags = tenantSettingsRow?.featureFlags
         if (resolvePipelineFlag('recruiterNotifications', tenantFeatureFlags, env)) {
           await notifyRecipientsForEvent({
             prisma,
