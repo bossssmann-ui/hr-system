@@ -1,4 +1,5 @@
 export * from './admin'
+export * from './employees'
 export * from './ai-intelligence'
 export * from './analytics'
 export * from './assessments'
