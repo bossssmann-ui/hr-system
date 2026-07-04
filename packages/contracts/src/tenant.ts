@@ -60,6 +60,17 @@ export const tenantSettingsSchema = z.object({
   timezone: z.string(),
   locale: z.string(),
   featureFlags: z.record(z.string(), z.boolean()),
+  scoringWeights: z.record(z.string(), z.number()).nullable(),
+  pipelineThresholds: z
+    .object({
+      autoSelection: z.number().min(0).max(100),
+      autoReject: z.number().min(0).max(100),
+    })
+    .refine((value) => value.autoReject <= value.autoSelection, {
+      message: 'autoReject must be less than or equal to autoSelection',
+      path: ['autoReject'],
+    })
+    .nullable(),
 })
 
 export type TenantSettings = z.infer<typeof tenantSettingsSchema>
@@ -75,6 +86,18 @@ export const updateTenantSettingsRequestSchema = z.object({
   timezone: z.string().min(1).max(64).optional(),
   locale: z.string().min(2).max(16).optional(),
   featureFlags: z.record(z.string(), z.boolean()).optional(),
+  scoringWeights: z.record(z.string(), z.number()).nullable().optional(),
+  pipelineThresholds: z
+    .object({
+      autoSelection: z.number().min(0).max(100),
+      autoReject: z.number().min(0).max(100),
+    })
+    .refine((value) => value.autoReject <= value.autoSelection, {
+      message: 'autoReject must be less than or equal to autoSelection',
+      path: ['autoReject'],
+    })
+    .nullable()
+    .optional(),
 })
 
 export type UpdateTenantSettingsRequest = z.infer<typeof updateTenantSettingsRequestSchema>

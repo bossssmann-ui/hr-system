@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import type { AppEnv } from '../../env'
-import { runAutoSelectionAfterScoring } from './auto-selection-after-scoring'
+import { resolvePipelineThresholds, runAutoSelectionAfterScoring } from './auto-selection-after-scoring'
 
 const baseEnv: AppEnv = {
   PORT: 3000,
@@ -212,6 +212,57 @@ describe('runAutoSelectionAfterScoring', () => {
   })
 })
 
+describe('resolvePipelineThresholds', () => {
+  test('uses tenant pipeline thresholds when they are valid', () => {
+    const thresholds = resolvePipelineThresholds(
+      { pipelineThresholds: { autoSelection: 90, autoReject: 20 } },
+      baseEnv,
+    )
+    expect(thresholds).toEqual({ autoSelection: 90, autoReject: 20 })
+  })
+
+  test('falls back to env defaults when tenant thresholds are missing or null', () => {
+    expect(resolvePipelineThresholds(null, baseEnv)).toEqual({
+      autoSelection: baseEnv.AUTO_SELECTION_THRESHOLD,
+      autoReject: baseEnv.AUTO_REJECT_THRESHOLD,
+    })
+    expect(resolvePipelineThresholds({ pipelineThresholds: null }, baseEnv)).toEqual({
+      autoSelection: baseEnv.AUTO_SELECTION_THRESHOLD,
+      autoReject: baseEnv.AUTO_REJECT_THRESHOLD,
+    })
+  })
+
+  test('falls back to env defaults when tenant thresholds are out of bounds', () => {
+    expect(
+      resolvePipelineThresholds(
+        { pipelineThresholds: { autoSelection: 101, autoReject: 20 } },
+        baseEnv,
+      ),
+    ).toEqual({
+      autoSelection: baseEnv.AUTO_SELECTION_THRESHOLD,
+      autoReject: baseEnv.AUTO_REJECT_THRESHOLD,
+    })
+    expect(
+      resolvePipelineThresholds(
+        { pipelineThresholds: { autoSelection: 80, autoReject: -1 } },
+        baseEnv,
+      ),
+    ).toEqual({
+      autoSelection: baseEnv.AUTO_SELECTION_THRESHOLD,
+      autoReject: baseEnv.AUTO_REJECT_THRESHOLD,
+    })
+    expect(
+      resolvePipelineThresholds(
+        { pipelineThresholds: { autoSelection: 20, autoReject: 90 } },
+        baseEnv,
+      ),
+    ).toEqual({
+      autoSelection: baseEnv.AUTO_SELECTION_THRESHOLD,
+      autoReject: baseEnv.AUTO_REJECT_THRESHOLD,
+    })
+  })
+})
+
 function createState() {
   const sessions: Array<Record<string, unknown>> = []
   const templates: Array<Record<string, unknown>> = []
@@ -275,6 +326,9 @@ function createState() {
       },
     },
     hhConnection: {
+      findUnique: async () => null,
+    },
+    tenantSettings: {
       findUnique: async () => null,
     },
     userRole: {

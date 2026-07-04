@@ -48,8 +48,14 @@ export async function runAutoSelectionAfterScoring(input: RunAutoSelectionAfterS
     return { applied: false as const, reason: 'unsupported_role' as const }
   }
 
+  const tenantSettings = await prisma.tenantSettings.findUnique({
+    where: { tenantId: application.tenantId },
+    select: { pipelineThresholds: true },
+  })
+  const thresholds = resolvePipelineThresholds(tenantSettings, env)
+
   try {
-    if (relevanceScore >= env.AUTO_SELECTION_THRESHOLD) {
+    if (relevanceScore >= thresholds.autoSelection) {
       const { session, created } = await createSelectionSession({
         prisma,
         tenantId: application.tenantId,
@@ -96,7 +102,7 @@ export async function runAutoSelectionAfterScoring(input: RunAutoSelectionAfterS
       return { applied: true as const, action: 'session_created' as const }
     }
 
-    if (relevanceScore < env.AUTO_REJECT_THRESHOLD) {
+    if (relevanceScore < thresholds.autoReject) {
       if (application.stage !== 'rejected') {
         await prisma.application.update({
           where: { id: application.id },
@@ -154,6 +160,26 @@ export async function runAutoSelectionAfterScoring(input: RunAutoSelectionAfterS
 
     return { applied: false as const, reason: 'pipeline_failed' as const }
   }
+}
+
+export function resolvePipelineThresholds(
+  tenantSettings: { pipelineThresholds?: unknown } | null | undefined,
+  env: Pick<AppEnv, 'AUTO_SELECTION_THRESHOLD' | 'AUTO_REJECT_THRESHOLD'>,
+) {
+  const fallback = {
+    autoSelection: env.AUTO_SELECTION_THRESHOLD,
+    autoReject: env.AUTO_REJECT_THRESHOLD,
+  }
+
+  const record = asRecord(tenantSettings?.pipelineThresholds)
+  const autoSelection = toFiniteNumber(record.autoSelection)
+  const autoReject = toFiniteNumber(record.autoReject)
+  if (autoSelection === null || autoReject === null) return fallback
+  if (autoSelection < 0 || autoSelection > 100) return fallback
+  if (autoReject < 0 || autoReject > 100) return fallback
+  if (autoReject > autoSelection) return fallback
+
+  return { autoSelection, autoReject }
 }
 
 export async function sendAutoSelectionInvite(input: SendAutoSelectionInviteInput) {
@@ -233,6 +259,10 @@ function asRecord(value: unknown): Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     ? value as Record<string, unknown>
     : {}
+}
+
+function toFiniteNumber(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
 function toErrorMessage(error: unknown) {

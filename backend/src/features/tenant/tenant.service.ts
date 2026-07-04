@@ -170,6 +170,8 @@ export async function getTenantSettings(prisma: DbClient, tenantId: string) {
     timezone: settings.timezone,
     locale: settings.locale,
     featureFlags: asFeatureFlags(settings.featureFlags),
+    scoringWeights: asNumberRecord(settings.scoringWeights),
+    pipelineThresholds: asPipelineThresholds(settings.pipelineThresholds),
   }
 }
 
@@ -182,6 +184,36 @@ function asFeatureFlags(value: unknown): Record<string, boolean> {
   return out
 }
 
+function asNumberRecord(value: unknown): Record<string, number> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const out: Record<string, number> = {}
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof v === 'number' && Number.isFinite(v)) out[k] = v
+  }
+  return out
+}
+
+function asPipelineThresholds(value: unknown): { autoSelection: number; autoReject: number } | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const record = value as Record<string, unknown>
+  const autoSelection = record.autoSelection
+  const autoReject = record.autoReject
+  if (
+    typeof autoSelection !== 'number' ||
+    !Number.isFinite(autoSelection) ||
+    autoSelection < 0 ||
+    autoSelection > 100
+  ) return null
+  if (
+    typeof autoReject !== 'number' ||
+    !Number.isFinite(autoReject) ||
+    autoReject < 0 ||
+    autoReject > 100 ||
+    autoReject > autoSelection
+  ) return null
+  return { autoSelection, autoReject }
+}
+
 export async function updateTenantSettings(
   prisma: DbClient,
   tenantId: string,
@@ -192,6 +224,8 @@ export async function updateTenantSettings(
     timezone?: string
     locale?: string
     featureFlags?: Record<string, boolean>
+    scoringWeights?: Record<string, number> | null
+    pipelineThresholds?: { autoSelection: number; autoReject: number } | null
   },
 ) {
   await prisma.$transaction(async (tx) => {
@@ -204,6 +238,8 @@ export async function updateTenantSettings(
     if (patch.timezone !== undefined) settingsPatch.timezone = patch.timezone
     if (patch.locale !== undefined) settingsPatch.locale = patch.locale
     if (patch.featureFlags !== undefined) settingsPatch.featureFlags = patch.featureFlags
+    if (patch.scoringWeights !== undefined) settingsPatch.scoringWeights = patch.scoringWeights
+    if (patch.pipelineThresholds !== undefined) settingsPatch.pipelineThresholds = patch.pipelineThresholds
 
     await tx.tenantSettings.upsert({
       where: { tenantId },

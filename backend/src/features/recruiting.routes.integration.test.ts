@@ -125,6 +125,7 @@ maybeDescribe('Phase 1B recruiting routes', () => {
   const testPassword = 'TestPass123!'
   let tenantId: string
   let ownerToken: string
+  let hrAdminToken: string
   let recruiterToken: string
   let hiringManagerToken: string
   let noRoleToken: string
@@ -135,6 +136,7 @@ maybeDescribe('Phase 1B recruiting routes', () => {
     tenantId = tenant.id
 
     await registerUser(prisma, tenantId, `owner-${tenantId}@test.com`, testPassword, ['owner'])
+    await registerUser(prisma, tenantId, `hr-admin-${tenantId}@test.com`, testPassword, ['hr_admin'])
     await registerUser(prisma, tenantId, `recruiter-${tenantId}@test.com`, testPassword, ['recruiter'])
     await registerUser(prisma, tenantId, `manager-${tenantId}@test.com`, testPassword, ['hiring_manager'])
     // User with no business roles (has account but no tenant membership for business routes)
@@ -149,6 +151,7 @@ maybeDescribe('Phase 1B recruiting routes', () => {
     })
 
     ownerToken = await loginAs(app, `owner-${tenantId}@test.com`, testPassword)
+    hrAdminToken = await loginAs(app, `hr-admin-${tenantId}@test.com`, testPassword)
     recruiterToken = await loginAs(app, `recruiter-${tenantId}@test.com`, testPassword)
     hiringManagerToken = await loginAs(app, `manager-${tenantId}@test.com`, testPassword)
     noRoleToken = await loginAs(app, `nobody-${tenantId}@test.com`, testPassword)
@@ -837,6 +840,97 @@ maybeDescribe('Phase 1B recruiting routes', () => {
   })
 
   // ─── Admin ─────────────────────────────────────────────────────────────────
+
+  describe('tenant settings', () => {
+    test('owner can set pipeline thresholds', async () => {
+      const res = await app.request('/api/settings/tenant', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: ['B', 'earer ', ownerToken].join(''),
+        },
+        body: JSON.stringify({
+          pipelineThresholds: {
+            autoSelection: 90,
+            autoReject: 20,
+          },
+        }),
+      })
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.pipelineThresholds).toEqual({ autoSelection: 90, autoReject: 20 })
+    })
+
+    test('hr_admin can update tenant settings', async () => {
+      const res = await app.request('/api/settings/tenant', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: ['B', 'earer ', hrAdminToken].join(''),
+        },
+        body: JSON.stringify({
+          pipelineThresholds: {
+            autoSelection: 88,
+            autoReject: 18,
+          },
+        }),
+      })
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.pipelineThresholds).toEqual({ autoSelection: 88, autoReject: 18 })
+    })
+
+    test('recruiter cannot update tenant settings', async () => {
+      const res = await app.request('/api/settings/tenant', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: ['B', 'earer ', recruiterToken].join(''),
+        },
+        body: JSON.stringify({
+          pipelineThresholds: {
+            autoSelection: 80,
+            autoReject: 20,
+          },
+        }),
+      })
+      expect(res.status).toBe(403)
+    })
+
+    test('invalid pipeline thresholds are rejected with validation error', async () => {
+      const res = await app.request('/api/settings/tenant', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: ['B', 'earer ', ownerToken].join(''),
+        },
+        body: JSON.stringify({
+          pipelineThresholds: {
+            autoSelection: 30,
+            autoReject: 70,
+          },
+        }),
+      })
+      expect(res.status).toBe(400)
+    })
+
+    test('pipeline thresholds outside 0..100 are rejected', async () => {
+      const res = await app.request('/api/settings/tenant', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: ['B', 'earer ', ownerToken].join(''),
+        },
+        body: JSON.stringify({
+          pipelineThresholds: {
+            autoSelection: 101,
+            autoReject: 20,
+          },
+        }),
+      })
+      expect(res.status).toBe(400)
+    })
+  })
 
   describe('admin', () => {
     test('owner can list users', async () => {
