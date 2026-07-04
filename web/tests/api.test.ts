@@ -454,7 +454,9 @@ test('ApiClient tenant settings methods hit expected endpoints', async () => {
     'GET /api/settings/tenant',
     'PATCH /api/settings/tenant',
   ])
-  expect(JSON.parse(calls[1]?.body ?? "{}")).toEqual(
+  expect(calls[1]).toBeDefined()
+  expect(calls[1]?.body).not.toBeNull()
+  expect(JSON.parse(calls[1]!.body!)).toEqual(
     {
       pipelineThresholds: {
         autoSelection: 90,

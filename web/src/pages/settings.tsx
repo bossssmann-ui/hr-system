@@ -44,29 +44,31 @@ type PipelineScoringForm = {
   weights: Record<ScoringWeightKey, string>
 }
 
-function parseOptionalNumber(value: string): number | null {
+function parseNumberOrNull(value: string): number | null {
   const trimmed = value.trim()
   if (!trimmed) return null
   const parsed = Number(trimmed)
-  return Number.isFinite(parsed) ? parsed : Number.NaN
+  return Number.isFinite(parsed) ? parsed : null
 }
 
 function parseThresholds(
   autoSelection: string,
   autoReject: string,
 ): { value: { autoSelection: number; autoReject: number } | null; errorKey: string | null } {
-  const parsedAutoSelection = parseOptionalNumber(autoSelection)
-  const parsedAutoReject = parseOptionalNumber(autoReject)
+  const hasAutoSelection = autoSelection.trim().length > 0
+  const hasAutoReject = autoReject.trim().length > 0
+  const parsedAutoSelection = parseNumberOrNull(autoSelection)
+  const parsedAutoReject = parseNumberOrNull(autoReject)
 
-  if (parsedAutoSelection === null && parsedAutoReject === null) {
+  if (!hasAutoSelection && !hasAutoReject) {
     return { value: null, errorKey: null }
   }
 
-  if (parsedAutoSelection === null || parsedAutoReject === null) {
+  if (!hasAutoSelection || !hasAutoReject) {
     return { value: null, errorKey: "pipeline.validation.thresholdsBothOrEmpty" }
   }
 
-  if (!Number.isFinite(parsedAutoSelection) || !Number.isFinite(parsedAutoReject)) {
+  if (parsedAutoSelection === null || parsedAutoReject === null) {
     return { value: null, errorKey: "pipeline.validation.thresholdsRange" }
   }
 
@@ -98,8 +100,8 @@ function parseScoringWeights(weights: Record<ScoringWeightKey, string>): {
 } {
   const parsedWeights = {} as Record<ScoringWeightKey, number>
   for (const key of SCORING_WEIGHT_KEYS) {
-    const parsed = parseOptionalNumber(weights[key])
-    if (parsed === null || !Number.isFinite(parsed)) {
+    const parsed = parseNumberOrNull(weights[key])
+    if (parsed === null) {
       return { value: null, errorKey: "pipeline.validation.weightsRequired" }
     }
     parsedWeights[key] = parsed
