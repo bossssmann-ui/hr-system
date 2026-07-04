@@ -12,7 +12,10 @@
 import { APPLICATION_STAGES } from '../applications/applications.fsm'
 import type { ApplicationStage } from '../applications/applications.fsm'
 
-// Default display labels matching the canonical stage enum values.
+// Default display labels for the canonical ApplicationStage values.
+// These are in Russian (ru-RU) — the default locale for this application.
+// Consumers that need a different locale should supply a `label` override
+// via the tenant funnelStageConfig rather than changing these defaults.
 const DEFAULT_LABELS: Record<ApplicationStage, string> = {
   new: 'Новые',
   screen: 'Скрининг',

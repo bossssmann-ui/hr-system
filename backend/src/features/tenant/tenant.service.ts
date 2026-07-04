@@ -227,9 +227,9 @@ function asFunnelStageConfig(
     const entry = item as Record<string, unknown>
     if (typeof entry.stage !== 'string' || !VALID_STAGES.has(entry.stage)) return null
     if (typeof entry.order !== 'number' || !Number.isFinite(entry.order)) return null
-    const label = entry.label !== undefined ? (typeof entry.label === 'string' ? entry.label : undefined) : undefined
-    const hidden = entry.hidden !== undefined ? (typeof entry.hidden === 'boolean' ? entry.hidden : undefined) : undefined
-    out.push({ stage: entry.stage, order: entry.order, ...(label !== undefined ? { label } : {}), ...(hidden !== undefined ? { hidden } : {}) })
+    const label = typeof entry.label === 'string' ? entry.label : undefined
+    const hidden = typeof entry.hidden === 'boolean' ? entry.hidden : undefined
+    out.push({ stage: entry.stage, order: entry.order, label, hidden })
   }
   return out
 }
