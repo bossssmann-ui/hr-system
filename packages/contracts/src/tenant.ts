@@ -98,7 +98,7 @@ export const tenantSettingsSchema = z.object({
       path: ['autoReject'],
     })
     .nullable(),
-  funnelStageConfig: funnelStageConfigSchema,
+  funnelStageConfig: funnelStageConfigSchema.optional(),
 })
 
 export type TenantSettings = z.infer<typeof tenantSettingsSchema>
