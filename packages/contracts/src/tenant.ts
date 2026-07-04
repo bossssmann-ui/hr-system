@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import { roleNameSchema } from './admin'
 import { emailSchema, passwordSchema } from './auth'
+import { applicationStageSchema } from './applications'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tenant registration — POST /api/register
@@ -47,6 +48,32 @@ export const registerTenantResponseSchema = z.object({
 export type RegisterTenantResponse = z.infer<typeof registerTenantResponseSchema>
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Funnel stage display config — per-stage label / order / visibility override
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const funnelStageEntrySchema = z.object({
+  stage: applicationStageSchema,
+  label: z.string().min(1).max(80).optional(),
+  order: z.number().int(),
+  hidden: z.boolean().optional(),
+})
+
+export type FunnelStageEntry = z.infer<typeof funnelStageEntrySchema>
+
+export const funnelStageConfigSchema = z
+  .array(funnelStageEntrySchema)
+  .refine(
+    (entries) => {
+      const stages = entries.map((e) => e.stage)
+      return stages.length === new Set(stages).size
+    },
+    { message: 'Duplicate stages are not allowed in funnelStageConfig' },
+  )
+  .nullable()
+
+export type FunnelStageConfig = z.infer<typeof funnelStageConfigSchema>
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Tenant settings — GET / PATCH /api/settings/tenant
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -71,6 +98,7 @@ export const tenantSettingsSchema = z.object({
       path: ['autoReject'],
     })
     .nullable(),
+  funnelStageConfig: funnelStageConfigSchema.optional(),
 })
 
 export type TenantSettings = z.infer<typeof tenantSettingsSchema>
@@ -98,6 +126,7 @@ export const updateTenantSettingsRequestSchema = z.object({
     })
     .nullable()
     .optional(),
+  funnelStageConfig: funnelStageConfigSchema.optional(),
 })
 
 export type UpdateTenantSettingsRequest = z.infer<typeof updateTenantSettingsRequestSchema>

@@ -130,6 +130,7 @@ model TenantSettings {
   featureFlags  Json     @default("{}") @map("feature_flags")
   scoringWeights Json?   @map("scoring_weights")
   pipelineThresholds Json? @map("pipeline_thresholds")
+  funnelStageConfig Json? @map("funnel_stage_config")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 

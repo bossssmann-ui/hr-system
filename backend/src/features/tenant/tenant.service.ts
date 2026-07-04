@@ -172,6 +172,7 @@ export async function getTenantSettings(prisma: DbClient, tenantId: string) {
     featureFlags: asFeatureFlags(settings.featureFlags),
     scoringWeights: asNumberRecord(settings.scoringWeights),
     pipelineThresholds: asPipelineThresholds(settings.pipelineThresholds),
+    funnelStageConfig: asFunnelStageConfig(settings.funnelStageConfig),
   }
 }
 
@@ -214,6 +215,25 @@ function asPipelineThresholds(value: unknown): { autoSelection: number; autoReje
   return { autoSelection, autoReject }
 }
 
+const VALID_STAGES = new Set(['new', 'screen', 'tech', 'final', 'offer', 'hired', 'rejected'])
+
+function asFunnelStageConfig(
+  value: unknown,
+): Array<{ stage: string; label?: string; order: number; hidden?: boolean }> | null {
+  if (!Array.isArray(value)) return null
+  const out: Array<{ stage: string; label?: string; order: number; hidden?: boolean }> = []
+  for (const item of value) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return null
+    const entry = item as Record<string, unknown>
+    if (typeof entry.stage !== 'string' || !VALID_STAGES.has(entry.stage)) return null
+    if (typeof entry.order !== 'number' || !Number.isFinite(entry.order)) return null
+    const label = typeof entry.label === 'string' ? entry.label : undefined
+    const hidden = typeof entry.hidden === 'boolean' ? entry.hidden : undefined
+    out.push({ stage: entry.stage, order: entry.order, label, hidden })
+  }
+  return out
+}
+
 export async function updateTenantSettings(
   prisma: DbClient,
   tenantId: string,
@@ -226,6 +246,7 @@ export async function updateTenantSettings(
     featureFlags?: Record<string, boolean>
     scoringWeights?: Record<string, number> | null
     pipelineThresholds?: { autoSelection: number; autoReject: number } | null
+    funnelStageConfig?: Array<{ stage: string; label?: string; order: number; hidden?: boolean }> | null
   },
 ) {
   await prisma.$transaction(async (tx) => {
@@ -240,6 +261,7 @@ export async function updateTenantSettings(
     if (patch.featureFlags !== undefined) settingsPatch.featureFlags = patch.featureFlags
     if (patch.scoringWeights !== undefined) settingsPatch.scoringWeights = patch.scoringWeights
     if (patch.pipelineThresholds !== undefined) settingsPatch.pipelineThresholds = patch.pipelineThresholds
+    if (patch.funnelStageConfig !== undefined) settingsPatch.funnelStageConfig = patch.funnelStageConfig
 
     await tx.tenantSettings.upsert({
       where: { tenantId },
