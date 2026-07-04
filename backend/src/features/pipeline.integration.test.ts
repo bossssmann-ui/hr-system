@@ -260,6 +260,66 @@ maybeDescribe('Phase 18 — сквозной happy-path конвейера', () 
   let questionId2: string
   let applicationId: string
 
+  async function createApplicationForThresholdTest(label: string) {
+    const candidate = await prisma.candidate.create({
+      data: {
+        tenantId,
+        fullName: `Threshold Candidate ${label}`,
+        email: `threshold-${label}-${tenantId}@test.com`,
+      },
+    })
+
+    const application = await prisma.application.create({
+      data: {
+        tenantId,
+        candidateId: candidate.id,
+        vacancyId,
+        stage: 'new',
+        assignedToUserId: recruiterId,
+      },
+    })
+
+    await prisma.resume.create({
+      data: {
+        tenantId,
+        candidateId: candidate.id,
+        fileUrl: `https://example.com/${label}-resume.pdf`,
+        parsedPayload: {
+          title: 'Логист',
+          experience: ['3 years'],
+          skills: ['Excel'],
+        },
+      },
+    })
+
+    return application.id
+  }
+
+  async function scoreWithRelevance(targetApplicationId: string, relevanceScore: number) {
+    await scoreApplication({
+      prisma,
+      env,
+      applicationId: targetApplicationId,
+      actorUserId: recruiterId,
+      provider: {
+        score: async () => ({
+          relevance_score: relevanceScore,
+          summary: 'Threshold test score',
+          strengths: [],
+          gaps: [],
+          soft_skills_signals: [],
+          red_flags: [],
+          anti_fraud_signals: [],
+          values_fit_hypothesis: 'neutral',
+          interview_focus_areas: [],
+          model: 'mock',
+          scored_at: new Date().toISOString(),
+          schema_version: 1,
+        }),
+      },
+    })
+  }
+
   // ── beforeAll: чистый тенант ──────────────────────────────────────────────
 
   beforeAll(async () => {
@@ -747,5 +807,38 @@ maybeDescribe('Phase 18 — сквозной happy-path конвейера', () 
       where: { tenantId, recipientUserId: recruiterId },
     })
     expect(notificationCountAfter).toBe(notificationCountBefore)
+  })
+
+  test('тенант без pipelineThresholds использует env порог auto-selection', async () => {
+    await prisma.tenantSettings.deleteMany({ where: { tenantId } })
+
+    const thresholdAppId = await createApplicationForThresholdTest('env-default')
+    await scoreWithRelevance(thresholdAppId, 85)
+
+    const session = await prisma.selectionSession.findFirst({
+      where: { tenantId, applicationId: thresholdAppId },
+    })
+    expect(session).not.toBeNull()
+  })
+
+  test('тенант с pipelineThresholds переопределяет env порог auto-selection', async () => {
+    await prisma.tenantSettings.upsert({
+      where: { tenantId },
+      update: {
+        pipelineThresholds: { autoSelection: 90, autoReject: 20 } as Prisma.InputJsonValue,
+      },
+      create: {
+        tenantId,
+        pipelineThresholds: { autoSelection: 90, autoReject: 20 } as Prisma.InputJsonValue,
+      },
+    })
+
+    const thresholdAppId = await createApplicationForThresholdTest('tenant-custom')
+    await scoreWithRelevance(thresholdAppId, 85)
+
+    const session = await prisma.selectionSession.findFirst({
+      where: { tenantId, applicationId: thresholdAppId },
+    })
+    expect(session).toBeNull()
   })
 })

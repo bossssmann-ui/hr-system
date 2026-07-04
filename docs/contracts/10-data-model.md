@@ -62,6 +62,7 @@ Tenant-level runtime and product configuration. Used for additive feature rollou
 | `tenant_id` | UUID | PK, FK → `Tenant`. |
 | `feature_flags` | jsonb | Tenant feature toggles map. |
 | `scoring_weights` | jsonb? | Phase 18 auto-pipeline scoring weights payload (nullable until configured). |
+| `pipeline_thresholds` | jsonb? | Tenant auto-pipeline thresholds `{ autoSelection, autoReject }` with fallback to env defaults. |
 | `created_at` / `updated_at` | timestamp | |
 
 ### `HiringRequisition`

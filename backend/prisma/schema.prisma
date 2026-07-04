@@ -129,6 +129,7 @@ model TenantSettings {
   locale        String   @default("ru-RU")
   featureFlags  Json     @default("{}") @map("feature_flags")
   scoringWeights Json?   @map("scoring_weights")
+  pipelineThresholds Json? @map("pipeline_thresholds")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
