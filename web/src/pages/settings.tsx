@@ -9,6 +9,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import type {
+  ApplicationStage,
+  FunnelStageEntry,
   IntegrationsStatus,
   TenantSettings,
   UpdateTenantSettingsRequest,
@@ -22,6 +24,7 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { ApiRequestError } from "@/lib/api"
+import { APPLICATION_STAGES, resolveFunnelStages } from "@/lib/funnel-stages"
 import { isAdmin } from "@/lib/roles"
 import { Spinner } from "@/components/ui/spinner"
 import { Typography } from "@/components/ui/typography"
@@ -214,6 +217,7 @@ function SettingsIntegrations() {
       </header>
 
       {isAdmin(user) && <PipelineScoringSettingsCard />}
+      {isAdmin(user) && <FunnelStageEditorCard />}
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-4">
@@ -439,6 +443,184 @@ function PipelineScoringSettingsCard() {
                 disabled={saveMutation.isPending || Boolean(thresholdsValidation.errorKey)}
               >
                 {t("pipeline.actions.save")}
+              </Button>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+// ─── Funnel Stage Editor ──────────────────────────────────────────────────────
+
+export type FunnelStageRow = {
+  stage: ApplicationStage
+  label: string
+  order: string
+  hidden: boolean
+}
+
+export function stageRowsFromSettings(settings: TenantSettings): FunnelStageRow[] {
+  const descriptors = resolveFunnelStages(settings.funnelStageConfig ?? null)
+  return descriptors.map((d) => ({
+    stage: d.stage,
+    label: d.label ?? "",
+    order: String(d.order),
+    hidden: d.hidden,
+  }))
+}
+
+export function buildFunnelStagePatch(rows: FunnelStageRow[]): {
+  patch: Pick<UpdateTenantSettingsRequest, "funnelStageConfig"> | null
+  errorKey: string | null
+} {
+  const stages = rows.map((r) => r.stage)
+  if (stages.length !== new Set(stages).size) {
+    return { patch: null, errorKey: "funnelStages.validation.duplicateStages" }
+  }
+
+  const config: FunnelStageEntry[] = rows.map((row, idx) => {
+    const order = Number(row.order)
+    return {
+      stage: row.stage,
+      ...(row.label.trim() ? { label: row.label.trim() } : {}),
+      order: Number.isFinite(order) ? order : idx,
+      ...(row.hidden ? { hidden: true } : {}),
+    }
+  })
+
+  return { patch: { funnelStageConfig: config }, errorKey: null }
+}
+
+function FunnelStageEditorCard() {
+  const { api } = useAuth()
+  const { t } = useTranslation("settings")
+  const queryClient = useQueryClient()
+
+  const tenantSettingsQuery = useQuery({
+    queryKey: ["settings", "tenant"],
+    queryFn: () => api.getTenantSettings(),
+  })
+
+  const [rows, setRows] = useState<FunnelStageRow[]>(() =>
+    APPLICATION_STAGES.map((stage, idx) => ({ stage, label: "", order: String(idx), hidden: false })),
+  )
+  const [submitErrorKey, setSubmitErrorKey] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!tenantSettingsQuery.data) return
+    setRows(stageRowsFromSettings(tenantSettingsQuery.data))
+    setSubmitErrorKey(null)
+  }, [tenantSettingsQuery.data])
+
+  const saveMutation = useMutation({
+    mutationFn: (patch: Pick<UpdateTenantSettingsRequest, "funnelStageConfig">) =>
+      api.updateTenantSettings(patch),
+    onSuccess: () => {
+      setSubmitErrorKey(null)
+      toast.success(t("funnelStages.saveSuccess"))
+      void queryClient.invalidateQueries({ queryKey: ["settings", "tenant"] })
+    },
+    onError: (error) => {
+      const message = error instanceof ApiRequestError ? error.message : t("funnelStages.saveFailed")
+      toast.error(message)
+    },
+  })
+
+  function updateRow(idx: number, field: keyof FunnelStageRow, value: string | boolean) {
+    setRows((prev) => prev.map((r, i) => i === idx ? ({ ...r, [field]: value }) : r))
+  }
+
+  function handleSubmit() {
+    const payload = buildFunnelStagePatch(rows)
+    if (!payload.patch) {
+      setSubmitErrorKey(payload.errorKey)
+      return
+    }
+    setSubmitErrorKey(null)
+    saveMutation.mutate(payload.patch)
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("funnelStages.title")}</CardTitle>
+        <CardDescription>{t("funnelStages.description")}</CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-4">
+        {tenantSettingsQuery.isLoading ? (
+          <div className="flex items-center gap-2">
+            <Spinner aria-hidden />
+            <Typography tone="muted">{t("loading")}</Typography>
+          </div>
+        ) : tenantSettingsQuery.isError ? (
+          <Typography tone="destructive">{t("funnelStages.loadFailed")}</Typography>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left">
+                    <th className="pb-2 pr-4 font-medium">{t("funnelStages.columns.stage")}</th>
+                    <th className="pb-2 pr-4 font-medium">{t("funnelStages.columns.label")}</th>
+                    <th className="pb-2 pr-4 font-medium">{t("funnelStages.columns.order")}</th>
+                    <th className="pb-2 font-medium">{t("funnelStages.columns.hidden")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row, idx) => (
+                    <tr key={row.stage} className="border-b last:border-0">
+                      <td className="py-2 pr-4">
+                        <Typography variant="bodySm" className="font-mono">{row.stage}</Typography>
+                      </td>
+                      <td className="py-2 pr-4">
+                        <Input
+                          className="h-8 text-sm"
+                          value={row.label}
+                          placeholder={t("funnelStages.columns.labelPlaceholder")}
+                          onChange={(e) => updateRow(idx, "label", e.target.value)}
+                          data-testid={`funnel-stage-label-${row.stage}`}
+                        />
+                      </td>
+                      <td className="py-2 pr-4">
+                        <Input
+                          className="h-8 w-20 text-sm"
+                          type="number"
+                          value={row.order}
+                          onChange={(e) => updateRow(idx, "order", e.target.value)}
+                          data-testid={`funnel-stage-order-${row.stage}`}
+                        />
+                      </td>
+                      <td className="py-2">
+                        <input
+                          type="checkbox"
+                          checked={row.hidden}
+                          onChange={(e) => updateRow(idx, "hidden", e.target.checked)}
+                          className={cn("h-4 w-4 rounded border-input")}
+                          data-testid={`funnel-stage-hidden-${row.stage}`}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {submitErrorKey ? (
+              <Typography tone="destructive" variant="bodySm">
+                {t(submitErrorKey)}
+              </Typography>
+            ) : null}
+
+            <div>
+              <Button
+                type="button"
+                onClick={handleSubmit}
+                disabled={saveMutation.isPending}
+                data-testid="funnel-stages-save"
+              >
+                {t("funnelStages.actions.save")}
               </Button>
             </div>
           </>

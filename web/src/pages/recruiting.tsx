@@ -6,6 +6,7 @@ import { useForm } from "@tanstack/react-form"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate, useParams } from "@tanstack/react-router"
 import type { Application, ApplicationStage, AssessmentTemplate, Interview, OrgUnit, RequisitionStatus, Vacancy, VacancyRole } from "@web-app-demo/contracts"
+import { resolveFunnelStages } from "@/lib/funnel-stages"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import type { TFunction } from "i18next"
@@ -605,7 +606,6 @@ function NewCandidateForm({ onSubmit, isLoading, error }: { onSubmit: (data: { f
 
 // ─── Applications Kanban ──────────────────────────────────────────────────────
 
-const KANBAN_STAGES: ApplicationStage[] = ["new", "screen", "tech", "final", "offer", "hired", "rejected"]
 const APP_TRANSITIONS: Partial<Record<ApplicationStage, ApplicationStage[]>> = {
   new: ["screen", "rejected"], screen: ["tech", "rejected"], tech: ["final", "rejected"], final: ["offer", "rejected"], offer: ["hired", "rejected"],
 }
@@ -666,6 +666,11 @@ function KanbanBoard() {
     enabled: Boolean(user),
   })
   const candidatesQuery = useQuery({ queryKey: ["candidates", ""], queryFn: () => api.listCandidates(), enabled: showNewAppForm })
+  const tenantSettingsQuery = useQuery({
+    queryKey: ["settings", "tenant"],
+    queryFn: () => api.getTenantSettings(),
+    enabled: Boolean(user),
+  })
 
   const stageMutation = useMutation({
     mutationFn: ({ id, to }: { id: string; to: ApplicationStage }) => api.moveApplicationStage(id, { to }),
@@ -687,6 +692,11 @@ function KanbanBoard() {
 
   const applications: Application[] = applicationsQuery.data?.items ?? []
   const vacancies: Vacancy[] = vacanciesQuery.data?.items ?? []
+
+  const funnelStages = useMemo(
+    () => resolveFunnelStages(tenantSettingsQuery.data?.funnelStageConfig ?? null),
+    [tenantSettingsQuery.data?.funnelStageConfig],
+  )
 
   function byStage(stage: ApplicationStage) { return applications.filter((a) => a.stage === stage) }
 
@@ -730,15 +740,16 @@ function KanbanBoard() {
       </div>
       {applicationsQuery.isPending ? <LoadingCard /> : (
         <div className="flex gap-4 overflow-x-auto pb-4" data-testid="kanban-board">
-          {KANBAN_STAGES.map((stage) => {
+          {funnelStages.filter((d) => !d.hidden).map(({ stage, label }) => {
             const isDropTarget = dragging && dragging.from !== stage && canMoveStage(dragging.from, stage)
+            const stageLabel = label ?? t(`applications.stages.${stage}`)
             return (
               <div key={stage}
                 className={cn("flex min-w-[200px] flex-1 flex-col gap-3 rounded-lg border bg-muted/30 p-3", isDropTarget ? "border-primary/50 bg-primary/5" : "")}
                 onDragOver={(e) => e.preventDefault()} onDrop={() => handleDrop(stage)}
                 data-testid={"kanban-column-" + stage}>
                 <div className="flex items-center justify-between">
-                  <Typography variant="bodySm" className="font-semibold">{t(`applications.stages.${stage}`)}</Typography>
+                  <Typography variant="bodySm" className="font-semibold">{stageLabel}</Typography>
                   <Badge variant="outline" className="text-xs">{byStage(stage).length}</Badge>
                 </div>
                 <div className="grid gap-2">
