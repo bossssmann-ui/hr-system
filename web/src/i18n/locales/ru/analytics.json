@@ -10,7 +10,8 @@
     "openVacancies": "Открытые вакансии",
     "openRequisitions": "Открытые заявки на найм",
     "avgTimeToHire": "Среднее время найма (дни)",
-    "probationPassRate": "Прохождение испытательного (QTD)"
+    "probationPassRate": "Прохождение испытательного (QTD)",
+    "enps": "eNPS"
   },
   "todayKpis": "KPI на сегодня",
   "rosterTitle": "Выгрузка зарплатного реестра",
