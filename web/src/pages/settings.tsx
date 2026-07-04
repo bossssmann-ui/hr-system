@@ -529,7 +529,7 @@ function FunnelStageEditorCard() {
   })
 
   function updateRow(idx: number, field: keyof FunnelStageRow, value: string | boolean) {
-    setRows((prev) => prev.map((r, i) => i === idx ? { ...r, [field]: value } : r))
+    setRows((prev) => prev.map((r, i) => i === idx ? ({ ...r, [field]: value }) : r))
   }
 
   function handleSubmit() {

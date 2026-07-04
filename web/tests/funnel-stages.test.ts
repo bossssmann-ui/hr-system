@@ -69,9 +69,7 @@ describe("resolveFunnelStages", () => {
     const result = resolveFunnelStages(config)
     expect(result).toHaveLength(APPLICATION_STAGES.length)
     const stages = result.map((d) => d.stage)
-    for (const s of APPLICATION_STAGES) {
-      expect(stages).toContain(s)
-    }
+    expect(stages.slice().sort()).toEqual([...APPLICATION_STAGES].sort())
   })
 })
 
