@@ -44,6 +44,40 @@ export const hrDashboardSchema = z.object({
 export type HrDashboard = z.infer<typeof hrDashboardSchema>
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Recruiter funnel — Phase 6 analytics
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const recruiterFunnelPeriodSchema = z.enum(['today', 'week', 'all'])
+export type RecruiterFunnelPeriod = z.infer<typeof recruiterFunnelPeriodSchema>
+
+export const recruiterFunnelCandidateSchema = z.object({
+  applicationId: z.string(),
+  candidateId: z.string(),
+  unifiedScore: z.number().nullable(),
+  scoreStatus: z.enum(['preliminary', 'final']),
+  verdict: z.string().nullable(),
+  trustScore: z.number().nullable(),
+  retentionPrediction: z.record(z.string(), z.unknown()).nullable(),
+  hrNotes: z.string().nullable(),
+  createdAt: z.string(),
+})
+
+export type RecruiterFunnelCandidate = z.infer<typeof recruiterFunnelCandidateSchema>
+
+export const recruiterFunnelMetricsSchema = z.object({
+  period: recruiterFunnelPeriodSchema,
+  newApplications: z.number(),
+  aiProcessed: z.number(),
+  passedToRecruiter: z.number(),
+  aiRejected: z.number(),
+  manualReview: z.number(),
+  inProgress: z.number(),
+  processedCandidates: z.array(recruiterFunnelCandidateSchema),
+})
+
+export type RecruiterFunnelMetrics = z.infer<typeof recruiterFunnelMetricsSchema>
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Payroll export — Phase 7
 // ─────────────────────────────────────────────────────────────────────────────
 

@@ -165,6 +165,7 @@ import {
   listCompBandsResponseSchema,
   listHrSnapshotsResponseSchema,
   listOffersResponseSchema,
+  recruiterFunnelMetricsSchema,
   offerSchema,
   payrollExportResponseSchema,
   type CompBandCreateRequest,
@@ -775,26 +776,7 @@ export class ApiClient {
   getRecruiterFunnel(period: 'today' | 'week' | 'all') {
     return this.request(
       `/api/analytics/recruiter-funnel?period=${encodeURIComponent(period)}`,
-      z.object({
-        period: z.enum(['today', 'week', 'all']),
-        newApplications: z.number(),
-        aiProcessed: z.number(),
-        passedToRecruiter: z.number(),
-        aiRejected: z.number(),
-        manualReview: z.number(),
-        inProgress: z.number(),
-        processedCandidates: z.array(z.object({
-          applicationId: z.string(),
-          candidateId: z.string(),
-          unifiedScore: z.number().nullable(),
-          scoreStatus: z.enum(['preliminary', 'final']),
-          verdict: z.string().nullable(),
-          trustScore: z.number().nullable(),
-          retentionPrediction: z.record(z.string(), z.unknown()).nullable(),
-          hrNotes: z.string().nullable(),
-          createdAt: z.string(),
-        })),
-      }),
+      recruiterFunnelMetricsSchema,
       { auth: true },
     )
   }
