@@ -11,6 +11,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import type { RecruiterFunnelMetrics } from '@web-app-demo/contracts'
 import { useAuth } from '@/lib/use-auth'
 
 function todayMonth(): string {
@@ -149,6 +150,8 @@ function AnalyticsContent() {
       </section>
 
       <SignalsSection />
+
+      <RecruiterFunnelSection />
     </section>
   )
 }
@@ -233,6 +236,108 @@ function SignalsSection() {
         <p>{t('signals.empty')}</p>
       )}
     </section>
+  )
+}
+
+function RecruiterFunnelSection() {
+  const { api } = useAuth()
+  const { t } = useTranslation('analytics')
+  const [period, setPeriod] = useState<'today' | 'week' | 'all'>('today')
+
+  const funnel = useQuery({
+    queryKey: ['analytics', 'recruiter-funnel', period],
+    queryFn: () => api.getRecruiterFunnel(period),
+  })
+
+  return (
+    <section className="grid gap-3">
+      <header className="flex items-center justify-between gap-3">
+        <h2>{t('funnel.title')}</h2>
+        <label className="flex items-center gap-2">
+          <span>{t('funnel.period')}</span>
+          <select
+            value={period}
+            onChange={(e) => setPeriod(e.target.value as 'today' | 'week' | 'all')}
+          >
+            <option value="today">{t('funnel.periodToday')}</option>
+            <option value="week">{t('funnel.periodWeek')}</option>
+            <option value="all">{t('funnel.periodAll')}</option>
+          </select>
+        </label>
+      </header>
+
+      {funnel.isLoading ? (
+        <p>{t('loading')}</p>
+      ) : funnel.isError ? (
+        <p style={{ color: 'crimson' }}>{t('loadFailed')}</p>
+      ) : funnel.data ? (
+        <RecruiterFunnelDisplay data={funnel.data} />
+      ) : null}
+    </section>
+  )
+}
+
+export function RecruiterFunnelDisplay({ data }: { data: RecruiterFunnelMetrics }) {
+  const { t } = useTranslation('analytics')
+
+  const total = data.newApplications
+  const pctAiProcessed = total > 0 ? Math.round((data.aiProcessed / total) * 100) : 0
+  const pctPassed =
+    data.aiProcessed > 0 ? Math.round((data.passedToRecruiter / data.aiProcessed) * 100) : 0
+
+  if (total === 0) {
+    return <p>{t('funnel.empty')}</p>
+  }
+
+  return (
+    <div className="grid gap-6">
+      <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(150px,1fr))]">
+        <Kpi label={t('funnel.newApplications')} value={data.newApplications} />
+        <Kpi label={t('funnel.aiProcessed')} value={data.aiProcessed} />
+        <Kpi label={t('funnel.passedToRecruiter')} value={data.passedToRecruiter} />
+        <Kpi label={t('funnel.aiRejected')} value={data.aiRejected} />
+        <Kpi label={t('funnel.manualReview')} value={data.manualReview} />
+        <Kpi label={t('funnel.inProgress')} value={data.inProgress} />
+        <Kpi label={t('funnel.conversionAiProcessed')} value={`${pctAiProcessed}%`} />
+        <Kpi label={t('funnel.conversionPassed')} value={`${pctPassed}%`} />
+      </div>
+
+      {data.processedCandidates.length > 0 && (
+        <div className="grid gap-2">
+          <h3>{t('funnel.tableTitle')}</h3>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: 'left' }}>{t('funnel.colCandidate')}</th>
+                <th>{t('funnel.colScore')}</th>
+                <th>{t('funnel.colVerdict')}</th>
+                <th>{t('funnel.colTrust')}</th>
+                <th>{t('funnel.colDate')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.processedCandidates.map((c) => (
+                <tr key={c.applicationId} style={{ borderTop: '1px solid #eee' }}>
+                  <td aria-label={`Candidate ${c.candidateId}`}><code>{c.candidateId.slice(0, 8)}…</code></td>
+                  <td>
+                    {c.unifiedScore != null ? (
+                      <>
+                        <strong>{c.unifiedScore}</strong>{' '}
+                        <small>({t(`funnel.score${c.scoreStatus === 'final' ? 'Final' : 'Preliminary'}`)})</small>
+                      </>
+                    ) : '—'}
+                  </td>
+                  <td>{c.verdict ?? '—'}</td>
+                  <td>{c.trustScore != null ? c.trustScore : '—'}</td>
+                  {/* createdAt is always ISO 8601; slice(0,10) extracts YYYY-MM-DD */}
+                  <td><small>{c.createdAt.slice(0, 10)}</small></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   )
 }
 
