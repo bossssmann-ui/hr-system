@@ -10,7 +10,8 @@
     "openVacancies": "Open vacancies",
     "openRequisitions": "Open requisitions",
     "avgTimeToHire": "Avg time-to-hire (days)",
-    "probationPassRate": "Probation pass rate (QTD)"
+    "probationPassRate": "Probation pass rate (QTD)",
+    "enps": "eNPS"
   },
   "todayKpis": "Today’s KPIs",
   "rosterTitle": "Payroll export",

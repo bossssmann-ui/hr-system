@@ -1311,6 +1311,7 @@ model HrSnapshot {
   terminatedMtd        Int      @default(0) @map("terminated_mtd")
   avgTimeToHireDays    Decimal? @map("avg_time_to_hire_days") @db.Decimal(10, 2)
   probationPassRateQtd Decimal? @map("probation_pass_rate_qtd") @db.Decimal(5, 2)
+  enpsScore            Decimal? @map("enps_score") @db.Decimal(5, 2)
   createdAt            DateTime @default(now()) @map("created_at")
 
   @@unique([tenantId, snapshotDate], map: "hr_snapshots_tenant_date_unique")

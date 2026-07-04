@@ -85,6 +85,12 @@ describe('computeHrSnapshot', () => {
           ]
         },
       },
+      engagementSurvey: {
+        findFirst: async () => null,
+      },
+      surveyResponse: {
+        findMany: async () => [],
+      },
       hrSnapshot: {
         upsert: async (args: unknown) => {
           upserted = args
@@ -107,6 +113,7 @@ describe('computeHrSnapshot', () => {
     //   = 3 decided, 2 passed → 66.67%
     expect(result.probationPassRateQtd).toBe(66.67)
     expect(result.snapshotDate).toBe('2026-06-15')
+    expect(result.enpsScore).toBeNull()
     expect(upserted).not.toBeNull()
     // Sanity: upsert call uses the unique (tenant, date) key
     void quarterStart
@@ -117,6 +124,8 @@ describe('computeHrSnapshot', () => {
       employee: { findMany: async () => [] },
       hiringRequisition: { count: async () => 0 },
       application: { findMany: async () => [] },
+      engagementSurvey: { findFirst: async () => null },
+      surveyResponse: { findMany: async () => [] },
       hrSnapshot: { upsert: async () => ({}) },
     } as unknown as DbClient
 
@@ -128,6 +137,59 @@ describe('computeHrSnapshot', () => {
     expect(result.headcount).toBe(0)
     expect(result.avgTimeToHireDays).toBeNull()
     expect(result.probationPassRateQtd).toBeNull()
+    expect(result.enpsScore).toBeNull()
+  })
+
+  test('enpsScore is computed from the last closed eNPS survey', async () => {
+    // 4 promoters (9–10), 1 detractor (0–6) → eNPS = round(80 − 20) = 60
+    const prisma = {
+      employee: { findMany: async () => [] },
+      hiringRequisition: { count: async () => 0 },
+      application: { findMany: async () => [] },
+      engagementSurvey: {
+        findFirst: async () => ({ id: 'survey-1' }),
+      },
+      surveyResponse: {
+        findMany: async () => [
+          { score: 10 },
+          { score: 9 },
+          { score: 10 },
+          { score: 9 },
+          { score: 3 },
+        ],
+      },
+      hrSnapshot: { upsert: async () => ({}) },
+    } as unknown as DbClient
+
+    const result = await computeHrSnapshot({
+      prisma,
+      tenantId: 't1',
+      now: new Date('2026-06-15T00:00:00.000Z'),
+    })
+    // promoters=4 (80%), detractors=1 (20%) → 80−20 = 60
+    expect(result.enpsScore).toBe(60)
+  })
+
+  test('enpsScore is null when closed survey has no responses', async () => {
+    const prisma = {
+      employee: { findMany: async () => [] },
+      hiringRequisition: { count: async () => 0 },
+      application: { findMany: async () => [] },
+      engagementSurvey: {
+        findFirst: async () => ({ id: 'survey-empty' }),
+      },
+      surveyResponse: {
+        findMany: async () => [],
+      },
+      hrSnapshot: { upsert: async () => ({}) },
+    } as unknown as DbClient
+
+    const result = await computeHrSnapshot({
+      prisma,
+      tenantId: 't1',
+      now: new Date('2026-06-15T00:00:00.000Z'),
+    })
+    expect(result.enpsScore).toBeNull()
   })
 })
 
