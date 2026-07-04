@@ -25,7 +25,21 @@
   },
   "signals": {
     "title": "Signals (flight-risk & burnout)",
+    "flightRiskTitle": "Flight-risk",
     "empty": "No open signals. Recompute to populate after the next daily run.",
+    "loadFailed": "Failed to load signals.",
+    "filterStatus": "Status",
+    "markReviewed": "Mark reviewed",
+    "noFactors": "No factors provided",
+    "status": {
+      "open": "Open",
+      "reviewed": "Reviewed"
+    },
+    "level": {
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
     "recompute": "Recompute signals",
     "recomputing": "Computing…",
     "reviewed": "Reviewed",
