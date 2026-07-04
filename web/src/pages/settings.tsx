@@ -6,14 +6,23 @@
  * Работа.ру). One round-trip to `/api/integrations/status` powers the
  * whole page.
  */
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
-import type { IntegrationsStatus } from "@web-app-demo/contracts"
+import type {
+  IntegrationsStatus,
+  TenantSettings,
+  UpdateTenantSettingsRequest,
+} from "@web-app-demo/contracts"
+import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
-import { buttonVariants } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { ApiRequestError } from "@/lib/api"
+import { isAdmin } from "@/lib/roles"
 import { Spinner } from "@/components/ui/spinner"
 import { Typography } from "@/components/ui/typography"
 import { useAuth } from "@/lib/use-auth"
@@ -23,6 +32,115 @@ const JOB_BOARD_LABELS: Record<string, string> = {
   sber_podbor: "СберПодбор",
   avito_jobs: "Avito Jobs",
   rabota_ru: "Работа.ру",
+}
+
+const SCORING_WEIGHT_KEYS = ["resume", "selection", "assessment", "retention"] as const
+
+type ScoringWeightKey = (typeof SCORING_WEIGHT_KEYS)[number]
+
+type PipelineScoringForm = {
+  autoSelection: string
+  autoReject: string
+  weights: Record<ScoringWeightKey, string>
+}
+
+function parseOptionalNumber(value: string): number | null {
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  const parsed = Number(trimmed)
+  return Number.isFinite(parsed) ? parsed : Number.NaN
+}
+
+function parseThresholds(
+  autoSelection: string,
+  autoReject: string,
+): { value: { autoSelection: number; autoReject: number } | null; errorKey: string | null } {
+  const parsedAutoSelection = parseOptionalNumber(autoSelection)
+  const parsedAutoReject = parseOptionalNumber(autoReject)
+
+  if (parsedAutoSelection === null && parsedAutoReject === null) {
+    return { value: null, errorKey: null }
+  }
+
+  if (parsedAutoSelection === null || parsedAutoReject === null) {
+    return { value: null, errorKey: "pipeline.validation.thresholdsBothOrEmpty" }
+  }
+
+  if (!Number.isFinite(parsedAutoSelection) || !Number.isFinite(parsedAutoReject)) {
+    return { value: null, errorKey: "pipeline.validation.thresholdsRange" }
+  }
+
+  if (
+    parsedAutoSelection < 0 ||
+    parsedAutoSelection > 100 ||
+    parsedAutoReject < 0 ||
+    parsedAutoReject > 100
+  ) {
+    return { value: null, errorKey: "pipeline.validation.thresholdsRange" }
+  }
+
+  if (parsedAutoReject > parsedAutoSelection) {
+    return { value: null, errorKey: "pipeline.validation.thresholdsOrder" }
+  }
+
+  return {
+    value: {
+      autoSelection: parsedAutoSelection,
+      autoReject: parsedAutoReject,
+    },
+    errorKey: null,
+  }
+}
+
+function parseScoringWeights(weights: Record<ScoringWeightKey, string>): {
+  value: Record<ScoringWeightKey, number> | null
+  errorKey: string | null
+} {
+  const parsedWeights = {} as Record<ScoringWeightKey, number>
+  for (const key of SCORING_WEIGHT_KEYS) {
+    const parsed = parseOptionalNumber(weights[key])
+    if (parsed === null || !Number.isFinite(parsed)) {
+      return { value: null, errorKey: "pipeline.validation.weightsRequired" }
+    }
+    parsedWeights[key] = parsed
+  }
+  return { value: parsedWeights, errorKey: null }
+}
+
+export function tenantSettingsToPipelineForm(settings: TenantSettings): PipelineScoringForm {
+  return {
+    autoSelection: settings.pipelineThresholds?.autoSelection?.toString() ?? "",
+    autoReject: settings.pipelineThresholds?.autoReject?.toString() ?? "",
+    weights: {
+      resume: settings.scoringWeights?.resume?.toString() ?? "",
+      selection: settings.scoringWeights?.selection?.toString() ?? "",
+      assessment: settings.scoringWeights?.assessment?.toString() ?? "",
+      retention: settings.scoringWeights?.retention?.toString() ?? "",
+    },
+  }
+}
+
+export function buildTenantSettingsPatch(form: PipelineScoringForm): {
+  patch: Pick<UpdateTenantSettingsRequest, "pipelineThresholds" | "scoringWeights"> | null
+  errorKey: string | null
+} {
+  const thresholds = parseThresholds(form.autoSelection, form.autoReject)
+  if (thresholds.errorKey) {
+    return { patch: null, errorKey: thresholds.errorKey }
+  }
+
+  const scoringWeights = parseScoringWeights(form.weights)
+  if (scoringWeights.errorKey) {
+    return { patch: null, errorKey: scoringWeights.errorKey }
+  }
+
+  return {
+    patch: {
+      pipelineThresholds: thresholds.value,
+      scoringWeights: scoringWeights.value,
+    },
+    errorKey: null,
+  }
 }
 
 function StatusBadge({ enabled, configured }: { enabled: boolean; configured: boolean }) {
@@ -93,6 +211,8 @@ function SettingsIntegrations() {
         <Typography tone="muted">{t("intro")}</Typography>
       </header>
 
+      {isAdmin(user) && <PipelineScoringSettingsCard />}
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-4">
           <div>
@@ -162,5 +282,166 @@ function SettingsIntegrations() {
         </Card>
       ))}
     </section>
+  )
+}
+
+function PipelineScoringSettingsCard() {
+  const { api } = useAuth()
+  const { t } = useTranslation("settings")
+  const queryClient = useQueryClient()
+  const tenantSettingsQuery = useQuery({
+    queryKey: ["settings", "tenant"],
+    queryFn: () => api.getTenantSettings(),
+  })
+
+  const [form, setForm] = useState<PipelineScoringForm>({
+    autoSelection: "",
+    autoReject: "",
+    weights: {
+      resume: "",
+      selection: "",
+      assessment: "",
+      retention: "",
+    },
+  })
+  const [submitErrorKey, setSubmitErrorKey] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!tenantSettingsQuery.data) return
+    setForm(tenantSettingsToPipelineForm(tenantSettingsQuery.data))
+    setSubmitErrorKey(null)
+  }, [tenantSettingsQuery.data])
+
+  const thresholdsValidation = useMemo(
+    () => parseThresholds(form.autoSelection, form.autoReject),
+    [form.autoSelection, form.autoReject],
+  )
+
+  const saveMutation = useMutation({
+    mutationFn: (patch: Pick<UpdateTenantSettingsRequest, "pipelineThresholds" | "scoringWeights">) =>
+      api.updateTenantSettings(patch),
+    onSuccess: () => {
+      setSubmitErrorKey(null)
+      toast.success(t("pipeline.saveSuccess"))
+      void queryClient.invalidateQueries({ queryKey: ["settings", "tenant"] })
+    },
+    onError: (error) => {
+      const message = error instanceof ApiRequestError ? error.message : t("pipeline.saveFailed")
+      toast.error(message)
+    },
+  })
+
+  function updateWeightField(key: ScoringWeightKey, value: string) {
+    setForm((prev) => ({
+      ...prev,
+      weights: {
+        ...prev.weights,
+        [key]: value,
+      },
+    }))
+  }
+
+  function handleSubmit() {
+    const payload = buildTenantSettingsPatch(form)
+    if (!payload.patch) {
+      setSubmitErrorKey(payload.errorKey)
+      return
+    }
+    setSubmitErrorKey(null)
+    saveMutation.mutate(payload.patch)
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("pipeline.title")}</CardTitle>
+        <CardDescription>{t("pipeline.description")}</CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-6">
+        {tenantSettingsQuery.isLoading ? (
+          <div className="flex items-center gap-2">
+            <Spinner aria-hidden />
+            <Typography tone="muted">{t("loading")}</Typography>
+          </div>
+        ) : tenantSettingsQuery.isError ? (
+          <Typography tone="destructive">{t("pipeline.loadFailed")}</Typography>
+        ) : !tenantSettingsQuery.data ? (
+          <Typography tone="muted">{t("pipeline.empty")}</Typography>
+        ) : (
+          <>
+            <div className="grid gap-3">
+              <Typography variant="h6">{t("pipeline.thresholds.title")}</Typography>
+              <Typography tone="muted" variant="bodySm">
+                {t("pipeline.thresholds.hint")}
+              </Typography>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="grid gap-1">
+                  <Typography variant="label">{t("pipeline.thresholds.autoSelection")}</Typography>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={form.autoSelection}
+                    onChange={(event) =>
+                      setForm((prev) => ({ ...prev, autoSelection: event.target.value }))
+                    }
+                  />
+                </label>
+                <label className="grid gap-1">
+                  <Typography variant="label">{t("pipeline.thresholds.autoReject")}</Typography>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={form.autoReject}
+                    onChange={(event) =>
+                      setForm((prev) => ({ ...prev, autoReject: event.target.value }))
+                    }
+                  />
+                </label>
+              </div>
+              {thresholdsValidation.errorKey ? (
+                <Typography tone="destructive" variant="bodySm">
+                  {t(thresholdsValidation.errorKey)}
+                </Typography>
+              ) : null}
+            </div>
+
+            <div className="grid gap-3">
+              <Typography variant="h6">{t("pipeline.weights.title")}</Typography>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {SCORING_WEIGHT_KEYS.map((key) => (
+                  <label className="grid gap-1" key={key}>
+                    <Typography variant="label">{t(`pipeline.weights.${key}`)}</Typography>
+                    <Input
+                      type="number"
+                      step="any"
+                      value={form.weights[key]}
+                      onChange={(event) => updateWeightField(key, event.target.value)}
+                    />
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {submitErrorKey ? (
+              <Typography tone="destructive" variant="bodySm">
+                {t(submitErrorKey)}
+              </Typography>
+            ) : null}
+
+            <div>
+              <Button
+                type="button"
+                onClick={handleSubmit}
+                disabled={saveMutation.isPending || Boolean(thresholdsValidation.errorKey)}
+              >
+                {t("pipeline.actions.save")}
+              </Button>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
   )
 }

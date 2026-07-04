@@ -70,6 +70,8 @@ import {
   hhSyncResponseSchema,
   hhVacancyLinkResponseSchema,
   integrationsStatusSchema,
+  tenantSettingsSchema,
+  updateTenantSettingsRequestSchema,
   linkVacancyToHhRequestSchema,
   loginRequestSchema,
   logoutRequestSchema,
@@ -134,6 +136,8 @@ import {
   type HhSyncResponse,
   type HhVacancyLinkResponse,
   type IntegrationsStatus,
+  type TenantSettings,
+  type UpdateTenantSettingsRequest,
   type LinkVacancyToHhRequest,
   type ListConversationsResponse,
   type ListMessageTemplatesResponse,
@@ -951,6 +955,19 @@ export class ApiClient {
 
   getIntegrationsStatus(): Promise<IntegrationsStatus> {
     return this.request('/api/integrations/status', integrationsStatusSchema, { auth: true })
+  }
+
+  getTenantSettings(): Promise<TenantSettings> {
+    return this.request('/api/settings/tenant', tenantSettingsSchema, { auth: true })
+  }
+
+  updateTenantSettings(patch: UpdateTenantSettingsRequest): Promise<TenantSettings> {
+    const payload = updateTenantSettingsRequestSchema.parse(patch)
+    return this.request('/api/settings/tenant', tenantSettingsSchema, {
+      method: 'PATCH',
+      body: payload,
+      auth: true,
+    })
   }
 
   syncHhNow(): Promise<HhSyncResponse> {
