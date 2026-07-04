@@ -18,7 +18,7 @@ export const hrSnapshotSchema = z.object({
   terminatedMtd: z.number().int().nonnegative(),
   avgTimeToHireDays: numericString.nullable(),
   probationPassRateQtd: numericString.nullable(),
-  enpsScore: numericString.nullable().optional(),
+  enpsScore: numericString.nullable(),
   createdAt: z.string().datetime(),
 })
 
@@ -40,7 +40,7 @@ export const hrDashboardSchema = z.object({
   terminatedMtd: z.number().int().nonnegative(),
   avgTimeToHireDays: z.number().nullable(),
   probationPassRateQtd: z.number().nullable(),
-  enpsScore: z.number().nullable().optional(),
+  enpsScore: z.number().nullable(),
 })
 
 export type HrDashboard = z.infer<typeof hrDashboardSchema>

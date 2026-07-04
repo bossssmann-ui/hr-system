@@ -141,7 +141,7 @@ describe('computeHrSnapshot', () => {
   })
 
   test('enpsScore is computed from the last closed eNPS survey', async () => {
-    // 4 promoters (9–10), 1 detractor (0–6) → eNPS = round(80 − 20) = 60
+    // 4 promoters (9-10), 1 detractor (0-6) → eNPS = round(80 − 20) = 60
     const prisma = {
       employee: { findMany: async () => [] },
       hiringRequisition: { count: async () => 0 },
