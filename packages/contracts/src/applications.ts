@@ -151,3 +151,17 @@ export const scoreFeedbackRequestSchema = z.object({
 })
 
 export type ScoreFeedbackRequest = z.infer<typeof scoreFeedbackRequestSchema>
+
+export const rescoreAllApplicationsRequestSchema = z.object({
+  vacancyId: z.string().uuid().optional(),
+  stage: applicationStageSchema.optional(),
+})
+
+export type RescoreAllApplicationsRequest = z.infer<typeof rescoreAllApplicationsRequestSchema>
+
+export const rescoreAllApplicationsResponseSchema = z.object({
+  queued: z.number().int().nonnegative(),
+  skipped: z.number().int().nonnegative(),
+})
+
+export type RescoreAllApplicationsResponse = z.infer<typeof rescoreAllApplicationsResponseSchema>

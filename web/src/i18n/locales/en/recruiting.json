@@ -183,6 +183,10 @@
     "ai": {
       "title": "AI scoring",
       "rescore": "Re-score",
+      "rescoreAll": "Rescore all",
+      "rescoreAllConfirm": "Recalculate AI scoring for all applications? This will run LLM requests for each application.",
+      "rescoreAllSuccess": "Queued: {{count}}",
+      "rescoreAllFailed": "Failed to queue mass re-score",
       "notConfigured": "AI scoring not configured.",
       "noScore": "No AI score yet.",
       "inProgress": "Scoring is in progress.",
