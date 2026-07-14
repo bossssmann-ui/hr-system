@@ -347,6 +347,10 @@ test('ApiClient application scoring methods hit expected endpoints', async () =>
       return json({ queued: true }, 202)
     }
 
+    if (url.pathname === '/api/applications/rescore-all') {
+      return json({ queued: 3, skipped: 1 }, 202)
+    }
+
     if (url.pathname === '/api/applications/app-1/score-feedback') {
       return json({
         id: 'app-1',
@@ -378,12 +382,15 @@ test('ApiClient application scoring methods hit expected endpoints', async () =>
   })
 
   const rescore = await client.rescoreApplication('app-1')
+  const rescoreAll = await client.rescoreAllApplications()
   const feedback = await client.submitApplicationScoreFeedback('app-1', { agrees: true, note: 'Looks right' })
 
   expect(rescore.queued).toBe(true)
+  expect(rescoreAll).toEqual({ queued: 3, skipped: 1 })
   expect(feedback.aiScoreFeedback?.agrees).toBe(true)
   expect(calls).toEqual([
     { path: '/api/applications/app-1/rescore', method: 'POST' },
+    { path: '/api/applications/rescore-all', method: 'POST' },
     { path: '/api/applications/app-1/score-feedback', method: 'POST' },
   ])
 })

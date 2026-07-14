@@ -690,6 +690,17 @@ function KanbanBoard() {
     onError: (error: unknown) => setAppFormError(error instanceof ApiRequestError ? error.message : t('applications.toasts.createFailed')),
   })
 
+  const rescoreAllMutation = useMutation({
+    mutationFn: () => api.rescoreAllApplications(),
+    onSuccess: (result) => {
+      toast.success(t('applications.ai.rescoreAllSuccess', { count: result.queued }))
+      void queryClient.invalidateQueries({ queryKey: ["applications"] })
+    },
+    onError: (error: unknown) => {
+      toast.error(error instanceof ApiRequestError ? error.message : t('applications.ai.rescoreAllFailed'))
+    },
+  })
+
   const applications: Application[] = applicationsQuery.data?.items ?? []
   const vacancies: Vacancy[] = vacanciesQuery.data?.items ?? []
 
@@ -710,6 +721,11 @@ function KanbanBoard() {
     stageMutation.mutate({ id: dragging.id, to }); setDragging(null)
   }
 
+  function handleRescoreAll() {
+    if (!window.confirm(t('applications.ai.rescoreAllConfirm'))) return
+    rescoreAllMutation.mutate()
+  }
+
   return (
     <section className="mx-auto grid w-full max-w-6xl gap-4 px-5 py-8">
       <div className="flex items-start justify-between gap-4">
@@ -717,9 +733,21 @@ function KanbanBoard() {
           <Badge variant="outline" className="w-fit">{t('applications.badge')}</Badge>
           <Typography variant="h1">{t('applications.title')}</Typography>
         </div>
-        <Button onClick={() => { setShowNewAppForm(!showNewAppForm); setAppFormError(null) }} data-testid="new-application-button">
-          {showNewAppForm ? t('common:actions.cancel') : t('applications.newButton')}
-        </Button>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {isAdmin(user) && (
+            <Button
+              variant="outline"
+              onClick={handleRescoreAll}
+              disabled={rescoreAllMutation.isPending}
+              data-testid="applications.rescore-all"
+            >
+              {rescoreAllMutation.isPending ? t('common.queueing') : t('applications.ai.rescoreAll')}
+            </Button>
+          )}
+          <Button onClick={() => { setShowNewAppForm(!showNewAppForm); setAppFormError(null) }} data-testid="new-application-button">
+            {showNewAppForm ? t('common:actions.cancel') : t('applications.newButton')}
+          </Button>
+        </div>
       </div>
       {showNewAppForm && (
         <Card className="max-w-md">

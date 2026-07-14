@@ -822,6 +822,37 @@ maybeDescribe('Phase 1B recruiting routes', () => {
       expect(body.reason).toBe('not_configured')
     })
 
+    test('rescore-all returns 403 for recruiter and hiring_manager', async () => {
+      for (const token of [recruiterToken, hiringManagerToken]) {
+        const res = await app.request('/api/applications/rescore-all', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: '{}',
+        })
+        expect(res.status).toBe(403)
+      }
+    })
+
+    test('owner rescore-all returns 202 and skips when AI is not configured', async () => {
+      const res = await app.request('/api/applications/rescore-all', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${ownerToken}`,
+        },
+        body: '{}',
+      })
+      expect(res.status).toBe(202)
+      const body = await res.json()
+      expect(typeof body.queued).toBe('number')
+      expect(typeof body.skipped).toBe('number')
+      expect(body.queued + body.skipped).toBeGreaterThanOrEqual(1)
+      expect(body.queued).toBe(0)
+    })
+
     test('recruiter can submit AI score feedback', async () => {
       const res = await app.request(`/api/applications/${applicationId}/score-feedback`, {
         method: 'POST',

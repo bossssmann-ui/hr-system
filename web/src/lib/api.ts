@@ -79,6 +79,8 @@ import {
   refreshRequestSchema,
   refreshResponseSchema,
   registerRequestSchema,
+  rescoreAllApplicationsRequestSchema,
+  rescoreAllApplicationsResponseSchema,
   requisitionSchema,
   vacancySchema,
   listConversationsResponseSchema,
@@ -403,6 +405,16 @@ export class ApiClient {
         auth: true,
       },
     )
+  }
+
+  rescoreAllApplications(
+    input: z.infer<typeof rescoreAllApplicationsRequestSchema> = {},
+  ): Promise<z.infer<typeof rescoreAllApplicationsResponseSchema>> {
+    return this.request('/api/applications/rescore-all', rescoreAllApplicationsResponseSchema, {
+      method: 'POST',
+      body: input,
+      auth: true,
+    })
   }
 
   submitApplicationScoreFeedback(id: string, input: ScoreFeedbackRequest): Promise<z.infer<typeof applicationSchema>> {
