@@ -3,7 +3,7 @@
 # Run from the repo root on the VPS: bash scripts/deploy.sh
 set -euo pipefail
 
-COMPOSE="docker compose -f docker-compose.prod.yml"
+COMPOSE="docker compose --env-file .env.prod -f docker-compose.prod.yml"
 
 echo "▶ [1/5] Pulling latest code..."
 git pull

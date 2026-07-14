@@ -48,8 +48,8 @@ const REJECTIONS: ReadonlyArray<Transition> = NON_TERMINAL.map((from) => ({
 
 const FORWARD_ORDERED: ApplicationStage[] = ['new', 'screen', 'tech', 'final', 'offer', 'hired']
 
-// Admin correction path: any backward forward-stage transition is allowed for
-// hr_admin / owner only. `hired` is terminal so it is excluded as a source.
+// Manual correction path: any backward forward-stage transition is allowed for
+// recruiting roles. `hired` is terminal so it is excluded as a source.
 const BACKWARDS: Transition[] = []
 for (let i = 0; i < FORWARD_ORDERED.length; i++) {
   const from = FORWARD_ORDERED[i]!
@@ -58,7 +58,7 @@ for (let i = 0; i < FORWARD_ORDERED.length; i++) {
     BACKWARDS.push({
       from,
       to: FORWARD_ORDERED[j]!,
-      allowedRoles: ['hr_admin', 'owner'],
+      allowedRoles: ['recruiter', 'hr_admin', 'owner'],
     })
   }
 }

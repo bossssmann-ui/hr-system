@@ -1,6 +1,6 @@
 import { describe, expect, test, beforeEach, afterEach } from 'bun:test'
 
-import { createCapacityGuard } from './capacity-guard'
+import { createCapacityGuard, getSharedCapacityGuard, resetSharedCapacityGuardForTests } from './capacity-guard'
 
 describe('capacityGuard', () => {
   test('canStart() = true если active < 3', () => {
@@ -66,5 +66,17 @@ describe('capacityGuard', () => {
         process.env['MAX_ACTIVE_AI_INTERVIEWS'] = originalEnv
       }
     }
+  })
+
+  test('shared guard сохраняет активные сессии между вызовами', () => {
+    resetSharedCapacityGuardForTests()
+    const first = getSharedCapacityGuard()
+    first.register('s1')
+
+    const second = getSharedCapacityGuard()
+    expect(second.getActiveCount()).toBe(1)
+
+    second.release('s1')
+    resetSharedCapacityGuardForTests()
   })
 })

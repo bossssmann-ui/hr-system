@@ -45,48 +45,90 @@ describe('AnthropicAssessmentProvider', () => {
 })
 
 describe('OpenAiCompatibleAssessmentProvider', () => {
-  test('parses gradeOpenAnswer response', async () => {
+  test('posts chat completions request and parses generated interview questions', async () => {
+    let capturedUrl = ''
+    let capturedBody: any = null
     const provider = new OpenAiCompatibleAssessmentProvider({
       apiKey: 'test-key',
-      model: 'deepseek-chat',
-      baseUrl: 'https://api.deepseek.com/v1',
-      fetcher: async () =>
-        new Response(
+      model: 'deepseek/deepseek-v4-flash',
+      baseUrl: 'https://llm.example.test/v1/',
+      fetch: async (url, init) => {
+        capturedUrl = String(url)
+        capturedBody = JSON.parse(String(init?.body))
+        return new Response(
           JSON.stringify({
-            choices: [{ message: { content: '{"score":87,"rationale":"Good rubric coverage."}' } }],
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    items: [
+                      {
+                        question: 'Расскажите о самом сложном маршруте, который вы вели.',
+                        rationale: 'Проверяет реальный опыт транспортной логистики.',
+                        competency: 'Логистика',
+                      },
+                    ],
+                  }),
+                },
+              },
+            ],
           }),
-        ),
+          { status: 200 },
+        )
+      },
     })
 
-    const result = await provider.gradeOpenAnswer({
-      question: 'Describe trade-offs.',
-      rubric: 'Clarity + structure',
-      answer: 'Candidate answer',
+    const result = await provider.generateInterviewQuestions({
+      vacancyProfile: { title: 'Логист' },
+      candidateResume: { experience: ['Транспортная логистика'] },
     })
 
-    expect(result.score).toBe(87)
-    expect(result.rationale).toContain('Good rubric coverage')
+    expect(capturedUrl).toBe('https://llm.example.test/v1/chat/completions')
+    expect(capturedBody.model).toBe('deepseek/deepseek-v4-flash')
+    expect(capturedBody.response_format).toEqual({ type: 'json_object' })
+    expect(capturedBody.messages[0].content).toContain('Russian')
+    expect(result.items).toHaveLength(1)
+    expect(result.items[0]?.question).toContain('Расскажите')
   })
 
-  test('throws on invalid JSON response', async () => {
+  test('retries malformed JSON once for question generation', async () => {
+    let calls = 0
     const provider = new OpenAiCompatibleAssessmentProvider({
       apiKey: 'test-key',
-      model: 'deepseek-chat',
-      baseUrl: 'https://api.deepseek.com/v1',
-      fetcher: async () =>
-        new Response(
+      model: 'deepseek/deepseek-v4-flash',
+      fetch: async () => {
+        calls += 1
+        return new Response(
           JSON.stringify({
-            choices: [{ message: { content: 'not json' } }],
+            choices: [
+              {
+                message: {
+                  content: calls === 1
+                    ? 'not json'
+                    : JSON.stringify({
+                        items: [
+                          {
+                            question: 'Какие KPI вы контролировали?',
+                            rationale: 'Проверяет управленческий опыт.',
+                            competency: 'Управление',
+                          },
+                        ],
+                      }),
+                },
+              },
+            ],
           }),
-        ),
+          { status: 200 },
+        )
+      },
     })
 
-    await expect(
-      provider.gradeOpenAnswer({
-        question: 'Describe trade-offs.',
-        rubric: 'Clarity + structure',
-        answer: 'Candidate answer',
-      }),
-    ).rejects.toThrow('Malformed JSON response from assessment provider')
+    const result = await provider.generateInterviewQuestions({
+      vacancyProfile: { title: 'Логист' },
+      candidateResume: { experience: ['Руководитель отдела'] },
+    })
+
+    expect(calls).toBe(2)
+    expect(result.items).toHaveLength(1)
   })
 })

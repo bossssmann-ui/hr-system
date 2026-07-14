@@ -43,14 +43,6 @@ type DomesticStageScores = {
   communicationScore?: number
 }
 
-type RetentionPrediction = {
-  survival30: number
-  survival60: number
-  survival90: number
-  confidence: number
-  modelVersion: string
-}
-
 type SelectionItem = {
   id: string
   token: string
@@ -65,14 +57,18 @@ type SelectionItem = {
     verdict: string
     totalWeightedScore: string | null
     crossCheckFlags: unknown
-    retentionPrediction: unknown
     createdAt: string
   } | null
   specializations?: SpecializationAssignment[]
   assessmentProfile?: {
     signals?: string[]
     riskFlags?: string[]
-    recruiterChecklistFlags?: string[]
+    aiWriting?: {
+      score: number
+      detected: boolean
+      signals: string[]
+      trapQuestions: string[]
+    }
   }
 }
 
@@ -139,11 +135,7 @@ function domesticVerdictLabel(verdict: string): string {
   return labels[verdict] ?? verdict
 }
 
-function generateRecruiterQuestions(
-  riskFlags: string[],
-  _specializations: SpecializationAssignment[],
-  recruiterChecklistFlags: string[],
-): string[] {
+function generateRecruiterQuestions(riskFlags: string[], _specializations: SpecializationAssignment[]): string[] {
   const questions: string[] = [
     'Назовите последний рейс который вы вели от заявки до закрывающих документов.',
     'Что именно было вашей зоной ответственности?',
@@ -160,43 +152,7 @@ function generateRecruiterQuestions(
     questions.push('С какими портами и линиями вы реально работали?')
     questions.push('Как организовывали вывоз из порта?')
   }
-  if (recruiterChecklistFlags.includes('cargo_layout_test_required')) {
-    questions.push('Выдать тестовое задание по раскладке груза.')
-  }
   return questions
-}
-
-function parseSpecializations(raw: unknown): SpecializationAssignment[] | undefined {
-  if (!Array.isArray(raw)) return undefined
-  const validLevels: ReadonlyArray<SpecializationAssignment['level']> = [
-    'primary',
-    'secondary',
-    'mentioned_only',
-    'contradicted',
-  ]
-  return raw.filter(
-    (item): item is SpecializationAssignment =>
-      typeof item === 'object' &&
-      item !== null &&
-      typeof (item as { packageId?: unknown }).packageId === 'string' &&
-      validLevels.includes((item as { level?: unknown }).level as SpecializationAssignment['level']),
-  )
-}
-
-function parseAssessmentProfile(
-  raw: unknown,
-): { signals: string[]; riskFlags: string[]; recruiterChecklistFlags: string[] } | undefined {
-  if (typeof raw !== 'object' || raw === null) return undefined
-  const obj = raw as Record<string, unknown>
-  const signals = Array.isArray(obj.signals) ? obj.signals.filter((x): x is string => typeof x === 'string') : []
-  const riskFlags = Array.isArray(obj.riskFlags)
-    ? obj.riskFlags.filter((x): x is string => typeof x === 'string')
-    : []
-  const recruiterChecklistFlags = Array.isArray(obj.recruiterChecklistFlags)
-    ? obj.recruiterChecklistFlags.filter((x): x is string => typeof x === 'string')
-    : []
-  if (signals.length === 0 && riskFlags.length === 0 && recruiterChecklistFlags.length === 0) return undefined
-  return { signals, riskFlags, recruiterChecklistFlags }
 }
 
 function parseCrossCheckFlags(raw: unknown): CrossCheckFlag[] {
@@ -205,27 +161,6 @@ function parseCrossCheckFlags(raw: unknown): CrossCheckFlag[] {
     (item): item is CrossCheckFlag =>
       typeof item === 'object' && item !== null && ('type' in item),
   )
-}
-
-function parseRetentionPrediction(raw: unknown): RetentionPrediction | null {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
-  const candidate = raw as Record<string, unknown>
-  if (
-    typeof candidate['survival30'] !== 'number' ||
-    typeof candidate['survival60'] !== 'number' ||
-    typeof candidate['survival90'] !== 'number' ||
-    typeof candidate['confidence'] !== 'number' ||
-    typeof candidate['modelVersion'] !== 'string'
-  ) {
-    return null
-  }
-  return {
-    survival30: candidate['survival30'],
-    survival60: candidate['survival60'],
-    survival90: candidate['survival90'],
-    confidence: candidate['confidence'],
-    modelVersion: candidate['modelVersion'],
-  }
 }
 
 // ─── Detail modal ─────────────────────────────────────────────────────────────
@@ -255,17 +190,14 @@ function VerdictDetail({
 
   const fullVerdict = verdictQuery.data
   const isDomestic = session.role === 'logist_domestic'
-  const retentionPrediction = parseRetentionPrediction(
-    fullVerdict?.retentionPrediction ?? session.verdict?.retentionPrediction ?? null,
-  )
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" data-testid="selection-detail-modal">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
       <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg border bg-background shadow-xl">
         <div className="grid gap-4 p-6">
           <div className="flex items-center justify-between">
             <Typography variant="h2">{t('dashboard.detail.title')}</Typography>
-            <Button variant="ghost" size="sm" onClick={onClose} aria-label="close-detail">✕</Button>
+            <Button variant="ghost" size="sm" onClick={onClose}>✕</Button>
           </div>
 
           <div className="grid gap-1">
@@ -353,6 +285,49 @@ function VerdictDetail({
                 </div>
               )}
 
+              {/* Domestic: AI-writing detection */}
+              {isDomestic && session.assessmentProfile?.aiWriting && (() => {
+                const aiWriting = session.assessmentProfile.aiWriting!
+                if (aiWriting.detected) {
+                  return (
+                    <div className="grid gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="destructive" className="text-xs">
+                          ⚠ Резюме написано ИИ ({aiWriting.score}%)
+                        </Badge>
+                      </div>
+                      {aiWriting.signals.length > 0 && (
+                        <ul className="grid gap-1 pl-1">
+                          {aiWriting.signals.map((s, i) => (
+                            <li key={i} className="text-sm text-muted-foreground">• {s}</li>
+                          ))}
+                        </ul>
+                      )}
+                      {aiWriting.trapQuestions.length > 0 && (
+                        <div className="grid gap-1">
+                          <Typography className="text-sm font-medium">Вопросы-ловушки:</Typography>
+                          <ol className="grid gap-1 pl-4">
+                            {aiWriting.trapQuestions.map((q, i) => (
+                              <li key={i} className="text-sm text-muted-foreground">{i + 1}. {q}</li>
+                            ))}
+                          </ol>
+                        </div>
+                      )}
+                    </div>
+                  )
+                }
+                if (aiWriting.score > 40) {
+                  return (
+                    <div className="flex items-center gap-2 rounded-md border border-yellow-400/40 bg-yellow-50/30 p-3">
+                      <Badge variant="outline" className="border-yellow-500 text-yellow-700 text-xs">
+                        ~ Возможные признаки ИИ ({aiWriting.score}%)
+                      </Badge>
+                    </div>
+                  )
+                }
+                return null
+              })()}
+
               {/* Domestic: Module scores */}
               {isDomestic && Boolean(fullVerdict?.stageScores) && typeof fullVerdict?.stageScores === 'object' &&
                 fullVerdict?.stageScores != null && 'resumeAndInterviewScore' in (fullVerdict.stageScores as object) && (
@@ -388,36 +363,11 @@ function VerdictDetail({
                   <ol className="grid gap-1 pl-4">
                     {generateRecruiterQuestions(
                       session.assessmentProfile?.riskFlags ?? [],
-                      session.specializations ?? [],
-                      session.assessmentProfile?.recruiterChecklistFlags ?? [],
+                      session.specializations ?? []
                     ).map((q, i) => (
                       <li key={i} className="text-sm text-muted-foreground">{i + 1}. {q}</li>
                     ))}
                   </ol>
-                </div>
-              )}
-
-              {retentionPrediction && (
-                <div className="grid gap-2 rounded-md border p-3">
-                  <Typography className="text-sm font-medium">Retention прогноз</Typography>
-                  <div className="grid gap-1 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">30 дней</span>
-                      <span className="font-medium">{(retentionPrediction.survival30 * 100).toFixed(1)}%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">60 дней</span>
-                      <span className="font-medium">{(retentionPrediction.survival60 * 100).toFixed(1)}%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">90 дней</span>
-                      <span className="font-medium">{(retentionPrediction.survival90 * 100).toFixed(1)}%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Confidence</span>
-                      <span className="font-medium">{(retentionPrediction.confidence * 100).toFixed(1)}%</span>
-                    </div>
-                  </div>
                 </div>
               )}
             </div>
@@ -462,15 +412,8 @@ export function SelectionDashboardPage() {
   const { t } = useTranslation('selection')
   const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
-  const [period, setPeriod] = useState<'today' | 'week' | 'all'>('today')
   const [roleFilter, setRoleFilter] = useState<'logist' | 'sales_manager' | 'logist_domestic' | ''>('')
   const [selected, setSelected] = useState<SelectionItem | null>(null)
-
-  const funnelQuery = useQuery({
-    queryKey: ['selection-funnel', period],
-    queryFn: () => api.getRecruiterFunnel(period),
-    enabled: Boolean(user),
-  })
 
   const sessionsQuery = useQuery({
     queryKey: ['selection-sessions', page, roleFilter],
@@ -547,71 +490,6 @@ export function SelectionDashboardPage() {
         </Typography>
       </div>
 
-      <div className="flex items-center gap-2">
-        <Typography variant="bodySm" tone="muted">{t('dashboard.period.label')}</Typography>
-        <Button variant={period === 'today' ? 'default' : 'outline'} size="sm" onClick={() => setPeriod('today')}>
-          {t('dashboard.period.today')}
-        </Button>
-        <Button variant={period === 'week' ? 'default' : 'outline'} size="sm" onClick={() => setPeriod('week')}>
-          {t('dashboard.period.week')}
-        </Button>
-        <Button variant={period === 'all' ? 'default' : 'outline'} size="sm" onClick={() => setPeriod('all')}>
-          {t('dashboard.period.all')}
-        </Button>
-      </div>
-
-      {funnelQuery.data && (
-        <>
-          <div className="grid gap-3 md:grid-cols-5">
-            <KpiCard label={t('dashboard.funnel.new')} value={funnelQuery.data.newApplications} />
-            <KpiCard label={t('dashboard.funnel.processed')} value={funnelQuery.data.aiProcessed} />
-            <KpiCard label={t('dashboard.funnel.passed')} value={funnelQuery.data.passedToRecruiter} />
-            <KpiCard label={t('dashboard.funnel.rejected')} value={funnelQuery.data.aiRejected} />
-            <KpiCard label={t('dashboard.funnel.manual')} value={funnelQuery.data.manualReview} />
-          </div>
-          <div className="overflow-x-auto rounded-md border">
-            <table className="w-full text-sm">
-              <thead className="border-b bg-muted/40">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium">{t('dashboard.processed.columns.candidate')}</th>
-                  <th className="px-4 py-3 text-left font-medium">{t('dashboard.processed.columns.score')}</th>
-                  <th className="px-4 py-3 text-left font-medium">{t('dashboard.processed.columns.status')}</th>
-                  <th className="px-4 py-3 text-left font-medium">{t('dashboard.processed.columns.trust')}</th>
-                  <th className="px-4 py-3 text-left font-medium">{t('dashboard.processed.columns.retention')}</th>
-                  <th className="px-4 py-3 text-left font-medium">{t('dashboard.processed.columns.notes')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {funnelQuery.data.processedCandidates.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-6 text-center text-muted-foreground">
-                      {t('dashboard.processed.empty')}
-                    </td>
-                  </tr>
-                )}
-                {funnelQuery.data.processedCandidates.map((item) => {
-                  const pred = parseRetentionPrediction(item.retentionPrediction)
-                  return (
-                    <tr key={item.applicationId} className="border-b">
-                      <td className="px-4 py-3 font-mono text-xs">{item.candidateId.slice(0, 8)}…</td>
-                      <td className="px-4 py-3">
-                        {item.unifiedScore != null ? `${Math.round(item.unifiedScore)}/100` : '—'}
-                      </td>
-                      <td className="px-4 py-3">
-                        {item.scoreStatus === 'final' ? t('dashboard.processed.final') : t('dashboard.processed.preliminary')}
-                      </td>
-                      <td className="px-4 py-3">{item.trustScore != null ? item.trustScore : '—'}</td>
-                      <td className="px-4 py-3">{pred ? `${(pred.survival90 * 100).toFixed(0)}%` : '—'}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{item.hrNotes ?? '—'}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
-
       {/* Filters */}
       <div className="flex items-center gap-3">
         <Typography variant="bodySm" tone="muted">{t('dashboard.filterRole')}</Typography>
@@ -654,22 +532,14 @@ export function SelectionDashboardPage() {
             )}
             {items.map((item) => {
               const flags = parseCrossCheckFlags(item.verdict?.crossCheckFlags)
-              const rowPrediction = parseRetentionPrediction(item.verdict?.retentionPrediction ?? null)
               const redCount = flags.filter((f) => f.type === 'RED').length
               const orangeCount = flags.filter((f) => f.type === 'ORANGE').length
 
               return (
                 <tr
                   key={item.id}
-                  data-testid={`selection-row-${item.id}`}
                   className="cursor-pointer border-b transition-colors hover:bg-muted/30"
-                  onClick={() =>
-                    setSelected({
-                      ...item,
-                      specializations: parseSpecializations(item.specializations),
-                      assessmentProfile: parseAssessmentProfile(item.assessmentProfile),
-                    })
-                  }
+                  onClick={() => setSelected(item)}
                 >
                   <td className="px-4 py-3">
                     <span className="font-mono text-xs text-muted-foreground">
@@ -687,16 +557,9 @@ export function SelectionDashboardPage() {
                   </td>
                   <td className="px-4 py-3">
                     {item.verdict ? (
-                      <div className="grid gap-1">
-                        <Badge variant={verdictBadgeVariant(item.verdict.verdict)}>
-                          {item.verdict.verdict}
-                        </Badge>
-                        {rowPrediction && (
-                          <span className="text-xs text-muted-foreground">
-                            90д: {(rowPrediction.survival90 * 100).toFixed(0)}%
-                          </span>
-                        )}
-                      </div>
+                      <Badge variant={verdictBadgeVariant(item.verdict.verdict)}>
+                        {item.verdict.verdict}
+                      </Badge>
                     ) : (
                       <span className="text-muted-foreground">—</span>
                     )}
@@ -769,14 +632,5 @@ export function SelectionDashboardPage() {
         />
       )}
     </section>
-  )
-}
-
-function KpiCard({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-md border p-3">
-      <Typography variant="bodySm" tone="muted">{label}</Typography>
-      <Typography variant="h2">{value}</Typography>
-    </div>
   )
 }

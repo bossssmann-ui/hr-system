@@ -1,7 +1,11 @@
 import { Link, Outlet } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
-import { AuthForm } from '@/components/AuthForm'
+import {
+  AuthForm,
+  PasswordResetConfirmForm,
+  PasswordResetRequestForm,
+} from '@/components/AuthForm'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { NotificationBell } from '@/components/NotificationBell'
 import { Badge } from '@/components/ui/badge'
@@ -35,16 +39,13 @@ export function RootLayout() {
   useRealtime()
 
   return (
-    <main className="min-h-svh overflow-x-hidden bg-background text-foreground">
+    <main className="min-h-svh bg-background text-foreground">
       <header className="border-b bg-background/95 backdrop-blur">
         <div className="mx-auto flex min-h-16 w-full max-w-6xl flex-wrap items-center gap-3 px-5 py-3">
           <Typography asChild variant="h6">
             <Link to="/">{t('common:appName')}</Link>
           </Typography>
-          <nav
-            className="ml-auto flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2"
-            aria-label={t('navigation:nav.primary')}
-          >
+          <nav className="ml-auto flex items-center gap-2" aria-label={t('navigation:nav.primary')}>
             <Typography asChild variant="control" tone="muted">
               <Link to="/" className={navLinkClass}>
                 {t('navigation:nav.auth')}
@@ -99,13 +100,6 @@ export function RootLayout() {
                 {t('navigation:nav.admin')}
               </Link>
             </Typography>
-            {showComp && (
-              <Typography asChild variant="control" tone="muted">
-                <Link to="/admin/org-units" className={navLinkClass}>
-                  {t('navigation:nav.orgUnits')}
-                </Link>
-              </Typography>
-            )}
             <Typography asChild variant="control" tone="muted">
               <Link to="/admin/integrations/hh" className={navLinkClass}>
                 {t('navigation:nav.hh')}
@@ -131,9 +125,7 @@ export function RootLayout() {
           )}
         </div>
       </header>
-      <div className="mx-auto w-full max-w-6xl">
-        <Outlet />
-      </div>
+      <Outlet />
     </main>
   )
 }
@@ -183,6 +175,39 @@ export function HomePage() {
         </Typography>
       </div>
       <AuthForm />
+    </section>
+  )
+}
+
+export function PasswordResetPage() {
+  const { t } = useTranslation('auth')
+  const token = new URLSearchParams(window.location.search).get('token')?.trim() ?? ''
+  const hasToken = token.length > 0
+
+  return (
+    <section className="mx-auto grid w-full max-w-6xl gap-8 px-5 py-12 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-center">
+      <div className="grid gap-5">
+        <Badge variant="outline" className="w-fit">
+          {t('reset.badge')}
+        </Badge>
+        <Typography className="max-w-3xl" variant="h1">
+          {hasToken ? t('reset.confirmHeadline') : t('reset.requestHeadline')}
+        </Typography>
+        <Typography className="max-w-2xl" tone="muted">
+          {hasToken ? t('reset.confirmDescription') : t('reset.requestDescription')}
+        </Typography>
+      </div>
+      <Card className="w-full" aria-label={t('reset.title')}>
+        <CardHeader>
+          <CardTitle>{t('reset.title')}</CardTitle>
+          <CardDescription>
+            {hasToken ? t('reset.confirmCardDescription') : t('reset.requestCardDescription')}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {hasToken ? <PasswordResetConfirmForm token={token} /> : <PasswordResetRequestForm />}
+        </CardContent>
+      </Card>
     </section>
   )
 }

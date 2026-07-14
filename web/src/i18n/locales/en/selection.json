@@ -109,32 +109,6 @@
       "flags": "Flags",
       "date": "Date"
     },
-    "period": {
-      "label": "Period:",
-      "today": "Today",
-      "week": "Week",
-      "all": "All time"
-    },
-    "funnel": {
-      "new": "New",
-      "processed": "AI processed",
-      "passed": "Passed to recruiter",
-      "rejected": "AI rejected",
-      "manual": "Manual review"
-    },
-    "processed": {
-      "empty": "No processed candidates",
-      "preliminary": "Preliminary",
-      "final": "Final",
-      "columns": {
-        "candidate": "Candidate",
-        "score": "Unified score",
-        "status": "Status",
-        "trust": "Trust score",
-        "retention": "90d retention",
-        "notes": "AI notes"
-      }
-    },
     "empty": "No selection sessions",
     "pagination": {
       "prev": "← Back",

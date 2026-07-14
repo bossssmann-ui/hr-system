@@ -1,14 +1,18 @@
 import type {
   LoginRequest,
+  PasswordResetConfirmRequest,
+  PasswordResetRequest,
   RegisterPayload,
   RoleName,
   UserDto,
 } from '@web-app-demo/contracts'
+import { createHash, randomBytes } from 'node:crypto'
 
 import type { DbClient } from '../db'
 import type { AppEnv } from '../env'
 import { AppError } from '../http/errors'
 import { Prisma } from '../generated/prisma/client'
+import { EmailChannel, type SmtpTransport } from '../integrations/messaging/email.channel'
 import { signAccessToken, verifyAccessToken } from './access-tokens'
 import { hashPassword, verifyPassword } from './passwords'
 import { createRefreshToken, hashRefreshToken } from './refresh-tokens'
@@ -16,6 +20,10 @@ import { createRefreshToken, hashRefreshToken } from './refresh-tokens'
 type SessionMetadata = {
   userAgent?: string
   ipAddress?: string
+}
+
+type AuthServiceOptions = {
+  passwordResetEmailTransport?: SmtpTransport
 }
 
 type UserRecord = {
@@ -30,6 +38,7 @@ export class AuthService {
   constructor(
     private readonly db: DbClient,
     private readonly env: AppEnv,
+    private readonly options: AuthServiceOptions = {},
   ) {}
 
   async register(input: RegisterPayload, metadata: SessionMetadata) {
@@ -82,6 +91,111 @@ export class AuthService {
     }
 
     return this.issueSession(user, metadata)
+  }
+
+  async requestPasswordReset(input: PasswordResetRequest, metadata: SessionMetadata) {
+    const user = await this.db.user.findUnique({
+      where: { email: input.email },
+      select: {
+        id: true,
+        email: true,
+        disabledAt: true,
+      },
+    })
+
+    if (!user || user.disabledAt) {
+      return { ok: true as const }
+    }
+
+    const now = new Date()
+    const token = createPasswordResetToken()
+    const expiresAt = new Date(now.getTime() + 60 * 60 * 1000)
+
+    await this.db.$transaction(async (tx) => {
+      await tx.passwordResetToken.updateMany({
+        where: {
+          userId: user.id,
+          usedAt: null,
+          expiresAt: {
+            gt: now,
+          },
+        },
+        data: {
+          usedAt: now,
+        },
+      })
+
+      await tx.passwordResetToken.create({
+        data: {
+          userId: user.id,
+          tokenHash: hashPasswordResetToken(token),
+          expiresAt,
+          userAgent: metadata.userAgent,
+          ipAddress: metadata.ipAddress,
+        },
+      })
+    })
+
+    const resetUrl = this.passwordResetUrl(token)
+    const delivery = await this.sendPasswordResetEmail(user.email, resetUrl, expiresAt)
+    this.logPasswordResetLink(user.email, resetUrl, expiresAt, delivery)
+
+    return { ok: true as const }
+  }
+
+  async resetPassword(input: PasswordResetConfirmRequest) {
+    const tokenHash = hashPasswordResetToken(input.token)
+    const now = new Date()
+    const resetToken = await this.db.passwordResetToken.findUnique({
+      where: { tokenHash },
+      include: { user: true },
+    })
+
+    if (!resetToken || resetToken.usedAt || resetToken.expiresAt <= now) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'Password reset link is invalid or expired')
+    }
+
+    if (resetToken.user.disabledAt) {
+      throw new AppError(403, 'FORBIDDEN', 'Account disabled')
+    }
+
+    const passwordHash = await hashPassword(input.password)
+
+    await this.db.$transaction(async (tx) => {
+      const consumeResult = await tx.passwordResetToken.updateMany({
+        where: {
+          id: resetToken.id,
+          usedAt: null,
+          expiresAt: {
+            gt: now,
+          },
+        },
+        data: {
+          usedAt: now,
+        },
+      })
+
+      if (consumeResult.count !== 1) {
+        throw new AppError(400, 'VALIDATION_ERROR', 'Password reset link is invalid or expired')
+      }
+
+      await tx.user.update({
+        where: { id: resetToken.userId },
+        data: { passwordHash },
+      })
+
+      await tx.authSession.updateMany({
+        where: {
+          userId: resetToken.userId,
+          revokedAt: null,
+        },
+        data: {
+          revokedAt: now,
+        },
+      })
+    })
+
+    return { ok: true as const }
   }
 
   async refresh(refreshToken: string | undefined, metadata: SessionMetadata) {
@@ -253,10 +367,79 @@ export class AuthService {
   private refreshExpiresAt() {
     return new Date(Date.now() + this.env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000)
   }
+
+  private passwordResetUrl(token: string) {
+    const origin = this.env.CORS_ORIGINS[0] ?? 'http://localhost:5173'
+    const url = new URL('/reset-password', origin)
+    url.searchParams.set('token', token)
+    return url.toString()
+  }
+
+  private async sendPasswordResetEmail(email: string, resetUrl: string, expiresAt: Date) {
+    if (!this.env.EMAIL_ENABLED || !this.env.SMTP_HOST || !this.env.SMTP_PORT || !this.env.SMTP_FROM) {
+      return { status: 'log' as const }
+    }
+
+    const channel = new EmailChannel({
+      host: this.env.SMTP_HOST,
+      port: this.env.SMTP_PORT,
+      from: this.env.SMTP_FROM,
+      user: this.env.SMTP_USER,
+      pass: this.env.SMTP_PASS,
+      transport: this.options.passwordResetEmailTransport,
+    })
+
+    const result = await channel.send({
+      destination: email,
+      subject: 'Восстановление пароля Onboardix',
+      body: [
+        'Здравствуйте.',
+        '',
+        'Для смены пароля перейдите по ссылке:',
+        resetUrl,
+        '',
+        `Ссылка действует до ${expiresAt.toISOString()}.`,
+        '',
+        'Если вы не запрашивали восстановление пароля, просто проигнорируйте это письмо.',
+      ].join('\n'),
+    })
+
+    if (result.status === 'sent') {
+      return { status: 'email' as const, messageId: result.externalId }
+    }
+
+    return { status: 'failed' as const, failureReason: result.failureReason }
+  }
+
+  private logPasswordResetLink(
+    email: string,
+    resetUrl: string,
+    expiresAt: Date,
+    delivery: { status: 'email'; messageId: string | null } | { status: 'failed'; failureReason?: string } | { status: 'log' },
+  ) {
+    console.info(
+      JSON.stringify({
+        level: 'info',
+        event: 'auth.password_reset_link',
+        email,
+        resetUrl,
+        expiresAt: expiresAt.toISOString(),
+        delivery,
+      }),
+    )
+  }
 }
 
 function isUniqueConstraintError(error: unknown) {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002'
+}
+
+function createPasswordResetToken() {
+  return randomBytes(32).toString('base64url')
+}
+
+function hashPasswordResetToken(token: string) {
+  return createHash('sha256').update(token).digest('hex')
 }
 
 export function toUserDto(user: UserRecord, roles: RoleName[] = []): UserDto {

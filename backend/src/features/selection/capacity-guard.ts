@@ -51,3 +51,16 @@ export function createCapacityGuard(config?: CapacityGuardConfig): CapacityGuard
     },
   }
 }
+
+let sharedCapacityGuard: CapacityGuard | null = null
+
+export function getSharedCapacityGuard(): CapacityGuard {
+  if (!sharedCapacityGuard) {
+    sharedCapacityGuard = createCapacityGuard()
+  }
+  return sharedCapacityGuard
+}
+
+export function resetSharedCapacityGuardForTests(): void {
+  sharedCapacityGuard = null
+}

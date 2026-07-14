@@ -69,8 +69,8 @@ if (target === 'backend-initial' || target === 'backend-final' || target === 'al
     ...commonReplacements(),
     REPLACE_WITH_AT_LEAST_32_RANDOM_CHARS: jwtSecret,
     'https://REPLACE_WITH_WEB_DEFAULT_INGRESS': webUrl,
-    REPLACE_WITH_BACKEND_WORKERS: backendWorkersBlock(),
-    REPLACE_WITH_BACKEND_CRON_JOBS: backendCronJobsBlock(),
+    REPLACE_WITH_OPTIONAL_BACKEND_WORKERS: optionalBackendWorkersBlock(),
+    REPLACE_WITH_OPTIONAL_BACKEND_CRON_JOBS: optionalBackendCronJobsBlock(),
   })
 }
 
@@ -135,10 +135,8 @@ function printUsage() {
   console.error('')
   console.error('Optional deployment settings:')
   console.error('  API sizing: DO_API_INSTANCE_SIZE_SLUG, DO_API_INSTANCE_COUNT')
-  console.error(
-    '  worker: DO_BACKEND_WORKER_ENABLED=false to disable, DO_BACKEND_WORKER_* to override defaults',
-  )
-  console.error('  cron: DO_BACKEND_CRON_ENABLED=false to disable, DO_BACKEND_CRON_*_SCHEDULE to override')
+  console.error('  worker: DO_BACKEND_WORKER_ENABLED=true, DO_BACKEND_WORKER_RUN_COMMAND')
+  console.error('  cron: DO_BACKEND_CRON_NAME, DO_BACKEND_CRON_TASK, DO_BACKEND_CRON_SCHEDULE')
 }
 
 function requiredEnv(name) {
@@ -295,16 +293,32 @@ function assertBuildTimeHttpsUrl(outputName, key, value) {
   }
 }
 
-function backendWorkersBlock() {
-  const enabled = optionalBooleanEnv('DO_BACKEND_WORKER_ENABLED', true)
-  if (!enabled) return ''
+function optionalBackendWorkersBlock() {
+  const workerEnvNames = [
+    'DO_BACKEND_WORKER_ENABLED',
+    'DO_BACKEND_WORKER_NAME',
+    'DO_BACKEND_WORKER_RUN_COMMAND',
+    'DO_BACKEND_WORKER_INSTANCE_SIZE_SLUG',
+    'DO_BACKEND_WORKER_INSTANCE_COUNT',
+  ]
+  const enabled = optionalBooleanEnv('DO_BACKEND_WORKER_ENABLED')
+
+  if (!enabled) {
+    const configuredWithoutEnable = workerEnvNames
+      .filter((name) => name !== 'DO_BACKEND_WORKER_ENABLED')
+      .filter((name) => process.env[name]?.trim())
+
+    if (configuredWithoutEnable.length > 0) {
+      throw new Error(
+        `Set DO_BACKEND_WORKER_ENABLED=true to use worker env: ${configuredWithoutEnable.join(', ')}`,
+      )
+    }
+
+    return ''
+  }
 
   const workerName = doName(process.env.DO_BACKEND_WORKER_NAME ?? 'worker', 32)
-  const rawRunCommand = process.env.DO_BACKEND_WORKER_RUN_COMMAND?.trim()
-  if (rawRunCommand) {
-    assertSafeYamlString('DO_BACKEND_WORKER_RUN_COMMAND', rawRunCommand)
-  }
-  const runCommand = rawRunCommand || 'bun backend/src/worker.ts'
+  const runCommand = requiredWorkerRunCommand('DO_BACKEND_WORKER_RUN_COMMAND')
   const instanceSizeSlug = optionalAppPlatformInstanceSizeSlugEnv(
     'DO_BACKEND_WORKER_INSTANCE_SIZE_SLUG',
     defaultBackendWorkerInstanceSizeSlug,
@@ -337,77 +351,39 @@ workers:
         type: SECRET`
 }
 
-function backendCronJobsBlock() {
-  const enabled = optionalBooleanEnv('DO_BACKEND_CRON_ENABLED', true)
-  if (!enabled) return ''
+function requiredWorkerRunCommand(name) {
+  const value = requiredEnv(name)
+  assertSafeYamlString(name, value)
 
+  if (value === 'bun run start:worker') {
+    throw new Error(
+      `${name} must point at a real long-running worker command. The template placeholder 'bun run start:worker' exits immediately and must not be deployed as an App Platform worker.`,
+    )
+  }
+
+  return value
+}
+
+function optionalBackendCronJobsBlock() {
+  const cronEnvNames = [
+    'DO_BACKEND_CRON_NAME',
+    'DO_BACKEND_CRON_TASK',
+    'DO_BACKEND_CRON_SCHEDULE',
+    'DO_BACKEND_CRON_TIME_ZONE',
+  ]
+  const hasCronEnv = cronEnvNames.some((name) => process.env[name]?.trim())
+
+  if (!hasCronEnv) return ''
+
+  const name = doName(requiredEnv('DO_BACKEND_CRON_NAME'), 32)
+  const task = requiredSafeTaskName('DO_BACKEND_CRON_TASK')
+  const schedule = requiredCronSchedule('DO_BACKEND_CRON_SCHEDULE')
   const timeZone = process.env.DO_BACKEND_CRON_TIME_ZONE?.trim() || 'UTC'
+
   assertSafeYamlString('DO_BACKEND_CRON_TIME_ZONE', timeZone)
 
-  const jobs = [
-    {
-      name: 'analytics-snapshot',
-      task: 'analytics.snapshot',
-      schedule: optionalCronScheduleEnv('DO_BACKEND_CRON_ANALYTICS_SNAPSHOT_SCHEDULE', '0 1 * * *'),
-    },
-    {
-      name: 'probation-reminder',
-      task: 'probation.reminder',
-      schedule: optionalCronScheduleEnv('DO_BACKEND_CRON_PROBATION_REMINDER_SCHEDULE', '15 1 * * *'),
-    },
-    {
-      name: 'one-on-one-reminder',
-      task: '1on1.reminder',
-      schedule: optionalCronScheduleEnv('DO_BACKEND_CRON_ONE_ON_ONE_REMINDER_SCHEDULE', '30 1 * * *'),
-    },
-    {
-      name: 'review-reminder',
-      task: 'review.reminder',
-      schedule: optionalCronScheduleEnv('DO_BACKEND_CRON_REVIEW_REMINDER_SCHEDULE', '45 1 * * *'),
-    },
-    {
-      name: 'data-retention',
-      task: 'data.retention',
-      schedule: optionalCronScheduleEnv('DO_BACKEND_CRON_DATA_RETENTION_SCHEDULE', '0 2 * * *'),
-    },
-    {
-      name: 'signals-compute',
-      task: 'signals.compute',
-      schedule: optionalCronScheduleEnv('DO_BACKEND_CRON_SIGNALS_COMPUTE_SCHEDULE', '15 2 * * *'),
-    },
-    {
-      name: 'selection-retention-outcomes',
-      task: 'selection.retention_outcomes',
-      schedule: optionalCronScheduleEnv(
-         'DO_BACKEND_CRON_SELECTION_RETENTION_OUTCOMES_SCHEDULE',
-         '30 2 * * *',
-      ),
-    },
-    {
-      name: 'selection-retention-calibration',
-      task: 'selection.retention_calibration',
-      schedule: optionalCronScheduleEnv(
-         'DO_BACKEND_CRON_SELECTION_RETENTION_CALIBRATION_SCHEDULE',
-         '45 2 * * 1',
-      ),
-    },
-    {
-      name: 'okr-quarter-start',
-      task: 'okr.quarter_start',
-      schedule: optionalCronScheduleEnv('DO_BACKEND_CRON_OKR_QUARTER_START_SCHEDULE', '0 3 1 1,4,7,10 *'),
-    },
-    {
-      name: 'hh-sourcing',
-      task: 'hh.sourcing',
-      schedule: optionalCronScheduleEnv('DO_BACKEND_CRON_HH_SOURCING_SCHEDULE', '15 3 * * *'),
-    },
-  ]
-
-  return jobs
-    .map(({ name, task, schedule }) => {
-      const jobName = doName(`${projectSlug}-${name}`, 32)
-      return `
-  - name: ${jobName}
+  return `
+  - name: ${name}
     kind: SCHEDULED
     github:
       repo: ${githubRepo}
@@ -422,25 +398,18 @@ function backendCronJobsBlock() {
       time_zone: ${yamlString(timeZone)}
     envs:
       - key: DATABASE_URL
-         value: "\${${dbComponentName}.DATABASE_URL}"
-         scope: RUN_TIME
-         type: SECRET
+        value: "\${${dbComponentName}.DATABASE_URL}"
+        scope: RUN_TIME
+        type: SECRET
       - key: JWT_SECRET
-         value: ${yamlString(requiredEnv('JWT_SECRET'))}
-         scope: RUN_TIME
-         type: SECRET`
-    })
-    .join('')
+        value: ${yamlString(requiredEnv('JWT_SECRET'))}
+        scope: RUN_TIME
+        type: SECRET`
 }
 
-function optionalBooleanEnv(name, defaultValue = false) {
-  const rawValue = process.env[name]
-  if (rawValue === undefined) return defaultValue
-
-  const value = rawValue.trim().toLowerCase()
-  if (!value) {
-    throw new Error(`${name} must be true or false`)
-  }
+function optionalBooleanEnv(name) {
+  const value = process.env[name]?.trim().toLowerCase()
+  if (!value) return false
 
   if (['1', 'true', 'yes', 'on'].includes(value)) return true
   if (['0', 'false', 'no', 'off'].includes(value)) return false
@@ -471,15 +440,18 @@ function optionalAppPlatformInstanceSizeSlugEnv(name, defaultValue) {
   return value
 }
 
-function requiredCronSchedule(name) {
+function requiredSafeTaskName(name) {
   const value = requiredEnv(name)
-  assertSafeYamlString(name, value)
-  return validateDigitalOceanCronSchedule(value, { name })
+
+  if (!/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$/.test(value)) {
+    throw new Error(`${name} must use only letters, numbers, dots, underscores, colons, or dashes`)
+  }
+
+  return value
 }
 
-function optionalCronScheduleEnv(name, defaultValue) {
-  const value = process.env[name]?.trim()
-  if (!value) return defaultValue
+function requiredCronSchedule(name) {
+  const value = requiredEnv(name)
   assertSafeYamlString(name, value)
   return validateDigitalOceanCronSchedule(value, { name })
 }

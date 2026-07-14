@@ -27,6 +27,10 @@ const TRIGGERS: Array<{ patterns: string[]; packageId: SpecializationPackageId }
     packageId: 'domestic_road_ftl_ltl',
   },
   {
+    patterns: ['развозка', 'маршруты', 'точки', 'окна доставки', 'sla'],
+    packageId: 'domestic_distribution',
+  },
+  {
     patterns: ['жд', 'контейнер', 'станция', 'терминал', 'этран'],
     packageId: 'domestic_rail_container',
   },

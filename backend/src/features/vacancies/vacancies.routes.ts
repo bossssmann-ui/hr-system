@@ -1,8 +1,7 @@
-import type { PublishVacancyRequest, UpdateVacancyRoleRequest, Vacancy } from '@web-app-demo/contracts'
+import type { PublishVacancyRequest, Vacancy } from '@web-app-demo/contracts'
 import {
   listVacanciesResponseSchema,
   publishVacancyRequestSchema,
-  updateVacancyRoleRequestSchema,
   vacancySchema,
 } from '@web-app-demo/contracts'
 import { zValidator } from '@hono/zod-validator'
@@ -13,7 +12,6 @@ import { requireRole, type RoleGuardBindings } from '../../auth/requireRole'
 import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
 import { AppError } from '../../http/errors'
-import { parseVacancyRole } from './vacancy-role'
 import { generateSlug } from './slug'
 
 type RouteBindings = RoleGuardBindings & {
@@ -28,7 +26,6 @@ function toDto(row: {
   id: string
   title: string
   description: string
-  role: string | null
   isPublished: boolean
   tenantId: string
   requisitionId: string
@@ -42,7 +39,6 @@ function toDto(row: {
     id: row.id,
     title: row.title,
     description: row.description,
-    role: parseVacancyRole(row.role),
     isPublished: row.isPublished,
     tenantId: row.tenantId,
     requisitionId: row.requisitionId,
@@ -91,35 +87,6 @@ export function createVacanciesRoutes() {
       if (!row) throw new AppError(404, 'NOT_FOUND', 'Vacancy not found')
 
       return c.json(vacancySchema.parse(toDto(row)))
-    },
-  )
-
-  app.patch(
-    '/:id/role',
-    requireRole('owner', 'hr_admin', 'recruiter'),
-    zValidator('json', updateVacancyRoleRequestSchema),
-    async (c) => {
-      const prisma = c.get('prisma')
-      const tenantId = c.get('tenantId')
-      const { id } = c.req.param()
-      const body: UpdateVacancyRoleRequest = c.req.valid('json')
-
-      const existing = await prisma.vacancy.findFirst({ where: { id, tenantId } })
-      if (!existing) throw new AppError(404, 'NOT_FOUND', 'Vacancy not found')
-
-      const updated = await prisma.vacancy.update({
-        where: { id },
-        data: { role: body.role },
-      })
-
-      c.set('auditEntry', {
-        action: 'vacancy.role.update',
-        entityType: 'Vacancy',
-        entityId: id,
-        diff: { role: body.role },
-      })
-
-      return c.json(vacancySchema.parse(toDto(updated)))
     },
   )
 

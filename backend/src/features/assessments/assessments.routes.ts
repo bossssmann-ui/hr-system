@@ -187,20 +187,6 @@ export function createAssessmentRoutes() {
       ])
       if (!template) throw new AppError(404, 'NOT_FOUND', 'Assessment template not found')
       if (!application) throw new AppError(404, 'NOT_FOUND', 'Application not found')
-      const hasSelectionTemplate = await prisma.selectionTemplate.findFirst({
-        where: {
-          tenantId,
-          vacancyId: application.vacancyId,
-        },
-        select: { id: true },
-      })
-      if (hasSelectionTemplate) {
-        throw new AppError(
-          409,
-          'CONFLICT',
-          'Selection pipeline is enabled for this vacancy; use the selection session instead of assessments',
-        )
-      }
 
       const token = randomUUID().replaceAll('-', '')
       const session = await prisma.assessmentSession.create({

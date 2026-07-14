@@ -1,15 +1,13 @@
 import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
 import { z } from 'zod'
-import { Prisma } from '../../generated/prisma/client'
 
 import { requireRole, type RoleGuardBindings } from '../../auth/requireRole'
 import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
 import { AppError } from '../../http/errors'
-import { createHhClient } from './client'
+import { createHhClient, HhRequestError } from './client'
 import { encryptHhSecret } from './crypto'
-import { enqueueHhResumeSourcingJob } from './sourcing'
 import { enqueueHhNegotiationsSyncJob } from './sync'
 
 type RouteBindings = RoleGuardBindings & {
@@ -31,8 +29,6 @@ const callbackQuerySchema = z.object({
 const vacancyLinkSchema = z.object({
   hhVacancyId: z.string().min(1).nullable(),
 })
-
-const hhSourcingCriteriaSchema = z.record(z.string(), z.unknown()).nullable()
 
 export function createHhIntegrationRoutes() {
   const app = new Hono<RouteBindings>()
@@ -207,47 +203,7 @@ export function createHhIntegrationRoutes() {
     },
   )
 
-  app.patch(
-    '/vacancies/:id/sourcing-criteria',
-    requireRole('owner', 'hr_admin'),
-    zValidator('json', z.object({ hhSourcingCriteria: hhSourcingCriteriaSchema })),
-    async (c) => {
-      const env = c.get('env')
-      const prisma = c.get('prisma')
-      const tenantId = c.get('tenantId')
-      const { id } = c.req.param()
-      const body = c.req.valid('json')
-      const config = getIntegrationConfig(env)
-
-      if (!config.enabled) {
-        throw new AppError(400, 'BAD_REQUEST', config.reason ?? 'HH integration is not configured')
-      }
-
-      const existing = await prisma.vacancy.findFirst({ where: { id, tenantId } })
-      if (!existing) {
-        throw new AppError(404, 'NOT_FOUND', 'Vacancy not found')
-      }
-
-      const updated = await prisma.vacancy.update({
-        where: { id },
-        data: {
-          hhSourcingCriteria: body.hhSourcingCriteria === null
-            ? Prisma.JsonNull
-            : (body.hhSourcingCriteria as Prisma.InputJsonValue),
-        },
-      })
-
-      return c.json({
-        vacancy: {
-          id: updated.id,
-          title: updated.title,
-          hhSourcingCriteria: updated.hhSourcingCriteria,
-        },
-      })
-    },
-  )
-
-  app.post('/sync', requireRole('owner', 'hr_admin'), async (c) => {
+  app.post('/sync', requireRole('owner', 'hr_admin', 'recruiter'), async (c) => {
     const env = c.get('env')
     const prisma = c.get('prisma')
     const tenantId = c.get('tenantId')
@@ -263,30 +219,18 @@ export function createHhIntegrationRoutes() {
       env,
       tenantId,
       actorUserId: userId,
-    })
-
-    return c.json({
-      ok: true,
-      summary,
-    })
-  })
-
-  app.post('/sourcing/sync', requireRole('owner', 'hr_admin'), async (c) => {
-    const env = c.get('env')
-    const prisma = c.get('prisma')
-    const tenantId = c.get('tenantId')
-    const userId = c.get('userId')
-
-    const config = getIntegrationConfig(env)
-    if (!config.enabled) {
-      throw new AppError(400, 'BAD_REQUEST', config.reason ?? 'HH integration is not configured')
-    }
-
-    const summary = await enqueueHhResumeSourcingJob({
-      prisma,
-      env,
-      tenantId,
-      actorUserId: userId,
+    }).catch((error: unknown) => {
+      if (error instanceof HhRequestError && error.status === 403) {
+        throw new AppError(
+          502,
+          'BAD_REQUEST',
+          'HH.ru refused access to vacancy responses. Reconnect HH.ru with an employer account that can manage the linked vacancy.',
+        )
+      }
+      if (error instanceof HhRequestError) {
+        throw new AppError(502, 'BAD_REQUEST', `HH.ru request failed with status ${error.status}`)
+      }
+      throw error
     })
 
     return c.json({

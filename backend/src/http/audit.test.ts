@@ -65,40 +65,56 @@ describe('audit.redact', () => {
   })
 })
 
-describe('audit middleware', () => {
-  test('writes audit row without queueMicrotask deferral', async () => {
-    const writes: Array<Record<string, unknown>> = []
+describe('createAuditMiddleware', () => {
+  test('writes audit rows before the mutating request resolves by default', async () => {
+    const writes: unknown[] = []
     const prisma = {
       auditEvent: {
-        create: async ({ data }: { data: Record<string, unknown> }) => {
-          writes.push(data)
-          return data
+        create: async (input: unknown) => {
+          writes.push(input)
         },
       },
     }
-
     const app = new Hono<{
       Variables: {
-        auditEntry?: { action: string; entityType: string; entityId: string; diff?: unknown }
+        auditEntry?: {
+          action: string
+          entityType: string
+          entityId: string
+          diff?: unknown
+        }
         tenantId?: string
+        userId?: string
       }
     }>()
-    app.use('*', createAuditMiddleware({ prisma: prisma as never }))
-    app.post('/test', (c) => {
+
+    app.use('*', async (c, next) => {
       c.set('tenantId', 'tenant-1')
+      c.set('userId', 'user-1')
+      await next()
+    })
+    app.use('*', createAuditMiddleware({ prisma: prisma as never }))
+    app.post('/resource', (c) => {
       c.set('auditEntry', {
-        action: 'entity.updated',
-        entityType: 'Entity',
-        entityId: '00000000-0000-0000-0000-000000000001',
-        diff: { ok: true },
+        action: 'resource.create',
+        entityType: 'Resource',
+        entityId: '019f35e0-9fc0-73fb-b089-b6c7d8242044',
+        diff: { token: 'secret-token', public: 'ok' },
       })
-      return c.json({ ok: true }, 200)
+      return c.json({ ok: true }, 201)
     })
 
-    const response = await app.request('/test', {
-      method: 'POST',
-    })
-    expect(response.status).toBe(200)
+    const res = await app.request('/resource', { method: 'POST' })
+
+    expect(res.status).toBe(201)
     expect(writes).toHaveLength(1)
+    expect(writes[0]).toMatchObject({
+      data: {
+        tenantId: 'tenant-1',
+        actorUserId: 'user-1',
+        action: 'resource.create',
+        diff: { token: '[redacted]', public: 'ok' },
+      },
+    })
   })
 })

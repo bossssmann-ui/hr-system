@@ -13,6 +13,8 @@
 
 const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models'
 
+export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>
+
 export type GeminiGenerateInput = {
   apiKey: string
   model: string
@@ -21,7 +23,7 @@ export type GeminiGenerateInput = {
   /** User prompt text (becomes the first `contents[0].parts[0].text`). */
   userText: string
   /** Optional fetch override for tests. */
-  fetchImpl?: typeof fetch
+  fetchImpl?: FetchLike
   /** Optional response generation overrides. */
   generationConfig?: {
     temperature?: number

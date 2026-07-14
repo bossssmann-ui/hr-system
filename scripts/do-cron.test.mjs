@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { spawnSync } from 'node:child_process'
 
 import { validateDigitalOceanCronSchedule } from './do-cron.mjs'
 
@@ -29,5 +30,17 @@ describe('validateDigitalOceanCronSchedule', () => {
     expect(() => validateDigitalOceanCronSchedule('0 3 * 13 *')).toThrow('between 1 and 12')
     expect(() => validateDigitalOceanCronSchedule('0 3 * * 8')).toThrow('between 0 and 7')
     expect(() => validateDigitalOceanCronSchedule('0 3 * * MON')).toThrow('day-of-week field')
+  })
+})
+
+describe('run-prod-cron.sh', () => {
+  test('has valid POSIX shell syntax', () => {
+    const result = spawnSync('sh', ['-n', 'scripts/run-prod-cron.sh'], {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+    })
+
+    expect(result.stderr).toBe('')
+    expect(result.status).toBe(0)
   })
 })

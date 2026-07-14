@@ -1,10 +1,9 @@
 import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router'
 
-import { AppPage, HomePage, RootLayout } from './pages'
+import { AppPage, HomePage, PasswordResetPage, RootLayout } from './pages'
 import {
   AdminAuditLogPage,
   AdminHhIntegrationPage,
-  AdminOrgUnitsPage,
   AdminUsersPage,
   ApplicationDetailPage,
   ApplicationsPage,
@@ -43,6 +42,12 @@ const appRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/app',
   component: AppPage,
+})
+
+const passwordResetRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/reset-password',
+  component: PasswordResetPage,
 })
 
 // Recruiting skeleton routes — see `web/src/pages/recruiting.tsx`. Real data
@@ -100,12 +105,6 @@ const adminUsersRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin/users',
   component: AdminUsersPage,
-})
-
-const adminOrgUnitsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/admin/org-units',
-  component: AdminOrgUnitsPage,
 })
 
 const adminAuditLogRoute = createRoute({
@@ -217,6 +216,7 @@ const knowledgeRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   indexRoute,
   appRoute,
+  passwordResetRoute,
   requisitionsRoute,
   requisitionsNewRoute,
   requisitionDetailRoute,
@@ -226,7 +226,6 @@ const routeTree = rootRoute.addChildren([
   applicationsRoute,
   applicationDetailRoute,
   adminUsersRoute,
-  adminOrgUnitsRoute,
   adminAuditLogRoute,
   adminHhIntegrationRoute,
   settingsIntegrationsRoute,

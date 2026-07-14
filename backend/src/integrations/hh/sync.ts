@@ -1,8 +1,11 @@
 import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
 import { Prisma } from '../../generated/prisma/client'
+import {
+  processInboundApplicationCreated,
+  withInboundProcessingPending,
+} from '../../features/applications/inbound-application.service'
 import { enqueueApplicationScoringJob } from '../../features/scoring/scoring.queue'
-import { enqueueSelectionBridgeJob } from '../../features/selection/selection-application-bridge'
 import { createInMemoryQueue } from '../../queues'
 import { createHhClient } from './client'
 import { decryptHhSecret, encryptHhSecret } from './crypto'
@@ -59,16 +62,6 @@ export async function enqueueHhNegotiationsSyncJob(input: {
       ...input,
       resolve,
       reject,
-    }).catch((error) => {
-      console.error(
-        JSON.stringify({
-          level: 'error',
-          msg: 'hh.sync.enqueue_failed',
-          tenantId: input.tenantId,
-          error: error instanceof Error ? error.message : String(error),
-        }),
-      )
-      reject(error)
     })
   })
 }
@@ -270,11 +263,18 @@ export async function upsertNegotiationFromHh(
     hh_negotiation_id: input.negotiation.id,
   }
 
+  const resumeSnapshot = buildResumeSnapshot(input.resume)
+  const resumeSnapshotRecord = resumeSnapshot as Record<string, unknown>
   const candidateExternalIds = mergeExternalIds(existingCandidate?.externalIds, {
     hh_resume_id: input.resume.id,
     hh_negotiation_id: input.negotiation.id,
-    ...(input.negotiation.messages_url ? { hh_messages_url: input.negotiation.messages_url } : {}),
-    hh_resume_snapshot: buildResumeSnapshot(input.resume),
+    hh_resume_snapshot: resumeSnapshot,
+    hh_resume_history: appendResumeHistory(existingCandidate?.externalIds, {
+      ...resumeSnapshotRecord,
+      hh_resume_id: input.resume.id,
+      hh_negotiation_id: input.negotiation.id,
+      imported_at: new Date().toISOString(),
+    }),
   })
 
   const candidate = existingCandidate
@@ -306,7 +306,6 @@ export async function upsertNegotiationFromHh(
   const applicationExternalIds = {
     hh_negotiation_id: input.negotiation.id,
     hh_resume_id: input.resume.id,
-    ...(input.negotiation.messages_url ? { hh_messages_url: input.negotiation.messages_url } : {}),
   }
 
   const existingApplicationByNegotiation = await prisma.application.findFirst({
@@ -320,6 +319,7 @@ export async function upsertNegotiationFromHh(
   })
 
   let applicationIdForScoring: string | null = null
+  let createdNewApplication = false
 
   if (existingApplicationByNegotiation) {
     await prisma.application.update({
@@ -355,10 +355,11 @@ export async function upsertNegotiationFromHh(
           candidateId: candidate.id,
           vacancyId: input.vacancyId,
           stage: 'new',
-          externalIds: applicationExternalIds,
+          externalIds: withInboundProcessingPending(applicationExternalIds, 'hh_ru'),
         },
       })
       applicationIdForScoring = createdApplication.id
+      createdNewApplication = true
     }
   }
 
@@ -383,13 +384,22 @@ export async function upsertNegotiationFromHh(
       applicationId: applicationIdForScoring,
       actorUserId: input.actorUserId,
     })
+  }
 
-    void enqueueSelectionBridgeJob({
+  if (createdNewApplication && applicationIdForScoring) {
+    const vacancy = await prisma.vacancy.findFirst({
+      where: { id: input.vacancyId, tenantId: input.tenantId },
+      select: { title: true },
+    })
+    await processInboundApplicationCreated({
       prisma,
-      env: input.env,
       tenantId: input.tenantId,
       applicationId: applicationIdForScoring,
-      source: 'hh_sync',
+      candidateId: candidate.id,
+      vacancyId: input.vacancyId,
+      source: 'hh_ru',
+      candidateName: candidate.fullName,
+      vacancyTitle: vacancy?.title ?? null,
     })
   }
 
@@ -426,13 +436,44 @@ export async function upsertNegotiationFromHh(
   }
 }
 
+function appendResumeHistory(existingExternalIds: unknown, snapshot: Record<string, unknown>) {
+  const existing = isRecord(existingExternalIds) ? existingExternalIds : null
+  const current = Array.isArray(existing?.hh_resume_history)
+    ? existing.hh_resume_history.filter((item): item is Record<string, unknown> => isRecord(item))
+    : []
+
+  const last = current.at(-1)
+  if (last && resumeComparableFingerprint(last) === resumeComparableFingerprint(snapshot)) {
+    return current
+  }
+
+  return [...current, snapshot].slice(-5)
+}
+
+function resumeComparableFingerprint(snapshot: Record<string, unknown>) {
+  return JSON.stringify({
+    title: snapshot.title ?? null,
+    experience: normalizeStringArray(snapshot.experience),
+    education: normalizeStringArray(snapshot.education),
+    skills: normalizeStringArray(snapshot.skills),
+    total_experience_months: typeof snapshot.total_experience_months === 'number' ? snapshot.total_experience_months : null,
+    location: typeof snapshot.location === 'string' ? snapshot.location : null,
+  })
+}
+
+function normalizeStringArray(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string').map((item) => item.trim()).filter(Boolean)
+    : []
+}
+
 function extractResumeContacts(resume: HhResume) {
   let email: string | null = null
   let phone: string | null = null
 
   for (const contact of resume.contact ?? []) {
     const type = contact.type?.id?.toLowerCase() ?? ''
-    const value = contact.value?.trim()
+    const value = normalizeContactValue(contact.value)
     if (!value) continue
 
     if (!email && (type === 'email' || value.includes('@'))) {
@@ -449,6 +490,19 @@ function extractResumeContacts(resume: HhResume) {
   return { email, phone }
 }
 
+function normalizeContactValue(value: NonNullable<HhResume['contact']>[number]['value']) {
+  if (typeof value === 'string') return value.trim()
+  if (!value || typeof value !== 'object') return null
+
+  const formatted = value.formatted?.trim()
+  if (formatted) return formatted
+
+  const parts = [value.country, value.city, value.number]
+    .map((part) => part?.trim())
+    .filter((part): part is string => Boolean(part))
+  return parts.length > 0 ? parts.join('') : null
+}
+
 function mergeExternalIds(existing: unknown, next: Record<string, unknown>): Prisma.InputJsonValue {
   const base = isRecord(existing) ? existing : {}
   return {
@@ -461,7 +515,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-export async function ensureFreshAccessToken(prisma: DbClient, env: AppEnv, tenantId: string, client: HhClient) {
+async function ensureFreshAccessToken(prisma: DbClient, env: AppEnv, tenantId: string, client: HhClient) {
   if (!env.HH_TOKEN_ENCRYPTION_KEY) {
     throw new Error('HH_TOKEN_ENCRYPTION_KEY is not configured')
   }

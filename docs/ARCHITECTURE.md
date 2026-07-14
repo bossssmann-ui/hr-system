@@ -17,7 +17,7 @@ Hono route -> Zod validation -> auth/session guard -> feature service -> Prisma 
 ```
 
 - `src/index.ts` is the API runtime entrypoint.
-- `src/worker.ts` is the long-running worker entrypoint for durable queue draining.
+- `src/worker.ts` is the long-running worker entrypoint. Keep it disabled in deployment specs until a real background handler is registered.
 - `src/cron.ts` is the one-shot scheduled-job entrypoint. Add concrete tasks to its registry and deploy scheduled jobs only for named product tasks.
 - `src/runtime.ts` owns shared env loading, Prisma creation, and runtime cleanup for all backend entrypoints.
 - `src/app.ts` owns the Hono app, CORS, secure headers, error handling, route mounting, and OpenAPI output.

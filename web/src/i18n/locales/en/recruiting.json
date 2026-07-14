@@ -91,15 +91,6 @@
     "publish": "Publish",
     "unpublish": "Unpublish",
     "viewApplications": "View applications",
-    "roleLabel": "Selection role",
-    "rolePlaceholder": "Not selected (fallback to keyword inference)",
-    "roleSaved": "Selection role updated",
-    "roleSaveFailed": "Failed to update selection role",
-    "roles": {
-      "logist_domestic": "Logistics — domestic transport in Russia",
-      "logist": "Logistics — international/multimodal",
-      "sales_manager": "Sales manager"
-    },
     "back": "← Back",
     "notFound": "Vacancy not found",
     "loadFailed": "Could not load vacancies",
@@ -157,6 +148,11 @@
     },
     "create": "Create application",
     "cannotMove": "Cannot move from {{from}} to {{to}}",
+    "hhSync": {
+      "button": "Sync HH.ru",
+      "success": "HH.ru synced: {{scanned}} responses scanned, {{applications}} applications updated, {{candidates}} new candidates.",
+      "failed": "Failed to sync HH.ru"
+    },
     "toasts": {
       "created": "Application created",
       "createFailed": "Failed to create application",
@@ -192,7 +188,15 @@
       "redFlags": "Red flags",
       "antiFraudSignals": "Anti-fraud signals",
       "interviewFocusAreas": "Interview focus areas",
-      "valuesFitHypothesis": "Values fit hypothesis"
+      "valuesFitHypothesis": "Values fit hypothesis",
+      "recommendations": "Recommendations",
+      "suggestedGrade": "Suggested grade: {{grade}}",
+      "suggestedSalary": "Suggested salary: {{salary}}",
+      "competencies": "Competencies",
+      "interviewQuestions": "Interview questions",
+      "modelInfo": "Model: {{model}} · {{date}}",
+      "historyTitle": "Previous AI scores",
+      "historyItem": "{{model}} · {{date}}"
     },
     "feedback": {
       "title": "Human feedback",
@@ -212,6 +216,11 @@
       "empty": "No generated questions yet.",
       "success": "Interview questions generated",
       "failed": "Failed to generate interview questions"
+    },
+    "questionnaire": {
+      "send": "Send questions to candidate",
+      "sent": "Questions sent to candidate",
+      "failed": "Failed to send questions to candidate"
     },
     "assessments": {
       "title": "Assessments",
@@ -320,32 +329,6 @@
       },
       "loadFailed": "Could not load users"
     },
-    "orgUnits": {
-      "title": "Org units",
-      "loadFailed": "Could not load org units",
-      "parentNone": "No parent",
-      "confirmDelete": "Delete org unit “{{name}}”?",
-      "fields": {
-        "name": "Name",
-        "parent": "Parent"
-      },
-      "create": {
-        "title": "Create org unit",
-        "namePlaceholder": "e.g. Engineering",
-        "submit": "Create"
-      },
-      "validation": {
-        "name": "Name is required (1–200 chars)"
-      },
-      "toasts": {
-        "created": "Org unit created",
-        "createFailed": "Failed to create org unit",
-        "updated": "Org unit updated",
-        "updateFailed": "Failed to update org unit",
-        "deleted": "Org unit deleted",
-        "deleteFailed": "Failed to delete org unit"
-      }
-    },
     "audit": {
       "title": "Audit log",
       "entityTypeLabel": "Entity type:",
@@ -384,7 +367,7 @@
         "syncFailed": "HH sync failed",
         "mappingUpdated": "Vacancy mapping updated",
         "mappingFailed": "Failed to save vacancy link",
-        "syncResult": "Imported {{candidates}} candidates; upserted {{applications}} applications.",
+        "syncResult": "Scanned {{scanned}} responses; updated {{applications}} applications; imported {{candidates}} new candidates.",
         "authorizeUnavailable": "HH authorize URL is unavailable",
         "prepareFailed": "Failed to prepare HH OAuth",
         "completeFailed": "Failed to complete HH OAuth",

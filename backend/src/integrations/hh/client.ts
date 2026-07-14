@@ -2,11 +2,9 @@ import type { AppEnv } from '../../env'
 import type {
   HhClient,
   HhEmployerVacancy,
-  HhNegotiationInviteResult,
   HhNegotiationCollection,
   HhNegotiationsPage,
   HhResume,
-  HhResumeSearchPage,
   HhTokens,
 } from './types'
 
@@ -40,6 +38,15 @@ export type CreateHhClientOptions = {
   http?: HhHttpTransport
   now?: () => number
   sleep?: (ms: number) => Promise<void>
+}
+
+export class HhRequestError extends Error {
+  constructor(
+    public readonly status: number,
+    public readonly body: unknown,
+  ) {
+    super(`HH request failed: ${status}`)
+  }
 }
 
 export function createHhClient(options: CreateHhClientOptions): HhClient {
@@ -87,7 +94,7 @@ export function createHhClient(options: CreateHhClientOptions): HhClient {
       }
 
       if (response.status < 200 || response.status >= 300) {
-        throw new Error(`HH request failed: ${response.status}`)
+        throw new HhRequestError(response.status, response.body)
       }
 
       return response.body as T
@@ -159,10 +166,14 @@ export function createHhClient(options: CreateHhClientOptions): HhClient {
     },
 
     async listEmployerVacancies(accessToken, page = 0) {
+      const me = await this.getMe(accessToken)
+      const employerId = me.employer?.id
+      if (!employerId) return []
+
       const data = await requestJson<{ items?: Array<{ id?: string | number; name?: string; archived?: boolean }> }>(
         {
           method: 'GET',
-          url: `${HH_API_BASE_URL}/vacancies/active?page=${page}`,
+          url: `${HH_API_BASE_URL}/employers/${encodeURIComponent(employerId)}/vacancies/active?page=${page}`,
           headers: authHeaders(accessToken),
         },
       )
@@ -216,58 +227,6 @@ export function createHhClient(options: CreateHhClientOptions): HhClient {
         url: `${HH_API_BASE_URL}/resumes/${encodeURIComponent(resumeId)}`,
         headers: authHeaders(accessToken),
       })
-    },
-
-    async listResumes(accessToken, criteria, page = 0) {
-      const url = new URL(`${HH_API_BASE_URL}/resumes`)
-      url.searchParams.set('page', String(page))
-      for (const [key, value] of Object.entries(criteria)) {
-        if (!value) continue
-        url.searchParams.set(key, value)
-      }
-
-      const data = await requestJson<HhResumeSearchPage>({
-        method: 'GET',
-        url: url.toString(),
-        headers: authHeaders(accessToken),
-      })
-
-      return {
-        found: data.found ?? 0,
-        pages: data.pages ?? 0,
-        page: data.page ?? page,
-        per_page: data.per_page ?? 20,
-        items: Array.isArray(data.items)
-          ? data.items
-              .filter((item) => item?.id !== undefined)
-              .map((item) => ({ id: String(item.id), title: item.title, updated_at: item.updated_at }))
-          : [],
-      }
-    },
-
-    async createNegotiationInvite(input) {
-      const data = await requestJson<{ id?: string | number; messages_url?: string | null; messagesUrl?: string | null }>(
-        {
-          method: 'POST',
-          url: `${HH_API_BASE_URL}/negotiations`,
-          headers: {
-            ...authHeaders(input.accessToken),
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            resume_id: input.resumeId,
-            vacancy_id: input.vacancyId,
-            ...(input.message ? { message: input.message } : {}),
-          }),
-        },
-      )
-
-      return {
-        id: data.id !== undefined ? String(data.id) : null,
-        messagesUrl: typeof data.messages_url === 'string'
-          ? data.messages_url
-          : (typeof data.messagesUrl === 'string' ? data.messagesUrl : null),
-      } satisfies HhNegotiationInviteResult
     },
   }
 }

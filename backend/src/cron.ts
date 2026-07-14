@@ -1,8 +1,5 @@
-import { randomUUID } from 'node:crypto'
-
-import type { DbClient } from './db'
-import type { AppEnv } from './env'
 import { createBackendRuntime, type BackendRuntime } from './runtime'
+import { Prisma } from './generated/prisma/client'
 import { sendProbationReminders } from './features/employees/employees.service'
 import { expireOverdueOffers } from './features/offers/offers.service'
 import {
@@ -13,16 +10,9 @@ import {
 import { computeHrSnapshot } from './features/analytics/analytics.service'
 import { computeSignalsForTenant } from './features/signals/signals.service'
 import { runDataRetention } from './features/tenant/tenant.service'
-import { collectSelectionRetentionOutcomes } from './features/selection/retention-outcomes'
-import { runSelectionScoringCalibration } from './features/selection/retention-calibration'
-import { createInMemoryQueue, drainDurableQueue } from './queues'
-import { sourceHhResumesForTenant } from './integrations/hh/sourcing'
-import './features/assessments/assessments.queue'
-import './features/interviews/interviews.queue'
-import './features/messaging/messaging.queue'
-import './features/scoring/scoring.queue'
-import './features/selection/selection.queue'
-import './features/selection/selection-application-bridge'
+import { recoverPendingApplicationScoring } from './features/scoring/scoring.queue'
+import { recoverPendingSelectionEvaluations } from './features/selection/selection.queue'
+import { recoverPendingInboundApplications } from './features/applications/inbound-application.service'
 
 type CronTask = (runtime: BackendRuntime) => Promise<void>
 
@@ -33,6 +23,20 @@ const cronTasks = {
   'db:ping': async ({ prisma }) => {
     await prisma.$queryRaw`SELECT 1`
     console.log('Cron db:ping task completed.')
+  },
+  'application.ai_scoring.recover': async ({ prisma, env }) => {
+    const result = await recoverPendingApplicationScoring({ prisma, env })
+    console.log(
+      `Cron application.ai_scoring.recover completed. recovered=${result.recovered} skipped=${result.skipped}`,
+    )
+  },
+  'application.inbound.recover': async ({ prisma }) => {
+    const result = await recoverPendingInboundApplications({ prisma })
+    console.log(`Cron application.inbound.recover completed. recovered=${result.recovered} skipped=${result.skipped}`)
+  },
+  'selection.evaluate.recover': async ({ prisma, env }) => {
+    const result = await recoverPendingSelectionEvaluations({ prisma, env })
+    console.log(`Cron selection.evaluate.recover completed. recovered=${result.recovered}`)
   },
   'probation.reminder': async ({ prisma }) => {
     const result = await sendProbationReminders({ prisma })
@@ -103,216 +107,95 @@ const cronTasks = {
       `Cron data.retention completed. tenants=${tenants.length} candidates=${totalCandidates} employees=${totalEmployees}`,
     )
   },
-  'selection.retention_outcomes': async ({ prisma }) => {
-    const result = await collectSelectionRetentionOutcomes({ prisma })
-    console.log(
-      `Cron selection.retention_outcomes completed. employees=${result.employeesMatched} upserted=${result.outcomesUpserted}`,
-    )
-  },
-  'selection.retention_calibration': async ({ prisma }) => {
-    const result = await runSelectionScoringCalibration({ prisma })
-    console.log(
-      `Cron selection.retention_calibration completed. tenants=${result.totalTenants} calibrated=${result.calibratedTenants}`,
-    )
-  },
-  'hh.sourcing': async ({ prisma, env }) => {
-    const tenants = await prisma.tenant.findMany({ select: { id: true } })
-    let candidatesImported = 0
-    let applicationsCreated = 0
-    for (const tenant of tenants) {
-      const result = await sourceHhResumesForTenant(prisma, env, tenant.id)
-      candidatesImported += result.candidatesImported
-      applicationsCreated += result.applicationsCreated
-    }
-    console.log(
-      `Cron hh.sourcing completed. tenants=${tenants.length} candidates=${candidatesImported} applications=${applicationsCreated}`,
-    )
-  },
-  'queue.drain': async ({ prisma, env }) => {
-    const result = await drainDurableQueue({ prisma, env })
-    console.log(`Cron queue.drain completed. claimed=${result.claimed} processed=${result.processed}`)
-  },
 } satisfies Record<string, CronTask>
 
 export type CronTaskName = keyof typeof cronTasks
 
-type CronRunJob = {
-  prisma: DbClient
-  env: AppEnv
-  taskName: CronTaskName
-  scheduledWindow: string
-}
-
-const cronRunQueue = createInMemoryQueue<CronRunJob>('cron.run')
-let cronRunQueueRegistered = false
-
-function ensureCronRunQueueRegistered() {
-  if (cronRunQueueRegistered) return
-  cronRunQueueRegistered = true
-  cronRunQueue.process(async (job) => {
-    await executeCronRun(job)
-  })
-}
-
-async function executeCronRun(job: CronRunJob) {
-  const task = cronTasks[job.taskName]
-  if (!task) throw new Error(`Unknown cron task "${job.taskName}"`)
-  if (!hasDurableSql(job.prisma)) {
-    await task({ prisma: job.prisma, env: job.env, close: async () => undefined })
-    return
-  }
-
-  const tenantId: string | null = null
-  if (await hasSucceededRun(job.prisma, job.taskName, tenantId, job.scheduledWindow)) {
-    return
-  }
-
-  const attempt = await nextAttempt(job.prisma, job.taskName, tenantId, job.scheduledWindow)
-  const runId = randomUUID()
-  await job.prisma.$executeRaw`
-    INSERT INTO cron_job_runs (
-      id,
-      job_name,
-      tenant_id,
-      scheduled_window,
-      started_at,
-      status,
-      attempt,
-      created_at,
-      updated_at
-    )
-    VALUES (
-      ${runId}::uuid,
-      ${job.taskName},
-      ${tenantId}::uuid,
-      ${job.scheduledWindow},
-      now(),
-      'running',
-      ${attempt},
-      now(),
-      now()
-    )
-  `
-
-  try {
-    await task({ prisma: job.prisma, env: job.env, close: async () => undefined })
-    await job.prisma.$executeRaw`
-      UPDATE cron_job_runs
-      SET status = 'succeeded',
-          finished_at = now(),
-          error = NULL,
-          updated_at = now()
-      WHERE id = ${runId}::uuid
-    `
-  } catch (err) {
-    await job.prisma.$executeRaw`
-      UPDATE cron_job_runs
-      SET status = 'failed',
-          finished_at = now(),
-          error = ${safeErrorMessage(err)},
-          updated_at = now()
-      WHERE id = ${runId}::uuid
-    `
-    throw err
-  }
-}
-
-function hasDurableSql(prisma: DbClient) {
-  if (!prisma) return false
-  return (
-    typeof (prisma as unknown as { $executeRaw?: unknown }).$executeRaw === 'function' &&
-    typeof (prisma as unknown as { $queryRaw?: unknown }).$queryRaw === 'function'
-  )
-}
-
-async function hasSucceededRun(prisma: DbClient, jobName: string, tenantId: string | null, scheduledWindow: string) {
-  const rows = await prisma.$queryRaw<Array<{ id: string }>>`
-    SELECT id
-    FROM cron_job_runs
-    WHERE job_name = ${jobName}
-      AND tenant_id IS NOT DISTINCT FROM ${tenantId}::uuid
-      AND scheduled_window = ${scheduledWindow}
-      AND status = 'succeeded'
-    LIMIT 1
-  `
-  return rows.length > 0
-}
-
-async function nextAttempt(prisma: DbClient, jobName: string, tenantId: string | null, scheduledWindow: string) {
-  const rows = await prisma.$queryRaw<Array<{ attempt: number }>>`
-    SELECT COALESCE(MAX(attempt), 0) + 1 AS attempt
-    FROM cron_job_runs
-    WHERE job_name = ${jobName}
-      AND tenant_id IS NOT DISTINCT FROM ${tenantId}::uuid
-      AND scheduled_window = ${scheduledWindow}
-  `
-  return rows[0]?.attempt ?? 1
-}
-
-function safeErrorMessage(err: unknown): string {
-  const message = err instanceof Error ? err.message : String(err)
-  return message.slice(0, 2000)
-}
-
-function resolveScheduledWindow(taskName: CronTaskName, now: Date): string {
-  const iso = now.toISOString()
-  if (taskName === 'data.retention') return iso.slice(0, 7)
-  return iso.slice(0, 10)
-}
-
-async function enqueueCronRunJob(prisma: DbClient, env: AppEnv, taskName: CronTaskName, scheduledWindow: string) {
-  const maxRetries = env.QUEUE_MAX_RETRIES ?? 5
-  await prisma.$executeRaw`
-    INSERT INTO queue_jobs (
-      id,
-      queue_name,
-      payload,
-      status,
-      attempts,
-      max_retries,
-      available_at,
-      created_at,
-      updated_at
-    )
-    VALUES (
-      ${randomUUID()}::uuid,
-      'cron.run',
-      ${{ taskName, scheduledWindow }}::jsonb,
-      'pending',
-      0,
-      ${maxRetries},
-      now(),
-      now(),
-      now()
-    )
-  `
-}
-
-export async function runCronTask(
-  taskName: string,
-  runtime: BackendRuntime,
-  options?: { scheduledWindow?: string },
-) {
+export async function runCronTask(taskName: string, runtime: BackendRuntime) {
   const task = cronTasks[taskName as CronTaskName]
 
   if (!task) {
     throw new Error(`Unknown cron task "${taskName}". Available tasks: ${Object.keys(cronTasks).join(', ')}`)
   }
 
-  if (!hasDurableSql(runtime.prisma)) {
-    await task(runtime)
-    return
-  }
-
-  const jobName = taskName as CronTaskName
-  const scheduledWindow = options?.scheduledWindow ?? resolveScheduledWindow(jobName, new Date())
-  ensureCronRunQueueRegistered()
-  await enqueueCronRunJob(runtime.prisma, runtime.env, jobName, scheduledWindow)
-  await drainDurableQueue({
-    prisma: runtime.prisma,
-    env: runtime.env,
-    queueName: 'cron.run',
+  const startedAt = new Date()
+  await writeCronRunAudit(runtime, {
+    action: 'cron.job_started',
+    taskName,
+    startedAt,
+    status: 'running',
   })
+
+  try {
+    await task(runtime)
+    const finishedAt = new Date()
+    await writeCronRunAudit(runtime, {
+      action: 'cron.job_succeeded',
+      taskName,
+      startedAt,
+      finishedAt,
+      status: 'succeeded',
+    })
+  } catch (error) {
+    const finishedAt = new Date()
+    await writeCronRunAudit(runtime, {
+      action: 'cron.job_failed',
+      taskName,
+      startedAt,
+      finishedAt,
+      status: 'failed',
+      error: sanitizeCronError(error),
+    })
+    throw error
+  }
+}
+
+async function writeCronRunAudit(
+  runtime: BackendRuntime,
+  input: {
+    action: 'cron.job_started' | 'cron.job_succeeded' | 'cron.job_failed'
+    taskName: string
+    startedAt: Date
+    finishedAt?: Date
+    status: 'running' | 'succeeded' | 'failed'
+    error?: string
+  },
+) {
+  const prisma = runtime.prisma
+  if (!prisma?.tenant?.findMany || !prisma?.auditEvent?.create) return
+
+  const tenants = await prisma.tenant.findMany({ select: { id: true } })
+  if (tenants.length === 0) return
+
+  const durationMs = input.finishedAt ? input.finishedAt.getTime() - input.startedAt.getTime() : null
+  const diff = {
+    jobName: input.taskName,
+    status: input.status,
+    startedAt: input.startedAt.toISOString(),
+    finishedAt: input.finishedAt?.toISOString() ?? null,
+    durationMs,
+    error: input.error ?? null,
+  } satisfies Prisma.InputJsonObject
+
+  await Promise.all(
+    tenants.map((tenant) =>
+      prisma.auditEvent.create({
+        data: {
+          tenantId: tenant.id,
+          actorUserId: null,
+          action: input.action,
+          entityType: 'CronJob',
+          entityId: tenant.id,
+          diff,
+        },
+      }),
+    ),
+  )
+}
+
+function sanitizeCronError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error)
+  return message.replace(/(token|secret|password|key)=([^&\s]+)/gi, '$1=<redacted>').slice(0, 1000)
 }
 
 export async function main(argv: string[] = Bun.argv.slice(2)) {

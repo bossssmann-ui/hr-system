@@ -19,7 +19,6 @@ describe('loadEnv', () => {
     expect(env.HH_TOKEN_ENCRYPTION_KEY).toBeUndefined()
     expect(env.AI_SCORING_ENABLED).toBe(false)
     expect(env.LLM_SCORING_PROVIDER).toBe('anthropic')
-    expect(env.LLM_SCORING_BASE_URL).toBeUndefined()
     expect(env.LLM_SCORING_API_KEY).toBeUndefined()
     expect(env.LLM_SCORING_MODEL).toBe('claude-haiku-4-5-20251001')
     expect(env.TRANSCRIPTION_ENABLED).toBe(false)
@@ -167,30 +166,6 @@ describe('loadEnv', () => {
 
     expect(env.AI_SCORING_ENABLED).toBe(true)
     expect(env.LLM_SCORING_API_KEY).toBe('test-key')
-  })
-
-  test('requires LLM_SCORING_BASE_URL for openai-compatible AI scoring', () => {
-    expect(() =>
-      loadEnv({
-        DATABASE_URL: 'db-url',
-        JWT_SECRET: '12345678901234567890123456789012',
-        AI_SCORING_ENABLED: 'true',
-        LLM_SCORING_PROVIDER: 'openai_compatible',
-        LLM_SCORING_API_KEY: 'test-key',
-      }),
-    ).toThrow('LLM_SCORING_BASE_URL')
-
-    const env = loadEnv({
-      DATABASE_URL: 'db-url',
-      JWT_SECRET: '12345678901234567890123456789012',
-      AI_SCORING_ENABLED: 'true',
-      LLM_SCORING_PROVIDER: 'openai_compatible',
-      LLM_SCORING_BASE_URL: 'http://localhost:8000/v1',
-      LLM_SCORING_API_KEY: 'test-key',
-      LLM_SCORING_MODEL: 'qwen2.5-72b-instruct',
-    })
-
-    expect(env.LLM_SCORING_BASE_URL).toBe('http://localhost:8000/v1')
   })
 
   test('DocuSeal defaults are disabled and optional', () => {

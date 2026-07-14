@@ -4,6 +4,7 @@ import { buildScoringUserMessage, SCORING_SYSTEM_PROMPT } from './scoring.prompt
 import { ScoringProviderMalformedResponseError, type ScoringProvider } from './provider'
 import {
   SCORING_SCHEMA_VERSION,
+  isScoringResultInternallyInconsistent,
   scoringResultCoreSchema,
   scoringResultSchema,
   type ScoringInput,
@@ -44,7 +45,7 @@ export class AnthropicScoringProvider implements ScoringProvider {
 
   async score(input: ScoringInput): Promise<ScoringResult> {
     const firstAttempt = await this.request(input, false)
-    const parsedFirst = tryParseScoringJson(firstAttempt)
+    const parsedFirst = tryParseScoringJson(firstAttempt, input)
     if (parsedFirst) {
       return scoringResultSchema.parse({
         ...parsedFirst,
@@ -55,7 +56,7 @@ export class AnthropicScoringProvider implements ScoringProvider {
     }
 
     const retryAttempt = await this.request(input, true)
-    const parsedRetry = tryParseScoringJson(retryAttempt)
+    const parsedRetry = tryParseScoringJson(retryAttempt, input)
     if (!parsedRetry) {
       throw new ScoringProviderMalformedResponseError(this.model)
     }
@@ -71,7 +72,7 @@ export class AnthropicScoringProvider implements ScoringProvider {
   private async request(input: ScoringInput, forceJsonOnly: boolean) {
     const userMessage = buildScoringUserMessage(input)
     const reminder = forceJsonOnly
-      ? '\n\nReminder: return strictly valid JSON only. No markdown, no prose outside JSON.'
+      ? '\n\nReminder: return strictly valid JSON only. No markdown, no prose outside JSON. All text values must be in Russian.'
       : ''
 
     const response = await this.client.messages.create({
@@ -88,13 +89,15 @@ export class AnthropicScoringProvider implements ScoringProvider {
   }
 }
 
-function tryParseScoringJson(raw: string): Omit<ScoringResult, 'model' | 'scored_at' | 'schema_version'> | null {
+function tryParseScoringJson(raw: string, input: ScoringInput): Omit<ScoringResult, 'model' | 'scored_at' | 'schema_version'> | null {
   const normalized = extractJson(raw)
   if (!normalized) return null
 
   try {
     const parsed = JSON.parse(normalized)
-    return scoringResultCoreSchema.parse(parsed)
+    const result = scoringResultCoreSchema.parse(parsed)
+    if (isScoringResultInternallyInconsistent(result, input)) return null
+    return result
   } catch {
     return null
   }

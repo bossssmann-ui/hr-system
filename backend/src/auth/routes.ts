@@ -4,6 +4,9 @@ import {
   loginRequestSchema,
   logoutRequestSchema,
   meResponseSchema,
+  okResponseSchema,
+  passwordResetConfirmSchema,
+  passwordResetRequestSchema,
   refreshRequestSchema,
   refreshResponseSchema,
   registerRequestSchema,
@@ -40,6 +43,12 @@ const refreshResponseContent = {
 const meResponseContent = {
   'application/json': {
     schema: meResponseSchema,
+  },
+}
+
+const okResponseContent = {
+  'application/json': {
+    schema: okResponseSchema,
   },
 }
 
@@ -101,6 +110,58 @@ const loginRoute = createRoute({
     401: {
       content: errorResponseContent,
       description: 'Invalid credentials',
+    },
+  },
+})
+
+const passwordResetRequestRoute = createRoute({
+  method: 'post',
+  path: '/password-reset/request',
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: passwordResetRequestSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: okResponseContent,
+      description: 'Created a password reset link when the account exists',
+    },
+    400: {
+      content: errorResponseContent,
+      description: 'Invalid payload',
+    },
+  },
+})
+
+const passwordResetConfirmRoute = createRoute({
+  method: 'post',
+  path: '/password-reset/confirm',
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: passwordResetConfirmSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: okResponseContent,
+      description: 'Updated the password and revoked existing sessions',
+    },
+    400: {
+      content: errorResponseContent,
+      description: 'Invalid or expired password reset link',
+    },
+    403: {
+      content: errorResponseContent,
+      description: 'Account disabled',
     },
   },
 })
@@ -207,6 +268,16 @@ export function createAuthRoutes() {
     setRefreshCookie(c, result.refreshToken, env)
 
     return c.json(responseForClient(c, result), 200)
+  })
+
+  routes.openapi(passwordResetRequestRoute, async (c) => {
+    const auth = c.get('authService')
+    return c.json(await auth.requestPasswordReset(c.req.valid('json'), requestMetadata(c)), 200)
+  })
+
+  routes.openapi(passwordResetConfirmRoute, async (c) => {
+    const auth = c.get('authService')
+    return c.json(await auth.resetPassword(c.req.valid('json')), 200)
   })
 
   routes.openapi(refreshRoute, async (c) => {

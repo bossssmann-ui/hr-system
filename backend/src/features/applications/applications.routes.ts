@@ -3,6 +3,7 @@ import type {
   Candidate,
   CreateApplicationRequest,
   MoveApplicationStageRequest,
+  ProcessCandidateQuestionnaireReplyRequest,
   ScoreFeedbackRequest,
   Vacancy,
 } from '@web-app-demo/contracts'
@@ -16,12 +17,14 @@ import {
   createApplicationRequestSchema,
   listApplicationsResponseSchema,
   moveApplicationStageRequestSchema,
+  processCandidateQuestionnaireReplyRequestSchema,
+  processCandidateQuestionnaireReplyResponseSchema,
   scoreFeedbackRequestSchema,
+  sendCandidateQuestionnaireResponseSchema,
 } from '@web-app-demo/contracts'
 import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
 import { z } from 'zod'
-import { Prisma } from '../../generated/prisma/client'
 
 import { requireRole, type RoleGuardBindings } from '../../auth/requireRole'
 import type { DbClient } from '../../db'
@@ -33,8 +36,10 @@ import { generateInterviewQuestions } from '../assessments/assessments.service'
 import { createFromApplication } from '../employees/employees.service'
 import { enqueueApplicationScoringJob } from '../scoring/scoring.queue'
 import { withScoringPresentation } from '../scoring/scoring.service'
-import { parseVacancyRole } from '../vacancies/vacancy-role'
-import { computeUnifiedScore } from './application-score-aggregate'
+import {
+  processCandidateQuestionnaireReply,
+  sendCandidateQuestionnaire,
+} from './candidate-questionnaire.service'
 
 type RouteBindings = RoleGuardBindings & {
   Variables: {
@@ -55,40 +60,13 @@ type RawApplication = {
   aiScoring: unknown
   aiScoreFeedback: unknown
   aiInterviewQuestions: unknown
-  aiScore: Prisma.Decimal | number | null
-  aiVerdict: string | null
-  aiAssessedAt: Date | null
-  aiFlags: unknown
   trustFlagged: boolean
   externalIds: unknown
   createdAt: Date
   updatedAt: Date
 }
 
-type SelectionSummary = {
-  totalWeightedScore: Prisma.Decimal | number | null
-  retentionPrediction: Record<string, unknown> | null
-  hrNotes: string | null
-}
-
-function toDto(
-  row: RawApplication,
-  env: AppEnv,
-  extra: {
-    selectionSummary: SelectionSummary | null
-    trustScore: number | null
-    selectionPipelineEnabled: boolean
-  },
-): Application {
-  const unifiedScore = computeUnifiedScore({
-    finalSelectionScore: extra.selectionSummary?.totalWeightedScore ?? null,
-    preliminaryAiScore: row.aiScore,
-  })
-  const aiFlags = asNullableRecord(row.aiFlags)
-  const fallbackRetention =
-    aiFlags && typeof aiFlags['retentionPrediction'] === 'object' && aiFlags['retentionPrediction'] !== null
-      ? (aiFlags['retentionPrediction'] as Record<string, unknown>)
-      : null
+function toDto(row: RawApplication, env: AppEnv): Application {
   return {
     id: row.id,
     tenantId: row.tenantId,
@@ -100,15 +78,6 @@ function toDto(
     aiScoring: aiScoringSchema.parse(withScoringPresentation(row.aiScoring, env)),
     aiScoreFeedback: aiScoreFeedbackSchema.nullable().parse(asNullableRecord(row.aiScoreFeedback)),
     aiInterviewQuestions: Array.isArray(row.aiInterviewQuestions) ? row.aiInterviewQuestions : null,
-    aiScore: row.aiScore === null || row.aiScore === undefined ? null : Number(row.aiScore),
-    aiVerdict: row.aiVerdict ?? null,
-    aiAssessedAt: row.aiAssessedAt ? row.aiAssessedAt.toISOString() : null,
-    aiFlags,
-    unifiedScore,
-    trustScore: extra.trustScore,
-    retentionPrediction: extra.selectionSummary?.retentionPrediction ?? fallbackRetention,
-    selectionHrNotes: extra.selectionSummary?.hrNotes ?? null,
-    selectionPipelineEnabled: extra.selectionPipelineEnabled,
     trustFlagged: Boolean(row.trustFlagged),
     externalIds: asRecord(row.externalIds),
     createdAt: row.createdAt.toISOString(),
@@ -125,75 +94,6 @@ function asRecord(value: unknown): Record<string, unknown> {
 function asNullableRecord(value: unknown): Record<string, unknown> | null {
   if (value === null || value === undefined) return null
   return asRecord(value)
-}
-
-async function loadSelectionSummaryByApplicationIds(
-  prisma: DbClient,
-  tenantId: string,
-  applicationIds: string[],
-): Promise<Map<string, SelectionSummary>> {
-  if (applicationIds.length === 0) return new Map()
-  const sessions = await prisma.selectionSession.findMany({
-    where: {
-      tenantId,
-      applicationId: { in: applicationIds },
-      verdict: { isNot: null },
-    },
-    include: { verdict: true },
-    orderBy: { createdAt: 'desc' },
-  })
-  const map = new Map<string, SelectionSummary>()
-  for (const session of sessions) {
-    if (!session.applicationId || !session.verdict || map.has(session.applicationId)) continue
-    map.set(session.applicationId, {
-      totalWeightedScore: session.verdict.totalWeightedScore,
-      retentionPrediction: asNullableRecord(session.verdict.retentionPrediction),
-      hrNotes: session.verdict.hrNotes ?? null,
-    })
-  }
-  return map
-}
-
-async function loadTrustScoreByApplicationIds(
-  prisma: DbClient,
-  tenantId: string,
-  applicationIds: string[],
-): Promise<Map<string, number | null>> {
-  if (applicationIds.length === 0) return new Map()
-  const sessions = await prisma.assessmentSession.findMany({
-    where: {
-      tenantId,
-      applicationId: { in: applicationIds },
-    },
-    select: {
-      applicationId: true,
-      trustScore: true,
-    },
-    orderBy: { createdAt: 'desc' },
-  })
-  const map = new Map<string, number | null>()
-  for (const session of sessions) {
-    if (!map.has(session.applicationId)) {
-      map.set(session.applicationId, session.trustScore)
-    }
-  }
-  return map
-}
-
-async function loadSelectionPipelineVacancyIds(
-  prisma: DbClient,
-  tenantId: string,
-  vacancyIds: string[],
-): Promise<Set<string>> {
-  if (vacancyIds.length === 0) return new Set()
-  const templates = await prisma.selectionTemplate.findMany({
-    where: {
-      tenantId,
-      vacancyId: { in: vacancyIds },
-    },
-    select: { vacancyId: true },
-  })
-  return new Set(templates.map((item) => item.vacancyId))
 }
 
 export function createApplicationsRoutes() {
@@ -227,22 +127,7 @@ export function createApplicationsRoutes() {
         take: 200,
       })
 
-      const applicationIds = rows.map((row) => row.id)
-      const vacancyIds = Array.from(new Set(rows.map((row) => row.vacancyId)))
-      const [selectionByApplicationId, trustByApplicationId, selectionVacancyIds] = await Promise.all([
-        loadSelectionSummaryByApplicationIds(prisma, tenantId, applicationIds),
-        loadTrustScoreByApplicationIds(prisma, tenantId, applicationIds),
-        loadSelectionPipelineVacancyIds(prisma, tenantId, vacancyIds),
-      ])
-
-      return c.json(listApplicationsResponseSchema.parse({
-        items: rows.map((row) =>
-          toDto(row, env, {
-            selectionSummary: selectionByApplicationId.get(row.id) ?? null,
-            trustScore: trustByApplicationId.get(row.id) ?? null,
-            selectionPipelineEnabled: selectionVacancyIds.has(row.vacancyId),
-          })),
-      }))
+      return c.json(listApplicationsResponseSchema.parse({ items: rows.map((row) => toDto(row, env)) }))
     },
   )
 
@@ -267,12 +152,6 @@ export function createApplicationsRoutes() {
 
       if (!row) throw new AppError(404, 'NOT_FOUND', 'Application not found')
 
-      const [selectionByApplicationId, trustByApplicationId, selectionVacancyIds] = await Promise.all([
-        loadSelectionSummaryByApplicationIds(prisma, tenantId, [row.id]),
-        loadTrustScoreByApplicationIds(prisma, tenantId, [row.id]),
-        loadSelectionPipelineVacancyIds(prisma, tenantId, [row.vacancyId]),
-      ])
-
       const candidate: Candidate = {
         id: row.candidate.id,
         tenantId: row.candidate.tenantId,
@@ -292,7 +171,6 @@ export function createApplicationsRoutes() {
         tenantId: row.vacancy.tenantId,
         title: row.vacancy.title,
         description: row.vacancy.description,
-        role: parseVacancyRole(row.vacancy.role),
         isPublished: row.vacancy.isPublished,
         requisitionId: row.vacancy.requisitionId,
         orgUnitId: row.vacancy.orgUnitId,
@@ -303,11 +181,7 @@ export function createApplicationsRoutes() {
 
       return c.json(
         applicationDetailSchema.parse({
-          ...toDto(row, env, {
-            selectionSummary: selectionByApplicationId.get(row.id) ?? null,
-            trustScore: trustByApplicationId.get(row.id) ?? null,
-            selectionPipelineEnabled: selectionVacancyIds.has(row.vacancyId),
-          }),
+          ...toDto(row, env),
           candidate,
           vacancy,
         }),
@@ -357,20 +231,6 @@ export function createApplicationsRoutes() {
         },
       })
 
-      try {
-        getRealtimeBus().publishToTenant(tenantId, {
-          type: 'application.created',
-          payload: {
-            applicationId: row.id,
-            candidateId: row.candidateId,
-            vacancyId: row.vacancyId,
-            source: 'manual',
-          },
-        })
-      } catch {
-        // realtime is best-effort
-      }
-
       c.set('auditEntry', {
         action: 'application.create',
         entityType: 'Application',
@@ -378,23 +238,14 @@ export function createApplicationsRoutes() {
         diff: body,
       })
 
-      void enqueueApplicationScoringJob({
+      await enqueueApplicationScoringJob({
         prisma,
         env,
         applicationId: row.id,
         actorUserId: userId,
       })
 
-      const [selectionByApplicationId, trustByApplicationId, selectionVacancyIds] = await Promise.all([
-        loadSelectionSummaryByApplicationIds(prisma, tenantId, [row.id]),
-        loadTrustScoreByApplicationIds(prisma, tenantId, [row.id]),
-        loadSelectionPipelineVacancyIds(prisma, tenantId, [row.vacancyId]),
-      ])
-      return c.json(applicationSchema.parse(toDto(row, env, {
-        selectionSummary: selectionByApplicationId.get(row.id) ?? null,
-        trustScore: trustByApplicationId.get(row.id) ?? null,
-        selectionPipelineEnabled: selectionVacancyIds.has(row.vacancyId),
-      })), 201)
+      return c.json(applicationSchema.parse(toDto(row, env)), 201)
     },
   )
 
@@ -480,16 +331,7 @@ export function createApplicationsRoutes() {
         // realtime is best-effort
       }
 
-      const [selectionByApplicationId, trustByApplicationId, selectionVacancyIds] = await Promise.all([
-        loadSelectionSummaryByApplicationIds(prisma, tenantId, [updated.id]),
-        loadTrustScoreByApplicationIds(prisma, tenantId, [updated.id]),
-        loadSelectionPipelineVacancyIds(prisma, tenantId, [updated.vacancyId]),
-      ])
-      return c.json(applicationSchema.parse(toDto(updated, env, {
-        selectionSummary: selectionByApplicationId.get(updated.id) ?? null,
-        trustScore: trustByApplicationId.get(updated.id) ?? null,
-        selectionPipelineEnabled: selectionVacancyIds.has(updated.vacancyId),
-      })))
+      return c.json(applicationSchema.parse(toDto(updated, env)))
     },
   )
 
@@ -564,6 +406,92 @@ export function createApplicationsRoutes() {
     },
   )
 
+  app.post(
+    '/:id/send-questionnaire',
+    requireRole('owner', 'hr_admin', 'recruiter'),
+    async (c) => {
+      const prisma = c.get('prisma')
+      const env = c.get('env')
+      const tenantId = c.get('tenantId')
+      const userId = c.get('userId')
+      const { id } = c.req.param()
+
+      const row = await prisma.application.findFirst({ where: { id, tenantId } })
+      if (!row) throw new AppError(404, 'NOT_FOUND', 'Application not found')
+
+      const result = await sendCandidateQuestionnaire({
+        prisma,
+        env,
+        applicationId: id,
+        actorUserId: userId,
+      })
+
+      c.set('auditEntry', {
+        action: 'application.questionnaire_send_requested',
+        entityType: 'Application',
+        entityId: id,
+        diff: { ok: result.ok, reason: result.ok ? undefined : result.reason },
+      })
+
+      return c.json(
+        sendCandidateQuestionnaireResponseSchema.parse({
+          sent: result.ok,
+          reason: result.ok ? undefined : result.reason,
+          messageId: result.messageId,
+          questionCount: result.ok ? result.questionCount : undefined,
+        }),
+        result.ok ? 200 : 422,
+      )
+    },
+  )
+
+  app.post(
+    '/:id/questionnaire-reply',
+    requireRole('owner', 'hr_admin', 'recruiter'),
+    zValidator('json', processCandidateQuestionnaireReplyRequestSchema),
+    async (c) => {
+      const prisma = c.get('prisma')
+      const env = c.get('env')
+      const tenantId = c.get('tenantId')
+      const { id } = c.req.param()
+      const body: ProcessCandidateQuestionnaireReplyRequest = c.req.valid('json')
+
+      const row = await prisma.application.findFirst({ where: { id, tenantId } })
+      if (!row) throw new AppError(404, 'NOT_FOUND', 'Application not found')
+
+      const result = await processCandidateQuestionnaireReply({
+        prisma,
+        env,
+        applicationId: id,
+        fromEmail: body.fromEmail,
+        body: body.body,
+        externalId: body.externalId,
+      })
+
+      c.set('auditEntry', {
+        action: 'application.questionnaire_reply_imported',
+        entityType: 'Application',
+        entityId: id,
+        diff: { ok: result.ok, reason: result.ok ? undefined : result.reason },
+      })
+
+      const score = result.ok && 'scoring' in result && result.scoring?.status === 'scored' && result.scoring.result
+        ? result.scoring.result.relevance_score
+        : undefined
+
+      return c.json(
+        processCandidateQuestionnaireReplyResponseSchema.parse({
+          processed: result.ok,
+          duplicate: result.ok && 'duplicate' in result ? result.duplicate : undefined,
+          reason: result.ok ? undefined : result.reason,
+          messageId: result.ok ? result.messageId : undefined,
+          score,
+        }),
+        result.ok ? 200 : 422,
+      )
+    },
+  )
+
   // ─── Score feedback ─────────────────────────────────────────────────────────
 
   app.post(
@@ -605,16 +533,7 @@ export function createApplicationsRoutes() {
         },
       })
 
-      const [selectionByApplicationId, trustByApplicationId, selectionVacancyIds] = await Promise.all([
-        loadSelectionSummaryByApplicationIds(prisma, tenantId, [updated.id]),
-        loadTrustScoreByApplicationIds(prisma, tenantId, [updated.id]),
-        loadSelectionPipelineVacancyIds(prisma, tenantId, [updated.vacancyId]),
-      ])
-      return c.json(applicationSchema.parse(toDto(updated, env, {
-        selectionSummary: selectionByApplicationId.get(updated.id) ?? null,
-        trustScore: trustByApplicationId.get(updated.id) ?? null,
-        selectionPipelineEnabled: selectionVacancyIds.has(updated.vacancyId),
-      })))
+      return c.json(applicationSchema.parse(toDto(updated, env)))
     },
   )
 

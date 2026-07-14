@@ -2,6 +2,25 @@ import { z } from 'zod'
 
 export const SCORING_SCHEMA_VERSION = 2
 
+const resumeSnapshotSchema = z.object({
+  title: z.string().nullable(),
+  experience: z.array(z.string()),
+  education: z.array(z.string()),
+  skills: z.array(z.string()),
+  total_experience_months: z.number().int().nonnegative().nullable(),
+  location: z.string().nullable(),
+  questionnaire_enrichment: z
+    .object({
+      summary: z.string().optional(),
+      facts: z.array(z.string()).optional(),
+      experience: z.array(z.string()).optional(),
+      skills: z.array(z.string()).optional(),
+      contradictions: z.array(z.string()).optional(),
+      confidence: z.number().min(0).max(100).optional(),
+    })
+    .optional(),
+})
+
 export const scoringInputSchema = z.object({
   job_profile: z.object({
     title: z.string(),
@@ -14,13 +33,8 @@ export const scoringInputSchema = z.object({
       currency: z.string().nullable(),
     }),
   }),
-  candidate_resume: z.object({
-    title: z.string().nullable(),
-    experience: z.array(z.string()),
-    education: z.array(z.string()),
-    skills: z.array(z.string()),
-    total_experience_months: z.number().int().nonnegative().nullable(),
-    location: z.string().nullable(),
+  candidate_resume: resumeSnapshotSchema.extend({
+    previous_versions: z.array(resumeSnapshotSchema).optional(),
   }),
 })
 
@@ -61,3 +75,62 @@ export const scoringResultSchema = scoringResultCoreSchema.extend({
 })
 
 export type ScoringResult = z.infer<typeof scoringResultSchema>
+
+export function isScoringResultInternallyInconsistent(
+  result: Pick<ScoringResult, 'relevance_score' | 'strengths'> & {
+    competencies?: Record<string, CompetencyAssessment>
+  },
+  input: ScoringInput,
+) {
+  if (result.relevance_score > 10) return false
+  if (!hasDomainOverlap(input)) return false
+
+  const hasPositiveEvidence =
+    result.strengths.length > 0 ||
+    Object.values(result.competencies ?? {}).some((competency) => competency.score >= 4)
+
+  return hasPositiveEvidence
+}
+
+function hasDomainOverlap(input: ScoringInput) {
+  const jobRoots = roots([
+    input.job_profile.title,
+    input.job_profile.description,
+    ...input.job_profile.required_skills,
+  ])
+  if (jobRoots.size === 0) return false
+
+  const resumeRoots = roots([
+    input.candidate_resume.title ?? '',
+    ...input.candidate_resume.experience,
+    ...input.candidate_resume.skills,
+  ])
+
+  return [...jobRoots].some((root) => resumeRoots.has(root))
+}
+
+function roots(values: string[]) {
+  const stopWords = new Set([
+    'and',
+    'the',
+    'for',
+    'with',
+    'отдел',
+    'отдела',
+    'работа',
+    'работы',
+    'менеджер',
+    'специалист',
+    'ведущий',
+  ])
+
+  const result = new Set<string>()
+  for (const value of values) {
+    for (const token of value.toLowerCase().replaceAll('ё', 'е').match(/[\p{L}\p{N}]+/gu) ?? []) {
+      if (token.length < 5 || stopWords.has(token)) continue
+      result.add(token.slice(0, 5))
+    }
+  }
+
+  return result
+}

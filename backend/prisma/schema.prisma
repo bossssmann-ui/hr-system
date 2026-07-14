@@ -110,8 +110,6 @@ model Tenant {
 
   settings          TenantSettings?
   retentionPolicies DataRetentionPolicy[]
-  selectionRetentionOutcomes SelectionRetentionOutcome[]
-  selectionScoringWeights    SelectionScoringWeights[]
   subscription      Subscription?
 
   @@map("tenants")
@@ -212,6 +210,7 @@ model User {
   updatedAt    DateTime      @updatedAt @map("updated_at")
   disabledAt   DateTime?     @map("disabled_at")
   sessions     AuthSession[]
+  passwordResetTokens PasswordResetToken[]
   roles        UserRole[]
   employee     Employee?
 
@@ -233,6 +232,23 @@ model AuthSession {
   @@index([userId], map: "auth_sessions_user_id_idx")
   @@index([expiresAt], map: "auth_sessions_expires_at_idx")
   @@map("auth_sessions")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique(map: "password_reset_tokens_token_hash_key") @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  userAgent String?   @map("user_agent")
+  ipAddress String?   @map("ip_address")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade, map: "password_reset_tokens_user_id_fkey")
+
+  @@index([userId], map: "password_reset_tokens_user_id_idx")
+  @@index([expiresAt], map: "password_reset_tokens_expires_at_idx")
+  @@map("password_reset_tokens")
 }
 
 model UserRole {
@@ -309,11 +325,9 @@ model Vacancy {
   requisitionId String   @unique @map("requisition_id") @db.Uuid
   orgUnitId     String   @map("org_unit_id") @db.Uuid
   hhVacancyId   String?  @unique @map("hh_vacancy_id")
-  hhSourcingCriteria Json? @map("hh_sourcing_criteria")
   slug          String?  @map("slug")
   title         String
   description   String
-  role          String?
   isPublished   Boolean  @default(false) @map("is_published")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
@@ -384,10 +398,6 @@ model Application {
   aiScoring            Json?            @map("ai_scoring")
   aiScoreFeedback      Json?            @map("ai_score_feedback")
   aiInterviewQuestions Json?            @map("ai_interview_questions")
-  aiScore              Decimal?         @map("ai_score")
-  aiVerdict            String?          @map("ai_verdict")
-  aiAssessedAt         DateTime?        @map("ai_assessed_at")
-  aiFlags              Json?            @map("ai_flags")
   trustFlagged         Boolean          @default(false) @map("trust_flagged")
   externalIds          Json             @default("{}") @map("external_ids")
   createdAt            DateTime         @default(now()) @map("created_at")
@@ -717,14 +727,13 @@ model SelectionSession {
   completedAt   DateTime? @map("completed_at")
   expiresAt     DateTime? @map("expires_at")
   flags         Json?
-  specializations   Json?  @map("specializations")
-  assessmentProfile Json?  @map("assessment_profile")
+  assessmentProfile Json? @map("assessment_profile")
+  specializations Json?
   createdAt     DateTime  @default(now()) @map("created_at")
 
   template     SelectionTemplate      @relation(fields: [templateId], references: [id])
   stageResults SelectionStageResult[]
   verdict      SelectionVerdict?
-  retentionOutcome SelectionRetentionOutcome?
 
   @@index([tenantId], map: "selection_sessions_tenant_id_idx")
   @@index([applicationId], map: "selection_sessions_application_id_idx")
@@ -754,7 +763,6 @@ model SelectionVerdict {
   totalWeightedScore Decimal? @map("total_weighted_score")
   stageScores        Json?    @map("stage_scores")
   crossCheckFlags    Json?    @map("cross_check_flags")
-  retentionPrediction Json?   @map("retention_prediction")
   lieScaleResult     Json?    @map("lie_scale_result")
   verdictReason      String?  @map("verdict_reason")
   hrNotes            String?  @map("hr_notes")
@@ -763,51 +771,6 @@ model SelectionVerdict {
   session SelectionSession @relation(fields: [sessionId], references: [id])
 
   @@map("selection_verdicts")
-}
-
-enum SelectionRetentionOutcomeStatus {
-  in_progress
-  resolved_survived_90
-  resolved_terminated
-
-  @@map("selection_retention_outcome_status")
-}
-
-model SelectionRetentionOutcome {
-  id               String                          @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId         String                          @map("tenant_id") @db.Uuid
-  sessionId        String                          @unique @map("session_id") @db.Uuid
-  hireDate         DateTime                        @map("hire_date") @db.Date
-  observedDays     Int                             @map("observed_days")
-  survived30       Boolean                         @map("survived_30")
-  survived60       Boolean                         @map("survived_60")
-  survived90       Boolean                         @map("survived_90")
-  terminationGround TerminationGround?             @map("termination_ground")
-  outcomeStatus    SelectionRetentionOutcomeStatus @map("outcome_status")
-  computedAt       DateTime                        @default(now()) @map("computed_at")
-
-  tenant  Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade, map: "selection_retention_outcomes_tenant_id_fkey")
-  session SelectionSession @relation(fields: [sessionId], references: [id], onDelete: Cascade, map: "selection_retention_outcomes_session_id_fkey")
-
-  @@index([tenantId], map: "selection_retention_outcomes_tenant_id_idx")
-  @@index([tenantId, outcomeStatus], map: "selection_retention_outcomes_tenant_status_idx")
-  @@map("selection_retention_outcomes")
-}
-
-model SelectionScoringWeights {
-  id          String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId    String   @map("tenant_id") @db.Uuid
-  modelVersion String  @map("model_version")
-  weights     Json
-  sampleSize  Int      @map("sample_size")
-  computedAt  DateTime @default(now()) @map("computed_at")
-  active      Boolean  @default(false)
-
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade, map: "selection_scoring_weights_tenant_id_fkey")
-
-  @@unique([tenantId, modelVersion], map: "selection_scoring_weights_tenant_model_uk")
-  @@index([tenantId, active], map: "selection_scoring_weights_tenant_active_idx")
-  @@map("selection_scoring_weights")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

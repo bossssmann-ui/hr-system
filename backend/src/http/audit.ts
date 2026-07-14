@@ -9,7 +9,7 @@
  *     successful (`< 400`) status code, this middleware writes one
  *     `AuditEvent` row to the database.
  *   - Failure to write the audit row is logged at error level but never rolls
- *     back the business transaction or fails the response (best-effort).
+ *     back the business transaction or fails the response.
  *   - `redact()` strips passwords, tokens, JWT-like strings, and any field
  *     whose name matches a secret pattern before the diff hits the database.
  *     This is the canonical scrubber referenced by `docs/contracts/50-coding-standards.md`.
@@ -101,11 +101,18 @@ export function redact(value: unknown): unknown {
 export type CreateAuditMiddlewareOptions = {
   prisma: DbClient
   logger?: Logger
+  /**
+   * When true, audit writes happen asynchronously after the response is built.
+   * Production defaults to false so successful mutating requests do not depend
+   * on a microtask that can be lost during process shutdown.
+   */
+  async?: boolean
 }
 
 export function createAuditMiddleware({
   prisma,
   logger = defaultLogger,
+  async: isAsync = false,
 }: CreateAuditMiddlewareOptions): MiddlewareHandler<AuditBindings> {
   return async (c, next) => {
     await next()
@@ -155,6 +162,12 @@ export function createAuditMiddleware({
       }
     }
 
-    await write()
+    if (isAsync) {
+      queueMicrotask(() => {
+        void write()
+      })
+    } else {
+      await write()
+    }
   }
 }

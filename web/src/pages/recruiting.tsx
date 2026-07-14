@@ -5,7 +5,9 @@
 import { useForm } from "@tanstack/react-form"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate, useParams } from "@tanstack/react-router"
-import type { Application, ApplicationStage, AssessmentTemplate, Interview, OrgUnit, RequisitionStatus, Vacancy, VacancyRole } from "@web-app-demo/contracts"
+import { AlertCircleIcon, DatabaseSyncIcon } from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
+import type { Application, ApplicationStage, AssessmentTemplate, Candidate, Interview, OrgUnit, RequisitionStatus, Vacancy } from "@web-app-demo/contracts"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import type { TFunction } from "i18next"
@@ -21,7 +23,6 @@ import { Spinner } from "@/components/ui/spinner"
 import { Typography } from "@/components/ui/typography"
 import { OfferPanel } from "@/components/OfferPanel"
 import { ApiRequestError } from "@/lib/api"
-import { isAdmin } from "@/lib/roles"
 import { useAuth } from "@/lib/use-auth"
 import { cn } from "@/lib/utils"
 
@@ -81,12 +82,6 @@ const REQUISITION_TRANSITIONS: Array<{ from: RequisitionStatus[]; to: Requisitio
   { from: ["hr_approved"], to: "approved", roles: ["hr_admin", "owner"] },
   { from: ["approved"], to: "in_recruitment", roles: ["recruiter", "hr_admin", "owner"] },
   { from: ["in_recruitment"], to: "closed", roles: ["recruiter", "hr_admin", "owner"] },
-]
-
-const VACANCY_ROLE_OPTIONS: Array<{ value: VacancyRole; labelKey: string }> = [
-  { value: "logist_domestic", labelKey: "vacancies.roles.logist_domestic" },
-  { value: "logist", labelKey: "vacancies.roles.logist" },
-  { value: "sales_manager", labelKey: "vacancies.roles.sales_manager" },
 ]
 
 // ─── Requisitions List ────────────────────────────────────────────────────────
@@ -441,20 +436,8 @@ function VacancyDetail() {
   const { t } = useTranslation('recruiting')
   const params = useParams({ strict: false }) as { vacancyId?: string }
   const vacancyId = params.vacancyId ?? ""
-  const queryClient = useQueryClient()
 
   const query = useQuery({ queryKey: ["vacancies", vacancyId], queryFn: () => api.getVacancy(vacancyId), enabled: Boolean(vacancyId) })
-  const roleMutation = useMutation({
-    mutationFn: (role: VacancyRole | null) => api.updateVacancyRole(vacancyId, { role }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["vacancies", vacancyId] })
-      await queryClient.invalidateQueries({ queryKey: ["vacancies"] })
-      toast.success(t('vacancies.roleSaved'))
-    },
-    onError: (error: unknown) => {
-      toast.error(error instanceof ApiRequestError ? error.message : t('vacancies.roleSaveFailed'))
-    },
-  })
 
   if (query.isPending) return <LoadingCard />
   if (query.isError) return <ErrorCard message={t('vacancies.notFound')} />
@@ -473,21 +456,6 @@ function VacancyDetail() {
       <Card>
         <CardContent className="grid gap-4 pt-6">
           <Typography>{v.description}</Typography>
-          <div className="border-t pt-4">
-            <Typography tone="muted" variant="bodySm">{t('vacancies.roleLabel')}</Typography>
-            <select
-              value={v.role ?? ""}
-              onChange={(e) => roleMutation.mutate((e.target.value || null) as VacancyRole | null)}
-              className="mt-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              disabled={roleMutation.isPending}
-              data-testid="vacancy-role-select"
-            >
-              <option value="">{t('vacancies.rolePlaceholder')}</option>
-              {VACANCY_ROLE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>{t(option.labelKey)}</option>
-              ))}
-            </select>
-          </div>
           <div className="border-t pt-4">
             <Typography tone="muted" variant="bodySm">{t('requisitions.fields.created')} {new Date(v.createdAt).toLocaleDateString()}</Typography>
           </div>
@@ -606,41 +574,42 @@ function NewCandidateForm({ onSubmit, isLoading, error }: { onSubmit: (data: { f
 
 const KANBAN_STAGES: ApplicationStage[] = ["new", "screen", "tech", "final", "offer", "hired", "rejected"]
 const APP_TRANSITIONS: Partial<Record<ApplicationStage, ApplicationStage[]>> = {
-  new: ["screen", "rejected"], screen: ["tech", "rejected"], tech: ["final", "rejected"], final: ["offer", "rejected"], offer: ["hired", "rejected"],
+  new: ["screen", "rejected"],
+  screen: ["new", "tech", "rejected"],
+  tech: ["new", "screen", "final", "rejected"],
+  final: ["new", "screen", "tech", "offer", "rejected"],
+  offer: ["new", "screen", "tech", "final", "hired", "rejected"],
 }
 
 function aiScoreBadge(t: TFunction, scoring: Record<string, unknown> | null | undefined) {
   const status = typeof scoring?.status === "string" ? scoring.status : "pending"
   if (status === "not_configured") {
-    return { label: t('applications.ai.badge.notConfigured'), className: "border-zinc-300 text-zinc-600", summary: t('applications.ai.summary.notConfigured') }
+    return { label: t('applications.ai.badge.notConfigured'), className: "border-zinc-300 text-zinc-600", summary: t('applications.ai.summary.notConfigured'), attention: false }
   }
   if (status === "failed") {
     const failure = typeof scoring?.failure === "object" && scoring.failure ? scoring.failure as Record<string, unknown> : null
-    return { label: t('applications.ai.badge.failed'), className: "border-red-300 text-red-700", summary: typeof failure?.error === "string" ? failure.error : t('applications.ai.summary.failed') }
+    return { label: t('applications.ai.badge.failed'), className: "border-red-300 text-red-700", summary: typeof failure?.error === "string" ? failure.error : t('applications.ai.summary.failed'), attention: false }
   }
   if (status === "pending") {
-    return { label: t('applications.ai.badge.pending'), className: "border-zinc-300 text-zinc-600", summary: t('applications.ai.summary.inProgress') }
+    return { label: t('applications.ai.badge.pending'), className: "border-zinc-300 text-zinc-600", summary: t('applications.ai.summary.inProgress'), attention: false }
   }
   if (status === "not_scored") {
-    return { label: t('applications.ai.badge.notScored'), className: "border-zinc-300 text-zinc-600", summary: t('applications.ai.summary.noScore') }
+    return { label: t('applications.ai.badge.notScored'), className: "border-zinc-300 text-zinc-600", summary: t('applications.ai.summary.noScore'), attention: false }
   }
   const result = typeof scoring?.result === "object" && scoring.result ? scoring.result as Record<string, unknown> : null
-  if (!result) return { label: t('applications.ai.badge.notScored'), className: "border-zinc-300 text-zinc-600", summary: t('applications.ai.summary.notScored') }
+  if (!result) return { label: t('applications.ai.badge.notScored'), className: "border-zinc-300 text-zinc-600", summary: t('applications.ai.summary.notScored'), attention: false }
   const score = typeof result.relevance_score === "number" ? result.relevance_score : 0
+  const attention = score >= 60 && score <= 69
   const className = score >= 75
     ? "border-emerald-300 text-emerald-700"
-    : score >= 50
+    : attention || score >= 50
       ? "border-amber-300 text-amber-700"
       : "border-red-300 text-red-700"
-  return { label: t('applications.ai.badge.scored', { score }), className, summary: typeof result.summary === "string" ? result.summary : t('applications.ai.summary.scored') }
+  return { label: t('applications.ai.badge.scored', { score }), className, summary: typeof result.summary === "string" ? result.summary : t('applications.ai.summary.scored'), attention }
 }
 
 function canMoveStage(from: ApplicationStage, to: ApplicationStage): boolean {
   return Boolean(APP_TRANSITIONS[from]?.includes(to))
-}
-
-const CHECKLIST_FLAG_LABELS: Record<string, string> = {
-  cargo_layout_test_required: "Проверить тестовое задание по раскладке груза",
 }
 
 export function ApplicationsPage() {
@@ -664,7 +633,7 @@ function KanbanBoard() {
     queryFn: () => api.listApplications(vacancyFilter ? { vacancyId: vacancyFilter } : undefined),
     enabled: Boolean(user),
   })
-  const candidatesQuery = useQuery({ queryKey: ["candidates", ""], queryFn: () => api.listCandidates(), enabled: showNewAppForm })
+  const candidatesQuery = useQuery({ queryKey: ["candidates", ""], queryFn: () => api.listCandidates(), enabled: Boolean(user) })
 
   const stageMutation = useMutation({
     mutationFn: ({ id, to }: { id: string; to: ApplicationStage }) => api.moveApplicationStage(id, { to }),
@@ -684,8 +653,29 @@ function KanbanBoard() {
     onError: (error: unknown) => setAppFormError(error instanceof ApiRequestError ? error.message : t('applications.toasts.createFailed')),
   })
 
+  const hhSyncMutation = useMutation({
+    mutationFn: () => api.syncHhNow(),
+    onSuccess: async (result) => {
+      toast.success(t('applications.hhSync.success', {
+        candidates: result.summary.importedCandidates,
+        applications: result.summary.upsertedApplications,
+        scanned: result.summary.negotiationsScanned,
+      }))
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["applications"] }),
+        queryClient.invalidateQueries({ queryKey: ["candidates"] }),
+        queryClient.invalidateQueries({ queryKey: ["vacancies"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin", "hh", "status"] }),
+      ])
+    },
+    onError: (error: unknown) => {
+      toast.error(error instanceof ApiRequestError ? error.message : t('applications.hhSync.failed'))
+    },
+  })
+
   const applications: Application[] = applicationsQuery.data?.items ?? []
   const vacancies: Vacancy[] = vacanciesQuery.data?.items ?? []
+  const candidates: Candidate[] = candidatesQuery.data?.items ?? []
 
   function byStage(stage: ApplicationStage) { return applications.filter((a) => a.stage === stage) }
 
@@ -700,15 +690,31 @@ function KanbanBoard() {
   }
 
   return (
-    <section className="mx-auto grid w-full max-w-6xl gap-4 px-5 py-8">
+    <section className="mx-auto grid w-full gap-4 px-5 py-8">
       <div className="flex items-start justify-between gap-4">
         <div className="grid gap-2">
           <Badge variant="outline" className="w-fit">{t('applications.badge')}</Badge>
           <Typography variant="h1">{t('applications.title')}</Typography>
         </div>
-        <Button onClick={() => { setShowNewAppForm(!showNewAppForm); setAppFormError(null) }} data-testid="new-application-button">
-          {showNewAppForm ? t('common:actions.cancel') : t('applications.newButton')}
-        </Button>
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button
+            variant="outline"
+            onClick={() => hhSyncMutation.mutate()}
+            disabled={hhSyncMutation.isPending}
+            data-testid="hh-sync-applications-button"
+          >
+            <HugeiconsIcon
+              icon={DatabaseSyncIcon}
+              strokeWidth={2}
+              className={cn("size-4", hhSyncMutation.isPending ? "animate-spin" : "")}
+              aria-hidden
+            />
+            {hhSyncMutation.isPending ? t('common.syncing') : t('applications.hhSync.button')}
+          </Button>
+          <Button onClick={() => { setShowNewAppForm(!showNewAppForm); setAppFormError(null) }} data-testid="new-application-button">
+            {showNewAppForm ? t('common:actions.cancel') : t('applications.newButton')}
+          </Button>
+        </div>
       </div>
       {showNewAppForm && (
         <Card className="max-w-md">
@@ -743,33 +749,26 @@ function KanbanBoard() {
                 <div className="grid gap-2">
                   {byStage(stage).map((app) => {
                     const vac = vacancies.find((v) => v.id === app.vacancyId)
+                    const candidate = candidates.find((item) => item.id === app.candidateId)
                     const scoreBadge = aiScoreBadge(t, (app.aiScoring ?? null) as Record<string, unknown> | null)
-                    const hasAiVerdict = typeof app.aiVerdict === "string" && app.aiVerdict.length > 0
-                    const unifiedScoreText = formatUnifiedScore(app.unifiedScore?.value ?? null, app.unifiedScore?.status ?? null)
                     return (
                       <div key={app.id} draggable onDragStart={() => setDragging({ id: app.id, from: app.stage })} onDragEnd={() => setDragging(null)}
-                        className="cursor-grab rounded-md border bg-background p-3 shadow-sm active:cursor-grabbing"
+                        className={cn(
+                          "cursor-grab rounded-md border bg-background p-3 shadow-sm active:cursor-grabbing",
+                          scoreBadge.attention ? "border-amber-300 bg-amber-50/60 shadow-amber-100" : "",
+                        )}
                         data-testid={"application-card-" + app.id} data-stage={app.stage}>
                         <div className="flex items-start justify-between gap-2">
-                          <Typography variant="bodySm" className="font-medium">{app.candidateId.slice(0, 8)}</Typography>
-                          <Badge variant="outline" className={cn("text-[11px]", scoreBadge.className)} title={scoreBadge.summary}>{scoreBadge.label}</Badge>
+                          <Typography variant="bodySm" className="font-medium">{candidate?.fullName ?? app.candidateId.slice(0, 8)}</Typography>
+                          <Badge variant="outline" className={cn("gap-1 text-[11px]", scoreBadge.className)} title={scoreBadge.summary}>
+                            {scoreBadge.attention && (
+                              <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} className="size-3.5 text-amber-600" aria-hidden />
+                            )}
+                            {scoreBadge.label}
+                          </Badge>
                         </div>
-                        {hasAiVerdict && (
-                          <Typography variant="bodySm" tone="muted">
-                            AI: {app.aiVerdict}{typeof app.aiScore === "number" ? ` (${app.aiScore.toFixed(1)})` : ""}
-                          </Typography>
-                        )}
-                        {unifiedScoreText && (
-                          <Typography variant="bodySm" tone="muted">
-                            Итог: {unifiedScoreText}
-                          </Typography>
-                        )}
-                        {typeof app.trustScore === "number" && (
-                          <Typography variant="bodySm" tone="muted">
-                            Trust-score: {app.trustScore}
-                          </Typography>
-                        )}
                         {vac && <Typography variant="bodySm" tone="muted">{vac.title}</Typography>}
+                        <Typography variant="bodySm" className="line-clamp-3">{scoreBadge.summary}</Typography>
                         <Link to="/applications/$applicationId" params={{ applicationId: app.id }} className="text-xs text-primary underline-offset-4 hover:underline">
                           {t('applications.openDetail')}
                         </Link>
@@ -901,6 +900,21 @@ function ApplicationDetail() {
     },
   })
 
+  const sendQuestionnaireMutation = useMutation({
+    mutationFn: () => api.sendCandidateQuestionnaire(applicationId),
+    onSuccess: async (result) => {
+      if (result.sent) {
+        toast.success(t('applications.questionnaire.sent'))
+      } else {
+        toast.error(t('applications.questionnaire.failed'))
+      }
+      await queryClient.invalidateQueries({ queryKey: ["applications", applicationId, "detail"] })
+    },
+    onError: (error: unknown) => {
+      toast.error(error instanceof ApiRequestError ? error.message : t('applications.questionnaire.failed'))
+    },
+  })
+
   const inviteAssessmentMutation = useMutation({
     mutationFn: () => {
       if (!selectedTemplateId) throw new Error("template_required")
@@ -926,19 +940,28 @@ function ApplicationDetail() {
   const app = query.data
   const scoring = (app.aiScoring ?? null) as Record<string, unknown> | null
   const scoreBadge = aiScoreBadge(t, scoring)
-  const result = scoring?.status === "scored" && typeof scoring.result === "object" && scoring.result
-    ? scoring.result as Record<string, unknown>
-    : null
   const failure = scoring?.status === "failed" && typeof scoring.failure === "object" && scoring.failure
     ? scoring.failure as Record<string, unknown>
     : null
+  const previousScoring = typeof scoring?.previous_scoring === "object" && scoring.previous_scoring
+    ? scoring.previous_scoring as Record<string, unknown>
+    : null
+  const currentResult = scoring?.status === "scored" && typeof scoring.result === "object" && scoring.result
+    ? scoring.result as Record<string, unknown>
+    : null
+  const previousResult = failure && typeof previousScoring?.result === "object" && previousScoring.result
+    ? previousScoring.result as Record<string, unknown>
+    : null
+  const result = currentResult ?? previousResult
   const templates = templatesQuery.data?.items ?? []
   const assessmentSessions = sessionsQuery.data?.items ?? []
   const aiInterviewQuestions = Array.isArray(app.aiInterviewQuestions) ? app.aiInterviewQuestions : []
-  const aiFlags = (app.aiFlags && typeof app.aiFlags === "object") ? app.aiFlags as Record<string, unknown> : null
-  const recruiterChecklistFlags = Array.isArray(aiFlags?.recruiterChecklistFlags)
-    ? aiFlags?.recruiterChecklistFlags.filter((item): item is string => typeof item === "string")
-    : []
+  const competencies = result ? asCompetencies(result.competencies) : []
+  const suggestedSalary = result ? asNumber(result.suggested_salary) : null
+  const suggestedGrade = typeof result?.suggested_grade === "string" ? result.suggested_grade : null
+  const scoringModel = typeof result?.model === "string" ? result.model : null
+  const scoredAt = typeof result?.scored_at === "string" ? result.scored_at : null
+  const scoringHistory = asScoringHistory(scoring?.history ?? previousScoring?.history)
 
   return (
     <section className="mx-auto grid w-full max-w-6xl gap-6 px-5 py-12">
@@ -957,45 +980,6 @@ function ApplicationDetail() {
           <Typography><span className="font-medium">{t('applications.candidateLabel')}</span> {app.candidate.fullName}</Typography>
           <Typography><span className="font-medium">{t('applications.vacancyLabel')}</span> {app.vacancy.title}</Typography>
           <Typography><span className="font-medium">{t('applications.stageLabel')}</span> {t(`applications.stages.${app.stage}`)}</Typography>
-          {app.aiVerdict && (
-            <Typography>
-              <span className="font-medium">AI verdict:</span> {app.aiVerdict}
-              {typeof app.aiScore === "number" ? ` (${app.aiScore.toFixed(1)})` : ""}
-            </Typography>
-          )}
-          {formatUnifiedScore(app.unifiedScore?.value ?? null, app.unifiedScore?.status ?? null) && (
-            <Typography>
-              <span className="font-medium">Единый балл:</span> {formatUnifiedScore(app.unifiedScore?.value ?? null, app.unifiedScore?.status ?? null)}
-            </Typography>
-          )}
-          {typeof app.trustScore === "number" && (
-            <Typography>
-              <span className="font-medium">Trust-score:</span> {app.trustScore}
-            </Typography>
-          )}
-          {app.retentionPrediction && typeof app.retentionPrediction === "object" && (
-            <Typography>
-              <span className="font-medium">Retention prediction:</span> {JSON.stringify(app.retentionPrediction)}
-            </Typography>
-          )}
-          {app.selectionHrNotes && (
-            <div className="grid gap-1">
-              <Typography><span className="font-medium">AI notes for recruiter:</span></Typography>
-              <Typography variant="bodySm" tone="muted" className="whitespace-pre-wrap">{app.selectionHrNotes}</Typography>
-            </div>
-          )}
-          {recruiterChecklistFlags.length > 0 && (
-            <div className="grid gap-1">
-              <Typography><span className="font-medium">AI checklist for live interview:</span></Typography>
-              <ul className="list-disc pl-5">
-                {recruiterChecklistFlags.map((flag) => (
-                  <li key={flag}>
-                    <Typography variant="bodySm">{CHECKLIST_FLAG_LABELS[flag] ?? flag}</Typography>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
           <Typography tone="muted">{app.vacancy.description}</Typography>
         </CardContent>
       </Card>
@@ -1034,6 +1018,68 @@ function ApplicationDetail() {
                 <Typography variant="bodySm" tone="muted">{t('applications.ai.valuesFitHypothesis')}</Typography>
                 <Typography>{String(result.values_fit_hypothesis ?? "—")}</Typography>
               </div>
+              {(suggestedGrade || suggestedSalary !== null) && (
+                <div className="grid gap-1">
+                  <Typography variant="bodySm" tone="muted">{t('applications.ai.recommendations')}</Typography>
+                  {suggestedGrade && <Typography>{t('applications.ai.suggestedGrade', { grade: suggestedGrade })}</Typography>}
+                  {suggestedSalary !== null && <Typography>{t('applications.ai.suggestedSalary', { salary: String(suggestedSalary) })}</Typography>}
+                </div>
+              )}
+              {competencies.length > 0 && (
+                <div className="grid gap-2">
+                  <Typography variant="bodySm" tone="muted">{t('applications.ai.competencies')}</Typography>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {competencies.map((item) => (
+                      <div key={item.name} className="rounded-md border p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <Typography variant="bodySm" className="font-medium">{item.name}</Typography>
+                          <Badge variant="outline">{item.score}/10</Badge>
+                        </div>
+                        <Typography variant="bodySm" tone="muted">{item.reasoning}</Typography>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="grid gap-3">
+                <ScoringList title={t('applications.ai.interviewQuestions')} items={asStringList(result.interview_questions)} />
+                {asStringList(result.interview_questions).length > 0 && (
+                  <Button
+                    variant="outline"
+                    className="w-fit"
+                    onClick={() => sendQuestionnaireMutation.mutate()}
+                    disabled={sendQuestionnaireMutation.isPending}
+                  >
+                    {sendQuestionnaireMutation.isPending ? t('common.queueing') : t('applications.questionnaire.send')}
+                  </Button>
+                )}
+              </div>
+              {(scoringModel || scoredAt) && (
+                <Typography variant="bodySm" tone="muted">
+                  {t('applications.ai.modelInfo', {
+                    model: scoringModel ?? "—",
+                    date: scoredAt ? new Date(scoredAt).toLocaleString() : "—",
+                  })}
+                </Typography>
+              )}
+              {scoringHistory.length > 0 && (
+                <div className="grid gap-2">
+                  <Typography variant="bodySm" tone="muted">{t('applications.ai.historyTitle')}</Typography>
+                  <div className="grid gap-2">
+                    {scoringHistory.map((item) => (
+                      <div key={`${item.scoredAt}-${item.model}-${item.score}`} className="flex flex-wrap items-center gap-2 rounded-md border p-3">
+                        <Badge variant="outline">{item.score}</Badge>
+                        <Typography variant="bodySm">
+                          {t('applications.ai.historyItem', {
+                            model: item.model,
+                            date: new Date(item.scoredAt).toLocaleString(),
+                          })}
+                        </Typography>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
@@ -1100,32 +1146,27 @@ function ApplicationDetail() {
           <CardDescription>{t('applications.assessments.description')}</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3">
-          {!app.selectionPipelineEnabled && (
-            <div className="flex flex-wrap items-center gap-2">
-              <select
-                className="min-w-[240px] rounded-md border border-input bg-background px-3 py-2 text-sm"
-                value={selectedTemplateId}
-                onChange={(event) => setSelectedTemplateId(event.target.value)}
-                data-testid="assessment-template-select"
-              >
-                <option value="">{t('applications.assessments.selectTemplate')}</option>
-                {templates.map((template: AssessmentTemplate) => (
-                  <option key={template.id} value={template.id}>{template.title}</option>
-                ))}
-              </select>
-              <Button
-                variant="outline"
-                onClick={() => inviteAssessmentMutation.mutate()}
-                disabled={!selectedTemplateId || inviteAssessmentMutation.isPending}
-                data-testid="assessment-invite-button"
-              >
-                {inviteAssessmentMutation.isPending ? t('applications.assessments.inviting') : t('applications.assessments.inviteCandidate')}
-              </Button>
-            </div>
-          )}
-          {app.selectionPipelineEnabled && (
-            <Typography tone="muted">Для этой вакансии используется единый pipeline selection. Отдельные assessments отключены.</Typography>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              className="min-w-[240px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={selectedTemplateId}
+              onChange={(event) => setSelectedTemplateId(event.target.value)}
+              data-testid="assessment-template-select"
+            >
+              <option value="">{t('applications.assessments.selectTemplate')}</option>
+              {templates.map((template: AssessmentTemplate) => (
+                <option key={template.id} value={template.id}>{template.title}</option>
+              ))}
+            </select>
+            <Button
+              variant="outline"
+              onClick={() => inviteAssessmentMutation.mutate()}
+              disabled={!selectedTemplateId || inviteAssessmentMutation.isPending}
+              data-testid="assessment-invite-button"
+            >
+              {inviteAssessmentMutation.isPending ? t('applications.assessments.inviting') : t('applications.assessments.inviteCandidate')}
+            </Button>
+          </div>
           {latestInviteLink && (
             <Typography variant="bodySm" data-testid="assessment-invite-link">
               {t('applications.assessments.candidateLink')} <a className="underline" href={latestInviteLink}>{latestInviteLink}</a>
@@ -1187,10 +1228,36 @@ function asStringList(value: unknown): string[] {
   return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
 }
 
-function formatUnifiedScore(value: number | null, status: string | null) {
-  if (typeof value !== "number") return null
-  const mode = status === "final" ? "финальный" : "предварительный"
-  return `${value.toFixed(1)}/100 (${mode})`
+function asNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null
+}
+
+function asCompetencies(value: unknown): Array<{ name: string; score: number; reasoning: string }> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return []
+  return Object.entries(value as Record<string, unknown>).flatMap(([name, raw]) => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return []
+    const record = raw as Record<string, unknown>
+    const score = asNumber(record.score)
+    const reasoning = typeof record.reasoning === "string" ? record.reasoning : ""
+    if (score === null || !reasoning) return []
+    return [{ name, score, reasoning }]
+  })
+}
+
+function asScoringHistory(value: unknown): Array<{ score: number; model: string; scoredAt: string }> {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((raw) => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return []
+    const entry = raw as Record<string, unknown>
+    const result = entry.result && typeof entry.result === "object" && !Array.isArray(entry.result)
+      ? entry.result as Record<string, unknown>
+      : null
+    const score = asNumber(result?.relevance_score)
+    const model = typeof result?.model === "string" ? result.model : null
+    const scoredAt = typeof result?.scored_at === "string" ? result.scored_at : null
+    if (score === null || !model || !scoredAt) return []
+    return [{ score, model, scoredAt }]
+  }).reverse()
 }
 
 // ─── Interview Panel ──────────────────────────────────────────────────────────
@@ -1607,237 +1674,6 @@ function msToTimestamp(ms: number): string {
 
 // ─── Admin Users ──────────────────────────────────────────────────────────────
 
-export function AdminOrgUnitsPage() {
-  const auth = useAuth()
-  const { t } = useTranslation('recruiting')
-  if (!auth.user) return <LoginRequired />
-  if (!isAdmin(auth.user)) return <ErrorCard message={t('common.accessDenied')} />
-  return <AdminOrgUnits />
-}
-
-function AdminOrgUnits() {
-  const { api, user } = useAuth()
-  const { t } = useTranslation('recruiting')
-  const queryClient = useQueryClient()
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editName, setEditName] = useState("")
-  const [editParentId, setEditParentId] = useState("")
-
-  const query = useQuery({
-    queryKey: ["admin", "org-units"],
-    queryFn: () => api.listOrgUnits(),
-    enabled: Boolean(user && isAdmin(user)),
-  })
-
-  const createForm = useForm({
-    defaultValues: {
-      name: "",
-      parentId: "",
-    },
-    onSubmit: async ({ value }) => {
-      try {
-        await api.createOrgUnit({
-          name: value.name.trim(),
-          parentId: value.parentId ? value.parentId : undefined,
-        })
-        toast.success(t('admin.orgUnits.toasts.created'))
-        await queryClient.invalidateQueries({ queryKey: ["admin", "org-units"] })
-        createForm.reset()
-      } catch (error) {
-        toast.error(error instanceof ApiRequestError ? error.message : t('admin.orgUnits.toasts.createFailed'))
-      }
-    },
-  })
-
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, name, parentId }: { id: string; name: string; parentId: string }) =>
-      api.updateOrgUnit(id, {
-        name: name.trim(),
-        parentId: parentId || null,
-      }),
-    onSuccess: async () => {
-      toast.success(t('admin.orgUnits.toasts.updated'))
-      setEditingId(null)
-      await queryClient.invalidateQueries({ queryKey: ["admin", "org-units"] })
-    },
-    onError: (error: unknown) => {
-      toast.error(error instanceof ApiRequestError ? error.message : t('admin.orgUnits.toasts.updateFailed'))
-    },
-  })
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.deleteOrgUnit(id),
-    onSuccess: async () => {
-      toast.success(t('admin.orgUnits.toasts.deleted'))
-      await queryClient.invalidateQueries({ queryKey: ["admin", "org-units"] })
-    },
-    onError: (error: unknown) => {
-      toast.error(error instanceof ApiRequestError ? error.message : t('admin.orgUnits.toasts.deleteFailed'))
-    },
-  })
-
-  if (query.isPending) return <LoadingCard />
-  if (query.isError) return <ErrorCard message={query.error instanceof ApiRequestError && query.error.status === 403 ? t('common.accessDenied') : t('admin.orgUnits.loadFailed')} />
-
-  const items = query.data.items
-  const byId = new Map(items.map((item) => [item.id, item]))
-
-  return (
-    <section className="mx-auto grid w-full max-w-6xl gap-6 px-5 py-12">
-      <div className="grid gap-3">
-        <Badge variant="outline" className="w-fit">{t('admin.badge')}</Badge>
-        <Typography variant="h1">{t('admin.orgUnits.title')}</Typography>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('admin.orgUnits.create.title')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form
-            className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
-            onSubmit={(event) => {
-              event.preventDefault()
-              event.stopPropagation()
-              void createForm.handleSubmit()
-            }}
-          >
-            <createForm.Field
-              name="name"
-              validators={{
-                onChange: ({ value }) =>
-                  value.trim().length >= 1 && value.trim().length <= 200
-                    ? undefined
-                    : t('admin.orgUnits.validation.name'),
-              }}
-              children={(field) => (
-                <Field data-invalid={field.state.meta.errors.length > 0}>
-                  <FieldLabel>{t('admin.orgUnits.fields.name')}</FieldLabel>
-                  <Input
-                    value={field.state.value}
-                    onChange={(event) => field.handleChange(event.target.value)}
-                    placeholder={t('admin.orgUnits.create.namePlaceholder')}
-                  />
-                </Field>
-              )}
-            />
-
-            <createForm.Field
-              name="parentId"
-              children={(field) => (
-                <Field>
-                  <FieldLabel>{t('admin.orgUnits.fields.parent')}</FieldLabel>
-                  <select
-                    value={field.state.value}
-                    onChange={(event) => field.handleChange(event.target.value)}
-                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                  >
-                    <option value="">{t('admin.orgUnits.parentNone')}</option>
-                    {items.map((unit) => (
-                      <option key={unit.id} value={unit.id}>{unit.name}</option>
-                    ))}
-                  </select>
-                </Field>
-              )}
-            />
-
-            <div className="flex items-end">
-              <Button type="submit">{t('admin.orgUnits.create.submit')}</Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b">
-              <th className="py-2 text-left font-medium">{t('admin.orgUnits.fields.name')}</th>
-              <th className="py-2 text-left font-medium">{t('admin.orgUnits.fields.parent')}</th>
-              <th className="py-2 text-left font-medium">{t('requisitions.actions')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((unit) => {
-              const isEditing = editingId === unit.id
-              const parentName = unit.parentId ? byId.get(unit.parentId)?.name ?? "—" : t('admin.orgUnits.parentNone')
-              return (
-                <tr key={unit.id} className="border-b">
-                  <td className="py-2">
-                    {isEditing ? (
-                      <Input value={editName} onChange={(event) => setEditName(event.target.value)} />
-                    ) : unit.name}
-                  </td>
-                  <td className="py-2">
-                    {isEditing ? (
-                      <select
-                        value={editParentId}
-                        onChange={(event) => setEditParentId(event.target.value)}
-                        className="h-10 min-w-48 rounded-md border border-input bg-background px-3 text-sm"
-                      >
-                        <option value="">{t('admin.orgUnits.parentNone')}</option>
-                        {items
-                          .filter((candidate) => candidate.id !== unit.id)
-                          .map((candidate) => (
-                            <option key={candidate.id} value={candidate.id}>{candidate.name}</option>
-                          ))}
-                      </select>
-                    ) : parentName}
-                  </td>
-                  <td className="py-2">
-                    <div className="flex gap-2">
-                      {isEditing ? (
-                        <>
-                          <Button
-                            size="sm"
-                            onClick={() => updateMutation.mutate({ id: unit.id, name: editName, parentId: editParentId })}
-                            disabled={updateMutation.isPending}
-                          >
-                            {t('common:actions.save')}
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>
-                            {t('common:actions.cancel')}
-                          </Button>
-                        </>
-                      ) : (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setEditingId(unit.id)
-                              setEditName(unit.name)
-                              setEditParentId(unit.parentId ?? "")
-                            }}
-                          >
-                            {t('common:actions.edit')}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => {
-                              if (window.confirm(t('admin.orgUnits.confirmDelete', { name: unit.name }))) {
-                                deleteMutation.mutate(unit.id)
-                              }
-                            }}
-                            disabled={deleteMutation.isPending}
-                          >
-                            {t('common:actions.delete')}
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  )
-}
-
 export function AdminUsersPage() {
   const auth = useAuth()
   if (!auth.user) return <LoginRequired />
@@ -1938,7 +1774,11 @@ function AdminHhIntegration() {
   const syncMutation = useMutation({
     mutationFn: () => api.syncHhNow(),
     onSuccess: async (result) => {
-      setSyncResult(t('admin.hh.toasts.syncResult', { candidates: result.summary.importedCandidates, applications: result.summary.upsertedApplications }))
+      setSyncResult(t('admin.hh.toasts.syncResult', {
+        candidates: result.summary.importedCandidates,
+        applications: result.summary.upsertedApplications,
+        scanned: result.summary.negotiationsScanned,
+      }))
       toast.success(t('admin.hh.toasts.syncCompleted'))
       await queryClient.invalidateQueries({ queryKey: ["admin", "hh", "status"] })
       await queryClient.invalidateQueries({ queryKey: ["applications"] })

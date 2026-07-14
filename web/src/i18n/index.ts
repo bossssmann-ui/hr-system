@@ -86,14 +86,33 @@ export type SupportedLng = (typeof supportedLngs)[number]
 // Single source of truth for the default UI language. Used both for i18next
 // initialization (`lng`) and for the <html lang="…"> sync helper below.
 export const defaultLng: SupportedLng = 'ru'
+const explicitLanguagePreferenceKey = 'onboardixLanguagePreferenceExplicit'
+
+export function initialLng(): SupportedLng {
+  if (typeof window === 'undefined') return defaultLng
+
+  if (window.localStorage.getItem(explicitLanguagePreferenceKey) !== 'true') {
+    return defaultLng
+  }
+
+  const stored = window.localStorage.getItem('i18nextLng')?.slice(0, 2)
+  return supportedLngs.includes(stored as SupportedLng) ? (stored as SupportedLng) : defaultLng
+}
+
+export function persistLanguagePreference(lng: SupportedLng) {
+  if (typeof window === 'undefined') return
+
+  window.localStorage.setItem(explicitLanguagePreferenceKey, 'true')
+  window.localStorage.setItem('i18nextLng', lng)
+}
 
 void i18n
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
     resources,
-    lng: typeof window === 'undefined' ? defaultLng : undefined,
-    fallbackLng: 'en',
+    lng: initialLng(),
+    fallbackLng: defaultLng,
     supportedLngs: [...supportedLngs],
     nonExplicitSupportedLngs: true,
     defaultNS,
@@ -120,7 +139,7 @@ void i18n
       escapeValue: false,
     },
     detection: {
-      order: ['localStorage', 'navigator', 'htmlTag'],
+      order: ['localStorage'],
       caches: ['localStorage'],
       lookupLocalStorage: 'i18nextLng',
     },
