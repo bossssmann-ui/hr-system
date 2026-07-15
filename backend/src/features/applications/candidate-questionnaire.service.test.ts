@@ -122,6 +122,9 @@ describe('candidate questionnaire service', () => {
           confidence: 82,
         }
       },
+      async generateClarificationQuestions() {
+        return { questions: ['Уточните опыт FTL'] }
+      },
     }
     const scoringProvider: ScoringProvider = {
       async score(input) {

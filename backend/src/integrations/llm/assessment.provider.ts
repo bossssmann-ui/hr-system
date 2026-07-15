@@ -49,6 +49,10 @@ type ChatCompletionResponse = {
   }>
 }
 
+const clarificationQuestionSchema = z.object({
+  questions: z.array(z.string().min(1)).min(1).max(5),
+})
+
 export type AssessmentProvider = {
   generateInterviewQuestions(input: {
     vacancyProfile: Record<string, unknown>
@@ -65,6 +69,10 @@ export type AssessmentProvider = {
     questions: string[]
     answer: string
   }): Promise<z.infer<typeof resumeEnrichmentSchema>>
+  generateClarificationQuestions(input: {
+    vacancyTitle: string
+    gaps: string[]
+  }): Promise<z.infer<typeof clarificationQuestionSchema>>
 }
 
 export class AssessmentProviderMalformedResponseError extends Error {
@@ -135,6 +143,23 @@ export class AnthropicAssessmentProvider {
       ].join(' '),
       JSON.stringify(input),
       resumeEnrichmentSchema,
+    )
+  }
+
+  async generateClarificationQuestions(input: {
+    vacancyTitle: string
+    gaps: string[]
+  }) {
+    return this.requestStructuredJson(
+      [
+        'You are a friendly HR assistant helping verify a candidate\'s experience.',
+        'Generate 3 to 5 short, specific clarification questions based on the provided gaps.',
+        'Rules: friendly tone; one question per gap; ask for concrete details (years, volumes, systems, examples); do NOT mention scores, thresholds, or internal processes.',
+        'Return JSON only in format: {"questions":["...","..."]}.',
+        'Write all questions in Russian.',
+      ].join(' '),
+      JSON.stringify(input),
+      clarificationQuestionSchema,
     )
   }
 
@@ -240,6 +265,23 @@ export class OpenAiCompatibleAssessmentProvider implements AssessmentProvider {
       ].join(' '),
       JSON.stringify(input),
       resumeEnrichmentSchema,
+    )
+  }
+
+  async generateClarificationQuestions(input: {
+    vacancyTitle: string
+    gaps: string[]
+  }) {
+    return this.requestStructuredJson(
+      [
+        'You are a friendly HR assistant helping verify a candidate\'s experience.',
+        'Generate 3 to 5 short, specific clarification questions based on the provided gaps.',
+        'Rules: friendly tone; one question per gap; ask for concrete details (years, volumes, systems, examples); do NOT mention scores, thresholds, or internal processes.',
+        'Return JSON only in format: {"questions":["...","..."]}.',
+        'Write all questions in Russian.',
+      ].join(' '),
+      JSON.stringify(input),
+      clarificationQuestionSchema,
     )
   }
 

@@ -118,6 +118,8 @@ export type CompositeScore = z.infer<typeof compositeScoreSchema>
 
 export const aiClarificationStatusSchema = z.enum(['sent', 'answered', 'rescored'])
 
+export type AiClarificationStatus = z.infer<typeof aiClarificationStatusSchema>
+
 export const aiClarificationAnswerSchema = z.object({
   question: z.string(),
   answer: z.string(),

@@ -428,25 +428,27 @@ function PathsTab() {
 // ─── My Learning Tab ──────────────────────────────────────────────────────────
 
 function MyLearningTab() {
-  const { api, user } = useAuth()
+  const { api } = useAuth()
   const { t } = useTranslation('learning')
   const queryClient = useQueryClient()
 
   const query = useQuery({
-    queryKey: ['learning', 'assignments', user?.id],
-    queryFn: () => api.listAssignments({ employeeId: user?.id }),
+    queryKey: ['learning', 'assignments', 'me'],
+    queryFn: () => api.listMyAssignments(),
   })
 
   const updateMutation = useMutation({
     mutationFn: ({
+      employeeId,
       id,
       status,
       progressPercent,
     }: {
+      employeeId: string
       id: string
       status?: LearningAssignmentStatus
       progressPercent?: number
-    }) => api.updateAssignment(id, { status, progressPercent }),
+    }) => api.updateAssignment(employeeId, id, { status, progressPercent }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['learning', 'assignments'] })
     },
@@ -473,10 +475,20 @@ function MyLearningTab() {
               key={assignment.id}
               assignment={assignment}
               onStart={() =>
-                updateMutation.mutate({ id: assignment.id, status: 'started', progressPercent: Math.max(assignment.progressPercent, 10) })
+                updateMutation.mutate({
+                  employeeId: assignment.employeeId,
+                  id: assignment.id,
+                  status: 'started',
+                  progressPercent: Math.max(assignment.progressPercent, 10),
+                })
               }
               onComplete={() =>
-                updateMutation.mutate({ id: assignment.id, status: 'completed', progressPercent: 100 })
+                updateMutation.mutate({
+                  employeeId: assignment.employeeId,
+                  id: assignment.id,
+                  status: 'completed',
+                  progressPercent: 100,
+                })
               }
               isActioning={updateMutation.isPending}
             />

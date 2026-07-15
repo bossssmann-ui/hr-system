@@ -87,9 +87,24 @@
       "description": "Vacancies are auto-created when a requisition is approved."
     },
     "published": "Published",
+    "unpublished": "Unpublished",
     "draft": "Draft",
     "publish": "Publish",
+    "republish": "Publish again",
     "unpublish": "Unpublish",
+    "edit": "Edit",
+    "save": "Save",
+    "cancel": "Cancel",
+    "fields": {
+      "title": "Title",
+      "description": "Description",
+      "descriptionHint": "A detailed description (responsibilities, requirements, skills) improves AI scoring accuracy."
+    },
+    "toasts": {
+      "updated": "Vacancy updated",
+      "updateFailed": "Failed to update vacancy",
+      "publishUpdated": "Publication status updated"
+    },
     "viewApplications": "View applications",
     "back": "← Back",
     "notFound": "Vacancy not found",
@@ -146,7 +161,11 @@
       "candidate": "Candidate",
       "candidatePlaceholder": "Select candidate..."
     },
+    "selectAll": "Select all",
     "create": "Create application",
+    "createMany": "Create applications ({{count}})",
+    "noCandidates": "No candidates yet",
+    "alreadyApplied": "already applied",
     "cannotMove": "Cannot move from {{from}} to {{to}}",
     "hhSync": {
       "button": "Sync HH.ru",
@@ -155,6 +174,7 @@
     },
     "toasts": {
       "created": "Application created",
+      "createdBatch": "Created {{created}}, skipped {{skipped}} (already applied)",
       "createFailed": "Failed to create application",
       "moveFailed": "Cannot move to that stage"
     },

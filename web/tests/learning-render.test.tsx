@@ -175,6 +175,7 @@ mock.module('../src/lib/use-auth', () => ({
       updatePath: async () => path1,
       deletePath: async () => {},
       listAssignments: async () => ({ items: [assignment1, assignment2] }),
+      listMyAssignments: async () => ({ items: [assignment1, assignment2] }),
       createAssignment: async () => assignment1,
       updateAssignment: async () => ({ ...assignment1, status: 'started', progressPercent: 10 }),
     },

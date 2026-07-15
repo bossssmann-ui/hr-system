@@ -151,7 +151,19 @@ export function createEngagementRoutes() {
       const { status, kind } = c.req.valid('query')
 
       const surveys = await listSurveys({ prisma, tenantId, status, kind })
-      return c.json(surveys)
+      return c.json({ items: surveys })
+    },
+  )
+
+  // ── GET /surveys/open — employee-safe list of open surveys for Respond ────
+  app.get(
+    '/surveys/open',
+    requireRole('employee', 'hr_admin', 'owner', 'hiring_manager', 'recruiter'),
+    async (c) => {
+      const prisma = c.get('prisma')
+      const tenantId = c.get('tenantId')
+      const surveys = await listSurveys({ prisma, tenantId, status: 'open' })
+      return c.json({ items: surveys })
     },
   )
 

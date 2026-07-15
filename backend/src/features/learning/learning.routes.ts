@@ -56,8 +56,65 @@ async function ensureEmployeeAccess(
 // /api/learning — courses & paths
 // ─────────────────────────────────────────────────────────────────────────────
 
+function serializeLearningAssignment(row: {
+  id: string
+  tenantId: string
+  employeeId: string
+  courseId: string | null
+  pathId: string | null
+  status: string
+  progressPercent: number
+  score: number | null
+  dueDate: Date | null
+  startedAt: Date | null
+  completedAt: Date | null
+  assignedByUserId: string
+  createdAt: Date
+  updatedAt: Date
+}) {
+  return {
+    id: row.id,
+    tenantId: row.tenantId,
+    employeeId: row.employeeId,
+    courseId: row.courseId,
+    pathId: row.pathId,
+    status: row.status,
+    progressPercent: row.progressPercent,
+    score: row.score,
+    dueDate: row.dueDate ? row.dueDate.toISOString().slice(0, 10) : null,
+    startedAt: row.startedAt?.toISOString() ?? null,
+    completedAt: row.completedAt?.toISOString() ?? null,
+    assignedByUserId: row.assignedByUserId,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  }
+}
+
 export function createLearningRoutes() {
   const app = new Hono<RouteBindings>()
+
+  // ── My assignments (resolve Employee by current user) ─────────────────────
+
+  app.get(
+    '/my-assignments',
+    requireRole('hr_admin', 'owner', 'hiring_manager', 'employee'),
+    async (c) => {
+      const prisma = c.get('prisma')
+      const tenantId = c.get('tenantId')
+      const userId = c.get('userId')
+
+      const employee = await prisma.employee.findFirst({ where: { userId, tenantId } })
+      if (!employee) {
+        return c.json({ items: [] })
+      }
+
+      const items = await prisma.learningAssignment.findMany({
+        where: { tenantId, employeeId: employee.id },
+        orderBy: { createdAt: 'desc' },
+      })
+      return c.json({ items: items.map(serializeLearningAssignment) })
+    },
+  )
 
   // ── Courses ────────────────────────────────────────────────────────────────
 
@@ -552,10 +609,9 @@ export function createEmployeeLearningRoutes() {
     await ensureEmployeeAccess(prisma, tenantId, id, { userId, roles })
     const items = await prisma.learningAssignment.findMany({
       where: { tenantId, employeeId: id },
-      include: { course: true, path: true },
       orderBy: { createdAt: 'desc' },
     })
-    return c.json({ items })
+    return c.json({ items: items.map(serializeLearningAssignment) })
   })
 
   app.post(
@@ -582,7 +638,7 @@ export function createEmployeeLearningRoutes() {
           assignedByUserId: userId,
         },
       })
-      return c.json(assignment, 201)
+      return c.json(serializeLearningAssignment(assignment), 201)
     },
   )
 
@@ -596,7 +652,7 @@ export function createEmployeeLearningRoutes() {
       const userId = c.get('userId')
       const roles = c.get('roles')
       const id = c.req.param('id') as string
-    const { aid } = c.req.param()
+      const { aid } = c.req.param()
       const body = c.req.valid('json')
 
       await ensureEmployeeAccess(prisma, tenantId, id, { userId, roles })
@@ -616,7 +672,7 @@ export function createEmployeeLearningRoutes() {
       if (body.score !== undefined) data.score = body.score
 
       const updated = await prisma.learningAssignment.update({ where: { id: aid }, data })
-      return c.json(updated)
+      return c.json(serializeLearningAssignment(updated))
     },
   )
 

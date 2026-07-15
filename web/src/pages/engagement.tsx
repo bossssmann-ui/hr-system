@@ -498,15 +498,19 @@ function RespondTab() {
   const { t } = useTranslation('engagement')
 
   const surveysQuery = useQuery({
-    queryKey: ['engagement', 'surveys'],
-    queryFn: () => api.listSurveys(),
+    queryKey: ['engagement', 'surveys', 'open'],
+    queryFn: () => api.listOpenSurveys(),
   })
 
-  const openSurveys = (surveysQuery.data?.items ?? []).filter((s) => s.status === 'open')
+  const openSurveys = surveysQuery.data?.items ?? []
   const activeSurvey = openSurveys[0] ?? null
 
   if (surveysQuery.isLoading) {
     return <p>{t('loading')}</p>
+  }
+
+  if (surveysQuery.isError) {
+    return <p style={{ color: 'crimson' }}>{t('loadFailed')}</p>
   }
 
   if (!activeSurvey) {
