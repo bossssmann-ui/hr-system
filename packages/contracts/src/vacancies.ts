@@ -33,6 +33,17 @@ export const publishVacancyRequestSchema = z.object({
 
 export type PublishVacancyRequest = z.infer<typeof publishVacancyRequestSchema>
 
+export const updateVacancyRequestSchema = z
+  .object({
+    title: z.string().min(1).max(200).optional(),
+    description: z.string().min(1).max(20000).optional(),
+  })
+  .refine((body) => body.title !== undefined || body.description !== undefined, {
+    message: 'At least one of title or description is required',
+  })
+
+export type UpdateVacancyRequest = z.infer<typeof updateVacancyRequestSchema>
+
 export const updateVacancyRoleRequestSchema = z.object({
   role: vacancyRoleSchema.nullable(),
 })

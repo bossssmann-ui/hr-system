@@ -87,9 +87,24 @@
       "description": "Vacancies are auto-created when a requisition is approved."
     },
     "published": "Published",
+    "unpublished": "Unpublished",
     "draft": "Draft",
     "publish": "Publish",
+    "republish": "Publish again",
     "unpublish": "Unpublish",
+    "edit": "Edit",
+    "save": "Save",
+    "cancel": "Cancel",
+    "fields": {
+      "title": "Title",
+      "description": "Description",
+      "descriptionHint": "A detailed description (responsibilities, requirements, skills) improves AI scoring accuracy."
+    },
+    "toasts": {
+      "updated": "Vacancy updated",
+      "updateFailed": "Failed to update vacancy",
+      "publishUpdated": "Publication status updated"
+    },
     "viewApplications": "View applications",
     "back": "← Back",
     "notFound": "Vacancy not found",

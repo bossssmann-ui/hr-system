@@ -473,6 +473,62 @@ maybeDescribe('Phase 1B recruiting routes', () => {
       expect(res.status).toBe(403)
     })
 
+    test('recruiter can update vacancy title and description without changing slug', async () => {
+      const before = await prisma.vacancy.findUniqueOrThrow({ where: { id: vacancyId } })
+      const slugBefore = before.slug
+
+      const res = await app.request(`/api/vacancies/${vacancyId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${recruiterToken}`,
+        },
+        body: JSON.stringify({
+          title: 'Updated Vacancy Title',
+          description: 'Updated vacancy description for AI scoring',
+        }),
+      })
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.title).toBe('Updated Vacancy Title')
+      expect(body.description).toBe('Updated vacancy description for AI scoring')
+      expect(body.slug).toBe(slugBefore)
+
+      const after = await prisma.vacancy.findUniqueOrThrow({ where: { id: vacancyId } })
+      expect(after.slug).toBe(slugBefore)
+
+      const audit = await prisma.auditEvent.findFirst({
+        where: { tenantId, action: 'vacancy.update', entityId: vacancyId },
+        orderBy: { createdAt: 'desc' },
+      })
+      expect(audit).not.toBeNull()
+      expect(audit?.entityType).toBe('Vacancy')
+    })
+
+    test('hiring manager cannot update vacancy', async () => {
+      const res = await app.request(`/api/vacancies/${vacancyId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${hiringManagerToken}`,
+        },
+        body: JSON.stringify({ title: 'Nope' }),
+      })
+      expect(res.status).toBe(403)
+    })
+
+    test('update vacancy rejects empty body', async () => {
+      const res = await app.request(`/api/vacancies/${vacancyId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${recruiterToken}`,
+        },
+        body: JSON.stringify({}),
+      })
+      expect(res.status).toBe(400)
+    })
+
     test('unauthenticated cannot list vacancies', async () => {
       const res = await app.request('/api/vacancies')
       expect(res.status).toBe(401)
