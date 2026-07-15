@@ -52,12 +52,6 @@ const CORE_STAGE_1: QuestionnaireStageContent = {
       type: 'textarea',
     },
     {
-      key: 'q_docs',
-      text: 'Транспортные документы, с которыми работали',
-      type: 'checkbox',
-      options: ['ТН', 'ТТН', 'УПД', 'Доверенность водителя', 'ЭТРАН', 'ЭДО', 'Ни одним'],
-    },
-    {
       key: 'q_emergency',
       text: 'Опишите нештатную ситуацию на перевозке и как её решили',
       type: 'textarea',
