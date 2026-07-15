@@ -99,7 +99,7 @@ function parseClarification(value: unknown): {
 
 // ─── Channel cascade helpers ──────────────────────────────────────────────────
 
-function firstStr(...values: unknown[]): string | null {
+function firstNonEmptyString(...values: unknown[]): string | null {
   for (const v of values) {
     if (typeof v === 'string' && v.length > 0) return v
   }
@@ -120,9 +120,9 @@ function resolveHhDestination(
   appIds: Record<string, unknown>,
   candidateIds: Record<string, unknown>,
 ): string | null {
-  const existingUrl = firstStr(candidateIds.hh_messages_url, appIds.hh_messages_url)
+  const existingUrl = firstNonEmptyString(candidateIds.hh_messages_url, appIds.hh_messages_url)
   if (existingUrl) return existingUrl
-  const negotiationId = firstStr(appIds.hh_negotiation_id, candidateIds.hh_negotiation_id)
+  const negotiationId = firstNonEmptyString(appIds.hh_negotiation_id, candidateIds.hh_negotiation_id)
   if (negotiationId) return buildHhMessagesUrl(negotiationId)
   return null
 }
@@ -175,7 +175,9 @@ async function resolveClarificationChannel(params: {
 
   let emailAdapter: MessageChannelAdapter | null = injectedAdapter ?? getChannelAdapter('email', env)
   if (!emailAdapter && env.SMTP_HOST && env.SMTP_PORT && env.SMTP_FROM) {
-    // Direct fallback: EMAIL_ENABLED flag may be off but SMTP vars are present.
+    // Direct fallback: intentionally bypasses the EMAIL_ENABLED flag so that clarification
+    // emails can still be delivered when the general messaging channel is disabled but
+    // SMTP credentials are configured (mirrors candidate-questionnaire.service.ts behaviour).
     emailAdapter = new EmailChannel({
       host: env.SMTP_HOST,
       port: env.SMTP_PORT,
