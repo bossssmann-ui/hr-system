@@ -385,7 +385,10 @@ function VacanciesList() {
 
   const publishMutation = useMutation({
     mutationFn: ({ id, isPublished }: { id: string; isPublished: boolean }) => api.publishVacancy(id, { isPublished }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["vacancies"] }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["vacancies"] })
+      toast.success(t('vacancies.toasts.publishUpdated'))
+    },
     onError: (error: unknown) => toast.error(error instanceof ApiRequestError ? error.message : t('vacancies.publishFailed')),
   })
 
@@ -409,11 +412,13 @@ function VacanciesList() {
                   <div className="flex items-center justify-between gap-2">
                     <CardTitle><Link to="/vacancies/$vacancyId" params={{ vacancyId: v.id }} className="hover:underline">{v.title}</Link></CardTitle>
                     <div className="flex items-center gap-2">
-                      <Badge variant={v.isPublished ? "default" : "outline"}>{v.isPublished ? t('vacancies.published') : t('vacancies.draft')}</Badge>
+                      <Badge variant={v.isPublished ? "default" : "outline"}>
+                        {v.isPublished ? t('vacancies.published') : t('vacancies.unpublished')}
+                      </Badge>
                       <Button size="sm" variant="outline" disabled={publishMutation.isPending}
                         onClick={() => publishMutation.mutate({ id: v.id, isPublished: !v.isPublished })}
                         data-testid={"publish-toggle-" + v.id}>
-                        {v.isPublished ? t('vacancies.unpublish') : t('vacancies.publish')}
+                        {v.isPublished ? t('vacancies.unpublish') : t('vacancies.republish')}
                       </Button>
                     </div>
                   </div>
@@ -438,13 +443,42 @@ function VacancyDetail() {
   const { t } = useTranslation('recruiting')
   const params = useParams({ strict: false }) as { vacancyId?: string }
   const vacancyId = params.vacancyId ?? ""
+  const queryClient = useQueryClient()
+  const [editing, setEditing] = useState(false)
+  const [title, setTitle] = useState("")
+  const [description, setDescription] = useState("")
 
   const query = useQuery({ queryKey: ["vacancies", vacancyId], queryFn: () => api.getVacancy(vacancyId), enabled: Boolean(vacancyId) })
+
+  const publishMutation = useMutation({
+    mutationFn: (isPublished: boolean) => api.publishVacancy(vacancyId, { isPublished }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["vacancies"] })
+      toast.success(t('vacancies.toasts.publishUpdated'))
+    },
+    onError: (error: unknown) => toast.error(error instanceof ApiRequestError ? error.message : t('vacancies.publishFailed')),
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: () => api.updateVacancy(vacancyId, { title: title.trim(), description: description.trim() }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["vacancies"] })
+      setEditing(false)
+      toast.success(t('vacancies.toasts.updated'))
+    },
+    onError: (error: unknown) => toast.error(error instanceof ApiRequestError ? error.message : t('vacancies.toasts.updateFailed')),
+  })
 
   if (query.isPending) return <LoadingCard />
   if (query.isError) return <ErrorCard message={t('vacancies.notFound')} />
 
   const v = query.data
+
+  const startEdit = () => {
+    setTitle(v.title)
+    setDescription(v.description)
+    setEditing(true)
+  }
 
   return (
     <section className="mx-auto grid w-full max-w-3xl gap-6 px-5 py-12">
@@ -453,17 +487,70 @@ function VacancyDetail() {
           <Badge variant="outline" className="w-fit">{t('vacancies.badge')}</Badge>
           <Typography variant="h1">{v.title}</Typography>
         </div>
-        <Badge variant={v.isPublished ? "default" : "outline"}>{v.isPublished ? t('vacancies.published') : t('vacancies.draft')}</Badge>
+        <Badge variant={v.isPublished ? "default" : "outline"}>
+          {v.isPublished ? t('vacancies.published') : t('vacancies.unpublished')}
+        </Badge>
       </div>
       <Card>
         <CardContent className="grid gap-4 pt-6">
-          <Typography>{v.description}</Typography>
-          <div className="border-t pt-4">
-            <Typography tone="muted" variant="bodySm">{t('requisitions.fields.created')} {new Date(v.createdAt).toLocaleDateString()}</Typography>
-          </div>
+          {editing ? (
+            <div className="grid gap-3" data-testid="vacancy-edit-form">
+              <label className="grid gap-1 text-sm">
+                {t('vacancies.fields.title')}
+                <Input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  data-testid="vacancy-edit-title"
+                />
+              </label>
+              <label className="grid gap-1 text-sm">
+                {t('vacancies.fields.description')}
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={8}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  data-testid="vacancy-edit-description"
+                />
+                <Typography tone="muted" variant="bodySm">{t('vacancies.fields.descriptionHint')}</Typography>
+              </label>
+              <div className="flex gap-2">
+                <Button
+                  disabled={updateMutation.isPending || !title.trim() || !description.trim()}
+                  onClick={() => updateMutation.mutate()}
+                  data-testid="vacancy-edit-save"
+                >
+                  {t('vacancies.save')}
+                </Button>
+                <Button variant="outline" onClick={() => setEditing(false)} disabled={updateMutation.isPending}>
+                  {t('vacancies.cancel')}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <Typography>{v.description}</Typography>
+              <div className="border-t pt-4">
+                <Typography tone="muted" variant="bodySm">{t('requisitions.fields.created')} {new Date(v.createdAt).toLocaleDateString()}</Typography>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
+        {!editing && (
+          <Button variant="outline" onClick={startEdit} data-testid="vacancy-edit-button">
+            {t('vacancies.edit')}
+          </Button>
+        )}
+        <Button
+          variant="outline"
+          disabled={publishMutation.isPending}
+          onClick={() => publishMutation.mutate(!v.isPublished)}
+          data-testid="vacancy-publish-toggle"
+        >
+          {v.isPublished ? t('vacancies.unpublish') : t('vacancies.republish')}
+        </Button>
         <Button asChild><Link to="/applications">{t('vacancies.viewApplications')}</Link></Button>
         <Button variant="outline" asChild><Link to="/vacancies">{t('vacancies.back')}</Link></Button>
       </div>

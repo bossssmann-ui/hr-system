@@ -131,6 +131,7 @@ import {
   type ProcessCandidateQuestionnaireReplyResponse,
   type OrgUnit,
   type PublishVacancyRequest,
+  type UpdateVacancyRequest,
   type RefreshRequest,
   type RefreshResponse,
   type RegisterRequest,
@@ -347,6 +348,14 @@ export class ApiClient {
 
   publishVacancy(id: string, input: PublishVacancyRequest): Promise<Vacancy> {
     return this.request(`/api/vacancies/${id}/publish`, vacancySchema, {
+      method: 'PATCH',
+      body: input,
+      auth: true,
+    })
+  }
+
+  updateVacancy(id: string, input: UpdateVacancyRequest): Promise<Vacancy> {
+    return this.request(`/api/vacancies/${id}`, vacancySchema, {
       method: 'PATCH',
       body: input,
       auth: true,

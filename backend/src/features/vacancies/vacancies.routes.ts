@@ -1,7 +1,14 @@
-import type { PublishVacancyRequest, UpdateVacancyRoleRequest, UpdateVacancyAssessmentTemplatesRequest, Vacancy } from '@web-app-demo/contracts'
+import type {
+  PublishVacancyRequest,
+  UpdateVacancyRequest,
+  UpdateVacancyRoleRequest,
+  UpdateVacancyAssessmentTemplatesRequest,
+  Vacancy,
+} from '@web-app-demo/contracts'
 import {
   listVacanciesResponseSchema,
   publishVacancyRequestSchema,
+  updateVacancyRequestSchema,
   updateVacancyRoleRequestSchema,
   updateVacancyAssessmentTemplatesRequestSchema,
   vacancyRoleSchema,
@@ -100,6 +107,46 @@ export function createVacanciesRoutes() {
       if (!row) throw new AppError(404, 'NOT_FOUND', 'Vacancy not found')
 
       return c.json(vacancySchema.parse(toDto(row)))
+    },
+  )
+
+  app.patch(
+    '/:id',
+    requireRole('owner', 'hr_admin', 'recruiter'),
+    zValidator('json', updateVacancyRequestSchema),
+    async (c) => {
+      const prisma = c.get('prisma')
+      const tenantId = c.get('tenantId')
+      const { id } = c.req.param()
+      const body: UpdateVacancyRequest = c.req.valid('json')
+
+      const existing = await prisma.vacancy.findFirst({ where: { id, tenantId } })
+      if (!existing) throw new AppError(404, 'NOT_FOUND', 'Vacancy not found')
+
+      const data: { title?: string; description?: string } = {}
+      const diff: Record<string, string> = {}
+      if (body.title !== undefined && body.title !== existing.title) {
+        data.title = body.title
+        diff.title = body.title
+      }
+      if (body.description !== undefined && body.description !== existing.description) {
+        data.description = body.description
+        diff.description = body.description
+      }
+
+      const updated =
+        Object.keys(data).length === 0
+          ? existing
+          : await prisma.vacancy.update({ where: { id }, data })
+
+      c.set('auditEntry', {
+        action: 'vacancy.update',
+        entityType: 'Vacancy',
+        entityId: id,
+        diff,
+      })
+
+      return c.json(vacancySchema.parse(toDto(updated)))
     },
   )
 
