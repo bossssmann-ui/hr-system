@@ -17,9 +17,12 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Spinner } from "@/components/ui/spinner"
+import { Textarea } from "@/components/ui/textarea"
 import { Typography } from "@/components/ui/typography"
 import { OfferPanel } from "@/components/OfferPanel"
 import { ApiRequestError } from "@/lib/api"
@@ -409,11 +412,11 @@ function VacanciesList() {
                   <div className="flex items-center justify-between gap-2">
                     <CardTitle><Link to="/vacancies/$vacancyId" params={{ vacancyId: v.id }} className="hover:underline">{v.title}</Link></CardTitle>
                     <div className="flex items-center gap-2">
-                      <Badge variant={v.isPublished ? "default" : "outline"}>{v.isPublished ? t('vacancies.published') : t('vacancies.draft')}</Badge>
+                      <Badge variant={v.isPublished ? "default" : "outline"}>{v.isPublished ? t('vacancies.published') : t('vacancies.unpublished')}</Badge>
                       <Button size="sm" variant="outline" disabled={publishMutation.isPending}
                         onClick={() => publishMutation.mutate({ id: v.id, isPublished: !v.isPublished })}
                         data-testid={"publish-toggle-" + v.id}>
-                        {v.isPublished ? t('vacancies.unpublish') : t('vacancies.publish')}
+                        {v.isPublished ? t('vacancies.unpublish') : t('vacancies.republish')}
                       </Button>
                     </div>
                   </div>
@@ -436,15 +439,51 @@ export function VacancyDetailPage() {
 function VacancyDetail() {
   const { api } = useAuth()
   const { t } = useTranslation('recruiting')
+  const queryClient = useQueryClient()
   const params = useParams({ strict: false }) as { vacancyId?: string }
   const vacancyId = params.vacancyId ?? ""
+  const [editOpen, setEditOpen] = useState(false)
+  const [editTitle, setEditTitle] = useState("")
+  const [editDescription, setEditDescription] = useState("")
 
   const query = useQuery({ queryKey: ["vacancies", vacancyId], queryFn: () => api.getVacancy(vacancyId), enabled: Boolean(vacancyId) })
+
+  const publishMutation = useMutation({
+    mutationFn: (isPublished: boolean) => api.publishVacancy(vacancyId, { isPublished }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["vacancies", vacancyId] }),
+    onError: (error: unknown) => toast.error(error instanceof ApiRequestError ? error.message : t('vacancies.publishFailed')),
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: (input: { title?: string; description?: string }) => api.updateVacancy(vacancyId, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["vacancies", vacancyId] })
+      queryClient.invalidateQueries({ queryKey: ["vacancies"] })
+      setEditOpen(false)
+      toast.success(t('vacancies.editSaved'))
+    },
+    onError: (error: unknown) => toast.error(error instanceof ApiRequestError ? error.message : t('vacancies.editFailed')),
+  })
 
   if (query.isPending) return <LoadingCard />
   if (query.isError) return <ErrorCard message={t('vacancies.notFound')} />
 
   const v = query.data
+
+  function openEdit() {
+    setEditTitle(v.title)
+    setEditDescription(v.description)
+    setEditOpen(true)
+  }
+
+  function handleEditSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const input: { title?: string; description?: string } = {}
+    if (editTitle.trim() !== v.title) input.title = editTitle.trim()
+    if (editDescription.trim() !== v.description) input.description = editDescription.trim()
+    if (Object.keys(input).length === 0) { setEditOpen(false); return }
+    updateMutation.mutate(input)
+  }
 
   return (
     <section className="mx-auto grid w-full max-w-3xl gap-6 px-5 py-12">
@@ -453,7 +492,7 @@ function VacancyDetail() {
           <Badge variant="outline" className="w-fit">{t('vacancies.badge')}</Badge>
           <Typography variant="h1">{v.title}</Typography>
         </div>
-        <Badge variant={v.isPublished ? "default" : "outline"}>{v.isPublished ? t('vacancies.published') : t('vacancies.draft')}</Badge>
+        <Badge variant={v.isPublished ? "default" : "outline"}>{v.isPublished ? t('vacancies.published') : t('vacancies.unpublished')}</Badge>
       </div>
       <Card>
         <CardContent className="grid gap-4 pt-6">
@@ -465,8 +504,49 @@ function VacancyDetail() {
       </Card>
       <div className="flex gap-3">
         <Button asChild><Link to="/applications">{t('vacancies.viewApplications')}</Link></Button>
+        <Button variant="outline" onClick={openEdit}>{t('vacancies.edit')}</Button>
+        {!v.isPublished && (
+          <Button variant="outline" disabled={publishMutation.isPending} onClick={() => publishMutation.mutate(true)}>
+            {t('vacancies.republish')}
+          </Button>
+        )}
         <Button variant="outline" asChild><Link to="/vacancies">{t('vacancies.back')}</Link></Button>
       </div>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('vacancies.editTitle')}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEditSubmit} className="grid gap-4">
+            <div className="grid gap-1.5">
+              <Label htmlFor="vacancy-title">{t('vacancies.fields.title')}</Label>
+              <Input
+                id="vacancy-title"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                maxLength={200}
+                required
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="vacancy-description">{t('vacancies.fields.description')}</Label>
+              <Textarea
+                id="vacancy-description"
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                rows={8}
+                maxLength={20000}
+              />
+              <Typography tone="muted" variant="bodySm">{t('vacancies.fields.descriptionHint')}</Typography>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>{t('common:actions.cancel')}</Button>
+              <Button type="submit" disabled={updateMutation.isPending}>{t('common:actions.save')}</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </section>
   )
 }

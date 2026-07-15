@@ -477,6 +477,82 @@ maybeDescribe('Phase 1B recruiting routes', () => {
       const res = await app.request('/api/vacancies')
       expect(res.status).toBe(401)
     })
+
+    test('recruiter can update title and description', async () => {
+      const res = await app.request(`/api/vacancies/${vacancyId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${recruiterToken}`,
+        },
+        body: JSON.stringify({ title: 'Updated Title', description: 'Updated description' }),
+      })
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.title).toBe('Updated Title')
+      expect(body.description).toBe('Updated description')
+    })
+
+    test('slug is not changed when title is updated', async () => {
+      // First publish to generate a slug.
+      await app.request(`/api/vacancies/${vacancyId}/publish`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${recruiterToken}` },
+        body: JSON.stringify({ isPublished: true }),
+      })
+      const before = await (await app.request(`/api/vacancies/${vacancyId}`, {
+        headers: { Authorization: `Bearer ${recruiterToken}` },
+      })).json()
+      const slugBefore = before.slug
+
+      await app.request(`/api/vacancies/${vacancyId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${recruiterToken}` },
+        body: JSON.stringify({ title: 'Completely Different Title' }),
+      })
+
+      const after = await (await app.request(`/api/vacancies/${vacancyId}`, {
+        headers: { Authorization: `Bearer ${recruiterToken}` },
+      })).json()
+      expect(after.slug).toBe(slugBefore)
+      expect(after.title).toBe('Completely Different Title')
+    })
+
+    test('hiring_manager cannot update vacancy', async () => {
+      const res = await app.request(`/api/vacancies/${vacancyId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${hiringManagerToken}`,
+        },
+        body: JSON.stringify({ title: 'Should Fail' }),
+      })
+      expect(res.status).toBe(403)
+    })
+
+    test('update vacancy requires at least one field', async () => {
+      const res = await app.request(`/api/vacancies/${vacancyId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${recruiterToken}`,
+        },
+        body: JSON.stringify({}),
+      })
+      expect(res.status).toBe(400)
+    })
+
+    test('update vacancy rejects title over 200 chars', async () => {
+      const res = await app.request(`/api/vacancies/${vacancyId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${recruiterToken}`,
+        },
+        body: JSON.stringify({ title: 'a'.repeat(201) }),
+      })
+      expect(res.status).toBe(400)
+    })
   })
 
   // ─── Candidates ─────────────────────────────────────────────────────────────

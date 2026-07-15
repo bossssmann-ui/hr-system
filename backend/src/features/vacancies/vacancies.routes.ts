@@ -1,9 +1,10 @@
-import type { PublishVacancyRequest, UpdateVacancyRoleRequest, UpdateVacancyAssessmentTemplatesRequest, Vacancy } from '@web-app-demo/contracts'
+import type { PublishVacancyRequest, UpdateVacancyRoleRequest, UpdateVacancyAssessmentTemplatesRequest, UpdateVacancyRequest, Vacancy } from '@web-app-demo/contracts'
 import {
   listVacanciesResponseSchema,
   publishVacancyRequestSchema,
   updateVacancyRoleRequestSchema,
   updateVacancyAssessmentTemplatesRequestSchema,
+  updateVacancyRequestSchema,
   vacancyRoleSchema,
   vacancySchema,
 } from '@web-app-demo/contracts'
@@ -100,6 +101,42 @@ export function createVacanciesRoutes() {
       if (!row) throw new AppError(404, 'NOT_FOUND', 'Vacancy not found')
 
       return c.json(vacancySchema.parse(toDto(row)))
+    },
+  )
+
+  app.patch(
+    '/:id',
+    requireRole('owner', 'hr_admin', 'recruiter'),
+    zValidator('json', updateVacancyRequestSchema),
+    async (c) => {
+      const prisma = c.get('prisma')
+      const tenantId = c.get('tenantId')
+      const { id } = c.req.param()
+      const body: UpdateVacancyRequest = c.req.valid('json')
+
+      const existing = await prisma.vacancy.findFirst({ where: { id, tenantId } })
+      if (!existing) throw new AppError(404, 'NOT_FOUND', 'Vacancy not found')
+
+      const diff: Record<string, unknown> = {}
+      if (body.title !== undefined) diff.title = body.title
+      if (body.description !== undefined) diff.description = body.description
+
+      const updated = await prisma.vacancy.update({
+        where: { id },
+        data: {
+          ...(body.title !== undefined ? { title: body.title } : {}),
+          ...(body.description !== undefined ? { description: body.description } : {}),
+        },
+      })
+
+      c.set('auditEntry', {
+        action: 'vacancy.update',
+        entityType: 'Vacancy',
+        entityId: id,
+        diff,
+      })
+
+      return c.json(vacancySchema.parse(toDto(updated)))
     },
   )
 

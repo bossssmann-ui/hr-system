@@ -94,7 +94,18 @@
     "back": "← Back",
     "notFound": "Vacancy not found",
     "loadFailed": "Could not load vacancies",
-    "publishFailed": "Failed to update publication"
+    "publishFailed": "Failed to update publication",
+    "edit": "Edit",
+    "editTitle": "Edit Vacancy",
+    "republish": "Republish",
+    "editFailed": "Failed to update vacancy",
+    "editSaved": "Vacancy updated",
+    "unpublished": "Unpublished",
+    "fields": {
+      "title": "Title",
+      "description": "Description",
+      "descriptionHint": "A detailed description (duties, requirements, skills) improves AI scoring accuracy."
+    }
   },
   "candidates": {
     "badge": "Recruiting · Candidates",

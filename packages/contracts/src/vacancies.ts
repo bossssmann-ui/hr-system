@@ -51,6 +51,17 @@ export const updateVacancyAssessmentTemplatesRequestSchema = z.object({
 
 export type UpdateVacancyAssessmentTemplatesRequest = z.infer<typeof updateVacancyAssessmentTemplatesRequestSchema>
 
+export const updateVacancyRequestSchema = z
+  .object({
+    title: z.string().min(1).max(200).optional(),
+    description: z.string().min(1).max(20000).optional(),
+  })
+  .refine((v) => v.title !== undefined || v.description !== undefined, {
+    message: 'At least one of title or description must be provided',
+  })
+
+export type UpdateVacancyRequest = z.infer<typeof updateVacancyRequestSchema>
+
 // ─── Public careers API contracts ────────────────────────────────────────────
 
 /** Public-safe vacancy fields — no internal ids, no salary, no requisition details. */
