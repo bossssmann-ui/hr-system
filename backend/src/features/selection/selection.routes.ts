@@ -31,15 +31,19 @@ import {
   type CrossCheckFlag,
 } from './selection.queue'
 import {
+  applyChosenTrap,
   getAllStagesContent,
+  pickRandomTrapKey,
   scoreStage2,
+  scoreTestStage,
+  type QuestionnaireStageContent,
   type Role,
   type StageContent,
+  type TestStageContent,
 } from './stage-content'
-import { isDomesticRole, type SupportedRole } from './selection-role-adapter'
-import { finalizeDomesticStage4, scoreDomesticStage2 } from './domestic-stage-scoring'
+import { buildStagesForRole, isDomesticRole, type SupportedRole } from './selection-role-adapter'
 import type { SpecializationAssignment } from './domestic-specializations'
-import { createSelectionSession } from './selection-session.service'
+import { getSharedCapacityGuard } from './capacity-guard'
 
 type RouteBindings = RoleGuardBindings & {
   Variables: {
@@ -67,6 +71,15 @@ const adminQuerySchema = z.object({
   role: z.enum(['logist', 'sales_manager', 'logist_domestic']).optional(),
 })
 
+/**
+ * Build the stages content for a given role. Full question content lives in
+ * `stage-content.ts` (single source of truth). The Stage 1 trap pool is kept
+ * in the template; the per-session chosen trap key is injected at GET time.
+ */
+function buildStages(role: SupportedRole): StageContent[] {
+  return buildStagesForRole(role)
+}
+
 function stageNumberForStatus(status: string): number | null {
   const map: Record<string, number> = {
     stage_1: 1,
@@ -80,6 +93,50 @@ function stageNumberForStatus(status: string): number | null {
 function asCrossCheckFlags(raw: unknown): CrossCheckFlag[] {
   if (!Array.isArray(raw)) return []
   return raw as CrossCheckFlag[]
+}
+
+type PublicSelectionProgressInput = {
+  status: string
+  role: string
+}
+
+export function resolvePublicSelectionProgress(input: PublicSelectionProgressInput): {
+  status: string
+  currentStage: number | null
+  shouldStartStage: boolean
+} {
+  if (input.role === 'logist_domestic' && input.status === 'pending') {
+    return { status: 'pending', currentStage: null, shouldStartStage: false }
+  }
+  if (input.role === 'logist_domestic' && input.status === 'packages_assigned') {
+    return { status: 'stage_1', currentStage: 1, shouldStartStage: true }
+  }
+  if (input.status === 'pending') {
+    return { status: 'stage_1', currentStage: 1, shouldStartStage: true }
+  }
+  return {
+    status: input.status,
+    currentStage: stageNumberForStatus(input.status),
+    shouldStartStage: false,
+  }
+}
+
+function getSpecializations(raw: unknown): SpecializationAssignment[] {
+  return Array.isArray(raw) ? (raw as SpecializationAssignment[]) : []
+}
+
+export function buildStagesForSession(session: {
+  template: { role: string; stages: unknown }
+  specializations?: unknown
+}): StageContent[] {
+  if (isDomesticRole(session.template.role)) {
+    return buildStagesForRole('logist_domestic', {
+      specializations: getSpecializations(session.specializations),
+    })
+  }
+  return Array.isArray(session.template.stages)
+    ? (session.template.stages as unknown as StageContent[])
+    : []
 }
 
 export function createSelectionRoutes() {
@@ -104,12 +161,35 @@ export function createSelectionRoutes() {
       const tenantId = c.get('tenantId')
       const body = c.req.valid('json')
 
-      const { session } = await createSelectionSession({
-        prisma,
-        tenantId,
-        vacancyId: body.vacancyId,
-        role: body.role as SupportedRole,
-        applicationId: body.applicationId ?? null,
+      // Find or create SelectionTemplate for vacancy+role
+      let template = await prisma.selectionTemplate.findFirst({
+        where: { tenantId, vacancyId: body.vacancyId, role: body.role },
+      })
+      if (!template) {
+        template = await prisma.selectionTemplate.create({
+          data: {
+            tenantId,
+            vacancyId: body.vacancyId,
+            role: body.role,
+            stages: buildStages(body.role as SupportedRole) as unknown as Prisma.InputJsonValue,
+          },
+        })
+      }
+
+      // Create session with a per-session randomly chosen Stage-1 trap. The
+      // chosen trap value is stored in `flags.chosen_trap_key` so cross-check
+      // (RED-1) can verify the answer matches the trap and so we never leak
+      // the other trap pool members to the candidate.
+      const chosenTrapKey = isDomesticRole(body.role) ? null : pickRandomTrapKey(body.role as Role)
+      const session = await prisma.selectionSession.create({
+        data: {
+          tenantId,
+          templateId: template.id,
+          applicationId: body.applicationId ?? null,
+          status: 'pending',
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+          flags: { chosen_trap_key: chosenTrapKey } as Prisma.InputJsonValue,
+        },
       })
 
       c.set('auditEntry', {
@@ -155,15 +235,14 @@ export function createSelectionRoutes() {
       return c.json({ status: session.status, message: 'Session is no longer active' })
     }
 
-    // Auto-transition pending → stage_1 (non-domestic only).
-    // Domestic logist flow is pending → (POST /resume) → resume_parsed → … ,
-    // so the candidate page renders ResumeStep while status is still 'pending'.
-    // Auto-promoting domestic sessions here would skip ResumeStep entirely
-    // (no specializations yet → empty stages → "Selection complete").
-    let status = session.status
+    const progress = resolvePublicSelectionProgress({
+      status: session.status,
+      role: session.template.role,
+    })
+
+    let status = progress.status
     let startedAt = session.startedAt
-    if (status === 'pending' && !isDomesticRole(session.template.role ?? '')) {
-      status = 'stage_1'
+    if (progress.shouldStartStage) {
       startedAt = new Date()
       await prisma.selectionSession.update({
         where: { id: session.id },
@@ -171,33 +250,25 @@ export function createSelectionRoutes() {
       })
     }
 
-    // Auto-transition packages_assigned → stage_1 (domestic logist: specializations assigned)
-    if (status === 'packages_assigned' && isDomesticRole(session.template.role ?? '')) {
-      status = 'stage_1'
-      startedAt = startedAt ?? new Date()
-      await prisma.selectionSession.update({
-        where: { id: session.id },
-        data: { status, startedAt },
-      })
-    }
-
-    const stageNum = stageNumberForStatus(status)
-
-    // For domestic role: build stages dynamically from assigned specializations
-    // instead of the static template stages.
-    let stages: StageContent[]
-    if (isDomesticRole(session.template.role ?? '') && Array.isArray(session.specializations) && (session.specializations as unknown[]).length > 0) {
-      const { buildDomesticStages } = await import('./domestic-stage-content')
-      stages = buildDomesticStages(
-        session.specializations as unknown as import('./domestic-specializations').SpecializationAssignment[],
-      )
-    } else {
-      stages = Array.isArray(session.template.stages)
-        ? (session.template.stages as unknown as StageContent[])
-        : []
-    }
+    const stageNum = progress.currentStage
+    const stages = buildStagesForSession(session)
     let currentStage: StageContent | null =
       stageNum !== null ? stages[stageNum - 1] ?? null : null
+
+    // Stage 1: apply the per-session chosen trap so the candidate sees only
+    // the trap question they were randomly assigned (other trap pool members
+    // must never be revealed to avoid trivial workarounds).
+    if (currentStage && currentStage.stage === 1 && currentStage.type === 'questionnaire') {
+      const flags = (session.flags ?? {}) as Record<string, unknown>
+      const rawChosen = flags['chosen_trap_key']
+      const chosen = typeof rawChosen === 'string' ? rawChosen : null
+      if (chosen) {
+        currentStage = applyChosenTrap(
+          currentStage as QuestionnaireStageContent,
+          chosen,
+        )
+      }
+    }
 
     return c.json({
       sessionId: session.id,
@@ -278,27 +349,20 @@ export function createSelectionRoutes() {
       // scored by the AI downstream).
       let scoresJson: Prisma.InputJsonValue | undefined
       if (n === 2) {
-        if (isDomesticRole(session.template.role ?? '')) {
-          const specs = Array.isArray(session.specializations)
-            ? (session.specializations as unknown as SpecializationAssignment[])
-            : []
-          const moduleResults = scoreDomesticStage2(
-            specs,
-            body.answers as Record<string, unknown>,
-          )
-          scoresJson = { moduleResults } as unknown as Prisma.InputJsonValue
-        } else {
-          const result = scoreStage2(
-            session.template.role as Role,
-            body.answers as Record<string, unknown>,
-          )
-          scoresJson = {
-            autoScore: result.autoScore,
-            autoMax: result.autoMax,
-            stageMax: result.stageMax,
-            perQuestion: result.perQuestion,
-          } as Prisma.InputJsonValue
-        }
+        const stages = buildStagesForSession(session)
+        const stage2 = stages.find((stage): stage is TestStageContent => stage.stage === 2 && stage.type === 'test')
+        const result = stage2
+          ? scoreTestStage(stage2, body.answers as Record<string, unknown>)
+          : scoreStage2(
+              session.template.role as Role,
+              body.answers as Record<string, unknown>,
+            )
+        scoresJson = {
+          autoScore: result.autoScore,
+          autoMax: result.autoMax,
+          stageMax: result.stageMax,
+          perQuestion: result.perQuestion,
+        } as Prisma.InputJsonValue
       }
 
       await prisma.selectionStageResult.create({
@@ -330,7 +394,6 @@ export function createSelectionRoutes() {
             totalWeightedScore: new Prisma.Decimal(0),
             stageScores,
             crossCheckFlags: flags as unknown as Prisma.InputJsonValue,
-            retentionPrediction: Prisma.JsonNull,
             lieScaleResult: Prisma.JsonNull,
             verdictReason,
             hrNotes,
@@ -341,7 +404,6 @@ export function createSelectionRoutes() {
             totalWeightedScore: new Prisma.Decimal(0),
             stageScores,
             crossCheckFlags: flags as unknown as Prisma.InputJsonValue,
-            retentionPrediction: Prisma.JsonNull,
             lieScaleResult: Prisma.JsonNull,
             verdictReason,
             hrNotes,
@@ -366,7 +428,7 @@ export function createSelectionRoutes() {
       }
 
       // Determine next status
-      let nextSt = n < 4 ? `stage_${n + 1}` : 'completed'
+      const nextSt = n < 4 ? `stage_${n + 1}` : 'completed'
       const updateData: Prisma.SelectionSessionUpdateInput = { status: nextSt }
       if (n === 4) {
         updateData.completedAt = new Date()
@@ -381,34 +443,13 @@ export function createSelectionRoutes() {
         data: updateData,
       })
 
-      // After Stage 4 for `logist_domestic`: deterministic auto-scoring &
-      // verdict (Phase 17). The AI evaluator still runs afterwards but only
-      // appends a second opinion; it does not overwrite the deterministic
-      // numbers/verdict.
-      let autoScored = false
-      if (n === 4 && isDomesticRole(session.template.role ?? '')) {
-        const computation = await finalizeDomesticStage4(prisma, session.id, c.get('env'))
-        if (computation) {
-          autoScored = true
-          nextSt = computation.status
-          await prisma.selectionSession.update({
-            where: { id: session.id },
-            data: { status: nextSt },
-          })
-        }
-      }
-
       // After stage 4: enqueue AI evaluation
       if (n === 4) {
         const env = c.get('env')
-        void enqueueSelectionEvaluate({ prisma, env, sessionId: session.id })
+        await enqueueSelectionEvaluate({ prisma, env, sessionId: session.id })
       }
 
-      return c.json({
-        submitted: true,
-        nextStatus: nextSt,
-        ...(autoScored ? { autoScored: true } : {}),
-      })
+      return c.json({ submitted: true, nextStatus: nextSt })
     },
   )
 
@@ -440,7 +481,6 @@ export function createSelectionRoutes() {
         totalWeightedScore: session.verdict.totalWeightedScore?.toString() ?? null,
         stageScores: session.verdict.stageScores,
         crossCheckFlags: session.verdict.crossCheckFlags,
-        retentionPrediction: session.verdict.retentionPrediction,
         lieScaleResult: session.verdict.lieScaleResult,
         verdictReason: session.verdict.verdictReason,
         hrNotes: session.verdict.hrNotes,
@@ -505,12 +545,9 @@ export function createSelectionRoutes() {
                 verdict: s.verdict.verdict,
                 totalWeightedScore: s.verdict.totalWeightedScore?.toString() ?? null,
                 crossCheckFlags: s.verdict.crossCheckFlags,
-                retentionPrediction: s.verdict.retentionPrediction,
                 createdAt: s.verdict.createdAt.toISOString(),
               }
             : null,
-          specializations: s.specializations ?? null,
-          assessmentProfile: s.assessmentProfile ?? null,
         })),
       })
     },
@@ -519,7 +556,7 @@ export function createSelectionRoutes() {
 
   // ─── POST /api/selection/sessions/:token/resume — parse resume (domestic only) ──
   app.post('/sessions/:token/resume', async (c) => {
-    const env = c.env as AppEnv
+    const env = c.get('env')
     if (!env.ASSESSMENT_SYSTEM_ENABLED) return c.json({ error: 'Not found' }, 404)
 
     const prisma = c.get('prisma')
@@ -543,10 +580,13 @@ export function createSelectionRoutes() {
 
     if (!env.GEMINI_API_KEY) return c.json({ error: 'AI unavailable' }, 503)
 
-    const { parseResume } = await import('./domestic-resume-parser')
+    const { parseResume, detectAiWriting } = await import('./domestic-resume-parser')
     const { selectSpecializations } = await import('./domestic-specializations')
 
-    const parsed = await parseResume(body.resumeText, env.GEMINI_API_KEY)
+    const [parsed, detection] = await Promise.all([
+      parseResume(body.resumeText, env.GEMINI_API_KEY),
+      detectAiWriting(body.resumeText, env.GEMINI_API_KEY),
+    ])
     const specializations = selectSpecializations(parsed.signals)
 
     await prisma.selectionSession.update({
@@ -556,16 +596,22 @@ export function createSelectionRoutes() {
         specializations: specializations as unknown as Prisma.InputJsonValue,
         assessmentProfile: {
           signals: parsed.signals,
+          aiWriting: {
+            score: detection.score,
+            detected: detection.detected,
+            signals: detection.signals,
+            trapQuestions: detection.trapQuestions,
+          },
         } as unknown as Prisma.InputJsonValue,
       },
     })
 
-    return c.json({ signals: parsed.signals, specializations })
+    return c.json({ signals: parsed.signals, specializations, aiWriting: detection })
   })
 
   // ─── GET /api/selection/sessions/:token/interview — get interview questions ──
   app.get('/sessions/:token/interview', async (c) => {
-    const env = c.env as AppEnv
+    const env = c.get('env')
     if (!env.ASSESSMENT_SYSTEM_ENABLED) return c.json({ error: 'Not found' }, 404)
 
     const prisma = c.get('prisma')
@@ -590,7 +636,7 @@ export function createSelectionRoutes() {
 
   // ─── POST /api/selection/sessions/:token/interview — submit interview answers ──
   app.post('/sessions/:token/interview', async (c) => {
-    const env = c.env as AppEnv
+    const env = c.get('env')
     if (!env.ASSESSMENT_SYSTEM_ENABLED) return c.json({ error: 'Not found' }, 404)
 
     const prisma = c.get('prisma')
@@ -612,8 +658,7 @@ export function createSelectionRoutes() {
     if (!env.GEMINI_API_KEY) return c.json({ error: 'AI unavailable' }, 503)
 
     const { classifyInterviewAnswers } = await import('./domestic-interview')
-    const { createCapacityGuard } = await import('./capacity-guard')
-    const guard = createCapacityGuard()
+    const guard = getSharedCapacityGuard()
 
     if (!guard.canStart()) {
       return c.json({

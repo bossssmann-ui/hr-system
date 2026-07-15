@@ -4,6 +4,7 @@ import {
   publishVacancyRequestSchema,
   updateVacancyRoleRequestSchema,
   updateVacancyAssessmentTemplatesRequestSchema,
+  vacancyRoleSchema,
   vacancySchema,
 } from '@web-app-demo/contracts'
 import { zValidator } from '@hono/zod-validator'
@@ -14,7 +15,6 @@ import { requireRole, type RoleGuardBindings } from '../../auth/requireRole'
 import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
 import { AppError } from '../../http/errors'
-import { parseVacancyRole } from './vacancy-role'
 import { generateSlug } from './slug'
 
 type RouteBindings = RoleGuardBindings & {
@@ -23,6 +23,12 @@ type RouteBindings = RoleGuardBindings & {
     prisma: DbClient
     auditEntry?: unknown
   }
+}
+
+function parseVacancyRole(value: string | null): Vacancy['role'] {
+  if (value == null) return null
+  const result = vacancyRoleSchema.safeParse(value)
+  return result.success ? result.data : null
 }
 
 function toDto(row: {

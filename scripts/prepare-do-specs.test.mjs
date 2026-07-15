@@ -21,20 +21,23 @@ describe('prepare-do-specs', () => {
     }
   });
 
-  test('rejects invalid backend worker run command', () => {
+  test('rejects the placeholder backend worker command', () => {
     const result = runPrepareSpecs({
-      DO_BACKEND_WORKER_RUN_COMMAND: 'bun run start:worker\nbun run another-command',
+      DO_BACKEND_WORKER_ENABLED: 'true',
+      DO_BACKEND_WORKER_RUN_COMMAND: 'bun run start:worker',
     });
 
     expect(result.status).not.toBe(0);
     expect(`${result.stdout}\n${result.stderr}`).toContain(
-      'DO_BACKEND_WORKER_RUN_COMMAND must be a single-line value',
+      'must point at a real long-running worker command',
     );
   });
 
   test('rejects invalid backend cron schedules before writing deploy specs', () => {
     const result = runPrepareSpecs({
-      DO_BACKEND_CRON_ANALYTICS_SNAPSHOT_SCHEDULE: '0 3 nope * *',
+      DO_BACKEND_CRON_NAME: 'daily-maintenance',
+      DO_BACKEND_CRON_TASK: 'db:ping',
+      DO_BACKEND_CRON_SCHEDULE: '0 3 nope * *',
     });
 
     expect(result.status).not.toBe(0);
@@ -52,11 +55,14 @@ describe('prepare-do-specs', () => {
     );
   });
 
-  test('generates backend worker and default cron job blocks', () => {
+  test('generates explicit backend worker and cron job blocks', () => {
     const result = runPrepareSpecs({
+      DO_BACKEND_WORKER_ENABLED: 'true',
       DO_BACKEND_WORKER_NAME: 'notifications',
-      DO_BACKEND_WORKER_RUN_COMMAND: 'bun backend/src/worker.ts',
-      DO_BACKEND_CRON_ANALYTICS_SNAPSHOT_SCHEDULE: '0 3 * * *',
+      DO_BACKEND_WORKER_RUN_COMMAND: 'bun run start:worker:notifications',
+      DO_BACKEND_CRON_NAME: 'daily-maintenance',
+      DO_BACKEND_CRON_TASK: 'db:ping',
+      DO_BACKEND_CRON_SCHEDULE: '0 3 * * *',
       DO_BACKEND_CRON_TIME_ZONE: 'Europe/Moscow',
     });
 
@@ -66,11 +72,9 @@ describe('prepare-do-specs', () => {
     const spec = readFileSync(backendSpecPath, 'utf8');
     expect(spec).toContain('workers:');
     expect(spec).toContain('  - name: notifications');
-    expect(spec).toContain('run_command: "bun backend/src/worker.ts"');
+    expect(spec).toContain('run_command: "bun run start:worker:notifications"');
     expect(spec).toContain('kind: SCHEDULED');
-    expect(spec).toContain('run_command: "bun run start:cron -- analytics.snapshot"');
-    expect(spec).toContain('run_command: "bun run start:cron -- selection.retention_calibration"');
-    expect(spec).toContain('run_command: "bun run start:cron -- okr.quarter_start"');
+    expect(spec).toContain('run_command: "bun run start:cron -- db:ping"');
     expect(spec).toContain('time_zone: "Europe/Moscow"');
     expect(spec).toContain(`    http_port: 8080
     instance_size_slug: apps-s-1vcpu-1gb
@@ -92,20 +96,6 @@ describe('prepare-do-specs', () => {
     instance_size_slug: apps-s-1vcpu-2gb
     instance_count: 2`);
     expect(spec).not.toContain('REPLACE_WITH_');
-  });
-
-  test('can disable backend worker and cron blocks', () => {
-    const result = runPrepareSpecs({
-      DO_BACKEND_WORKER_ENABLED: 'false',
-      DO_BACKEND_CRON_ENABLED: 'false',
-    });
-
-    expect(result.stderr).toBe('');
-    expect(result.status).toBe(0);
-
-    const spec = readFileSync(backendSpecPath, 'utf8');
-    expect(spec).not.toContain('workers:');
-    expect(spec).not.toContain('kind: SCHEDULED');
   });
 });
 

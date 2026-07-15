@@ -100,7 +100,7 @@ test.describe('Phase 1B recruiting smoke', () => {
 
     // ── Step 5: Verify auto-created vacancy ────────────────────────────────
     await page.goto('/vacancies')
-    await expect(page.getByText('Senior Engineer E2E')).toBeVisible()
+    await expect(page.getByText('Senior Engineer E2E').first()).toBeVisible()
 
     // Get the vacancy ID via API.
     const vacanciesRes = await api('GET', '/api/vacancies')
@@ -141,12 +141,13 @@ test.describe('Phase 1B recruiting smoke', () => {
 
     // Verify the card appears in the `new` column.
     await expect(page.getByTestId('kanban-column-new')).toBeVisible()
+    await expect(page.getByTestId('kanban-column-new')).toContainText('Alice Smoketest')
 
     // ── Step 8: Move application stage via API (DnD is flaky in CI) ───────
     const appsRes = await api('GET', `/api/applications?vacancy_id=${vacancyId}`)
     expect(appsRes.ok()).toBeTruthy()
-    const apps = (await appsRes.json()).items as Array<{ id: string; stage: string }>
-    const app = apps.find((a) => a.stage === 'new')
+    const apps = (await appsRes.json()).items as Array<{ id: string; stage: string; candidateId: string }>
+    const app = apps.find((a) => a.stage === 'new' && a.candidateId === candidateId)
     expect(app).toBeDefined()
 
     const moveRes = await api('PATCH', `/api/applications/${app!.id}/stage`, { to: 'screen' })
@@ -155,9 +156,9 @@ test.describe('Phase 1B recruiting smoke', () => {
     // Reload kanban and verify the card moved to `screen`.
     await page.reload()
     await expect(page.getByTestId('kanban-column-screen')).toBeVisible()
-    // The application card should now be in screen column.
+    // Kanban cards show the candidate full name when known.
     const screenColumn = page.getByTestId('kanban-column-screen')
-    await expect(screenColumn).toContainText(candidateId.slice(0, 8))
+    await expect(screenColumn).toContainText('Alice Smoketest')
 
     // ── Bonus: audit log shows events ─────────────────────────────────────
     const auditRes = await api('GET', '/api/admin/audit-events?limit=20')

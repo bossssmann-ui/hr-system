@@ -36,17 +36,16 @@ cp .env.prod.example .env.prod
 nano .env.prod   # fill in every placeholder — see comments in the file
 ```
 
+Production scripts call Docker Compose with `--env-file .env.prod`, so `.env.prod`
+is the server-side source of truth for both container environment and Compose
+variable interpolation.
+
 Key values to change:
 - `POSTGRES_PASSWORD` — strong random password
 - `JWT_SECRET` — at least 32 random chars (`openssl rand -base64 48`)
 - `BOOTSTRAP_OWNER_EMAIL` / `BOOTSTRAP_OWNER_PASSWORD` — your first admin account
 - `CORS_ORIGINS` — must be `https://career.pacificstar.ru`
 - `COOKIE_SECURE=true`
-- If `AI_SCORING_ENABLED=true`:
-  - Anthropic: `LLM_SCORING_PROVIDER=anthropic`, set `LLM_SCORING_API_KEY` and `LLM_SCORING_MODEL`
-  - OpenAI-compatible (DeepSeek / self-hosted vLLM): `LLM_SCORING_PROVIDER=openai_compatible`, set `LLM_SCORING_BASE_URL`, `LLM_SCORING_API_KEY`, `LLM_SCORING_MODEL`
-    - DeepSeek example: `LLM_SCORING_BASE_URL=https://api.deepseek.com/v1`, `LLM_SCORING_MODEL=deepseek-chat`
-    - Self-hosted Qwen example: `LLM_SCORING_BASE_URL=http://127.0.0.1:8000/v1`, `LLM_SCORING_MODEL=qwen2.5-72b-instruct`
 
 ### 3. Run the deploy script
 ```bash
@@ -58,12 +57,12 @@ The script will:
 2. Build all Docker images
 3. Apply pending Prisma migrations
 4. Seed the bootstrap owner (idempotent — safe to re-run)
-5. Start all services with `docker compose up -d` (including `backend`, `worker`, and `cron`)
+5. Start all services with `docker compose up -d`
 
 ### 4. Verify the stack
 ```bash
-docker compose -f docker-compose.prod.yml ps
-docker compose -f docker-compose.prod.yml logs caddy
+docker compose --env-file .env.prod -f docker-compose.prod.yml ps
+docker compose --env-file .env.prod -f docker-compose.prod.yml logs caddy
 ```
 
 Open **https://career.pacificstar.ru** — Caddy automatically provisions a Let's Encrypt certificate on first request (takes ~10 seconds).
@@ -83,39 +82,13 @@ bash scripts/deploy.sh
 
 ```bash
 # All services
-docker compose -f docker-compose.prod.yml logs -f
+docker compose --env-file .env.prod -f docker-compose.prod.yml logs -f
 
 # Single service
-docker compose -f docker-compose.prod.yml logs -f backend
-docker compose -f docker-compose.prod.yml logs -f worker
-docker compose -f docker-compose.prod.yml logs -f cron
-docker compose -f docker-compose.prod.yml logs -f caddy
-docker compose -f docker-compose.prod.yml logs -f postgres
+docker compose --env-file .env.prod -f docker-compose.prod.yml logs -f backend
+docker compose --env-file .env.prod -f docker-compose.prod.yml logs -f caddy
+docker compose --env-file .env.prod -f docker-compose.prod.yml logs -f postgres
 ```
-
----
-
-## Background Processing in Production
-
-`docker-compose.prod.yml` runs two dedicated background services:
-
-- `worker` — continuous durable queue drain (`backend/src/worker.ts`).
-- `cron` — in-container scheduler that runs `backend/src/cron.ts <task>` on defaults below.
-
-Default cron schedules (UTC, configurable via `.env.prod`):
-
-- `analytics.snapshot` — `CRON_ANALYTICS_SNAPSHOT_SCHEDULE` (daily)
-- `probation.reminder` — `CRON_PROBATION_REMINDER_SCHEDULE` (daily)
-- `1on1.reminder` — `CRON_ONE_ON_ONE_REMINDER_SCHEDULE` (daily)
-- `review.reminder` — `CRON_REVIEW_REMINDER_SCHEDULE` (daily)
-- `data.retention` — `CRON_DATA_RETENTION_SCHEDULE` (daily)
-- `signals.compute` — `CRON_SIGNALS_COMPUTE_SCHEDULE` (daily)
-- `selection.retention_outcomes` — `CRON_SELECTION_RETENTION_OUTCOMES_SCHEDULE` (daily)
-- `selection.retention_calibration` — `CRON_SELECTION_RETENTION_CALIBRATION_SCHEDULE` (weekly)
-- `okr.quarter_start` — `CRON_OKR_QUARTER_START_SCHEDULE` (quarterly)
-- `hh.sourcing` — `CRON_HH_SOURCING_SCHEDULE` (daily, no-op when integration flag is off)
-
-`queue.drain` is not scheduled by cron because it is handled by the dedicated `worker` service.
 
 ---
 
@@ -131,8 +104,31 @@ All integrations default to `false`. Enable them once you have the keys:
 
 2. Restart the affected service (no rebuild needed for env-only changes):
    ```bash
-   docker compose -f docker-compose.prod.yml up -d backend worker cron
+   docker compose --env-file .env.prod -f docker-compose.prod.yml up -d backend
    ```
+
+---
+
+## Password Reset Email
+
+Password reset links are sent through SMTP when email is enabled. Configure a real mailbox such as `noreply@pacificstar.ru` in `.env.prod`:
+
+```bash
+EMAIL_ENABLED=true
+SMTP_HOST=<smtp host from the mail provider>
+SMTP_PORT=587
+SMTP_USER=noreply@pacificstar.ru
+SMTP_PASS=<mailbox or SMTP app password>
+SMTP_FROM=noreply@pacificstar.ru
+```
+
+After changing these values, restart the backend:
+
+```bash
+docker compose --env-file .env.prod -f docker-compose.prod.yml up -d backend
+```
+
+If `EMAIL_ENABLED=false` or SMTP is incomplete, password reset links are still created but written only to backend logs for administrator recovery.
 
 ---
 
@@ -140,7 +136,7 @@ All integrations default to `false`. Enable them once you have the keys:
 
 Add this line to the VPS crontab (`crontab -e`) for daily backups at 02:00:
 ```cron
-0 2 * * * docker compose -f /opt/hr-system/docker-compose.prod.yml exec -T postgres pg_dump -U hr_user hr_system | gzip > /opt/hr-system/backups/hr_system_$(date +\%Y\%m\%d).sql.gz
+0 2 * * * cd /opt/hr-system && docker compose --env-file /opt/hr-system/.env.prod -f /opt/hr-system/docker-compose.prod.yml exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" hr_system' | gzip > /opt/hr-system/backups/hr_system_$(date +\%Y\%m\%d).sql.gz
 ```
 
 Create the backups directory first:

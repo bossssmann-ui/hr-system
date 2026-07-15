@@ -20,10 +20,7 @@ export function createScoringProvider(env: AppEnv): ScoringProvider {
     })
   }
 
-  if (env.LLM_SCORING_PROVIDER === 'openai' || env.LLM_SCORING_PROVIDER === 'openai_compatible') {
-    if (!env.LLM_SCORING_BASE_URL) {
-      throw new Error('LLM_SCORING_BASE_URL is required for openai_compatible AI scoring')
-    }
+  if (env.LLM_SCORING_PROVIDER === 'openai_compatible') {
     return new OpenAiCompatibleScoringProvider({
       apiKey: env.LLM_SCORING_API_KEY,
       model: env.LLM_SCORING_MODEL,
@@ -44,28 +41,28 @@ export {
   AnthropicAssessmentProvider,
   OpenAiCompatibleAssessmentProvider,
   AssessmentProviderMalformedResponseError,
+  type AssessmentProvider,
 } from './assessment.provider'
-export { OpenAiCompatibleScoringProvider } from './openai-compatible.provider'
 
 export function createAssessmentProvider(env: AppEnv) {
   if (!env.LLM_SCORING_API_KEY) {
     throw new Error('LLM_SCORING_API_KEY is required for assessment AI features')
   }
+
   if (env.LLM_SCORING_PROVIDER === 'anthropic') {
     return new AnthropicAssessmentProvider({
       apiKey: env.LLM_SCORING_API_KEY,
       model: env.LLM_SCORING_MODEL,
     })
   }
-  if (env.LLM_SCORING_PROVIDER === 'openai' || env.LLM_SCORING_PROVIDER === 'openai_compatible') {
-    if (!env.LLM_SCORING_BASE_URL) {
-      throw new Error('LLM_SCORING_BASE_URL is required for openai_compatible assessment AI features')
-    }
+
+  if (env.LLM_SCORING_PROVIDER === 'openai_compatible') {
     return new OpenAiCompatibleAssessmentProvider({
       apiKey: env.LLM_SCORING_API_KEY,
       model: env.LLM_SCORING_MODEL,
       baseUrl: env.LLM_SCORING_BASE_URL,
     })
   }
+
   throw new Error(`Unsupported LLM_SCORING_PROVIDER: ${env.LLM_SCORING_PROVIDER}`)
 }

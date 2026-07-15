@@ -215,127 +215,6 @@ maybeDescribe('Phase 1B recruiting routes', () => {
       const body = await res.json()
       expect(Array.isArray(body.items)).toBe(true)
     })
-
-
-    test('owner updates org unit name and parent', async () => {
-      const parent = await prisma.orgUnit.create({
-        data: { tenantId, name: `Parent-${randomUUID()}` },
-      })
-      const child = await prisma.orgUnit.create({
-        data: { tenantId, name: `Child-${randomUUID()}` },
-      })
-
-      const res = await app.request(`/api/org-units/${child.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: ['B', 'earer ', ownerToken].join(''),
-        },
-        body: JSON.stringify({ name: 'Child Renamed', parentId: parent.id }),
-      })
-
-      expect(res.status).toBe(200)
-      const body = await res.json()
-      expect(body.name).toBe('Child Renamed')
-      expect(body.parentId).toBe(parent.id)
-    })
-
-    test('rejects cycles when changing parent', async () => {
-      const root = await prisma.orgUnit.create({
-        data: { tenantId, name: `Root-${randomUUID()}` },
-      })
-      const child = await prisma.orgUnit.create({
-        data: { tenantId, name: `Child-${randomUUID()}`, parentId: root.id },
-      })
-
-      const res = await app.request(`/api/org-units/${root.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: ['B', 'earer ', ownerToken].join(''),
-        },
-        body: JSON.stringify({ parentId: child.id }),
-      })
-
-      expect(res.status).toBe(409)
-      const body = await res.json()
-      expect(body.error.code).toBe('CONFLICT')
-    })
-
-    test('tenant isolation denies update/delete for foreign tenant org units', async () => {
-      const foreignTenant = await prisma.tenant.create({
-        data: { name: `Foreign Tenant ${randomUUID()}` },
-      })
-      const foreignOrgUnit = await prisma.orgUnit.create({
-        data: { tenantId: foreignTenant.id, name: `Foreign OU ${randomUUID()}` },
-      })
-
-      const patchRes = await app.request(`/api/org-units/${foreignOrgUnit.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: ['B', 'earer ', ownerToken].join(''),
-        },
-        body: JSON.stringify({ name: 'Should fail' }),
-      })
-      expect(patchRes.status).toBe(404)
-
-      const deleteRes = await app.request(`/api/org-units/${foreignOrgUnit.id}`, {
-        method: 'DELETE',
-        headers: { Authorization: ['B', 'earer ', ownerToken].join('') },
-      })
-      expect(deleteRes.status).toBe(404)
-
-      await prisma.orgUnit.deleteMany({ where: { tenantId: foreignTenant.id } })
-      await prisma.tenant.delete({ where: { id: foreignTenant.id } })
-    })
-
-    test('delete returns 409 when org unit is referenced', async () => {
-      const ownerUser = await prisma.user.findUniqueOrThrow({
-        where: { email: `owner-${tenantId}@test.com` },
-      })
-      const orgUnit = await prisma.orgUnit.create({
-        data: { tenantId, name: `Referenced-${randomUUID()}` },
-      })
-      await prisma.hiringRequisition.create({
-        data: {
-          tenantId,
-          orgUnitId: orgUnit.id,
-          createdByUserId: ownerUser.id,
-          title: `Referenced Req ${randomUUID()}`,
-          grade: 'M3',
-          salaryMin: 10_000,
-          salaryMax: 20_000,
-          currency: 'RUB',
-          justification: 'test reference',
-          status: 'draft',
-        },
-      })
-
-      const res = await app.request(`/api/org-units/${orgUnit.id}`, {
-        method: 'DELETE',
-        headers: { Authorization: ['B', 'earer ', ownerToken].join('') },
-      })
-
-      expect(res.status).toBe(409)
-      const body = await res.json()
-      expect(body.error.code).toBe('CONFLICT')
-    })
-
-    test('owner deletes org unit without references', async () => {
-      const orgUnit = await prisma.orgUnit.create({
-        data: { tenantId, name: `Delete Me ${randomUUID()}` },
-      })
-
-      const res = await app.request(`/api/org-units/${orgUnit.id}`, {
-        method: 'DELETE',
-        headers: { Authorization: ['B', 'earer ', ownerToken].join('') },
-      })
-      expect(res.status).toBe(200)
-
-      const check = await prisma.orgUnit.findFirst({ where: { id: orgUnit.id, tenantId } })
-      expect(check).toBeNull()
-    })
   })
 
   // ─── Requisitions ──────────────────────────────────────────────────────────
@@ -582,19 +461,6 @@ maybeDescribe('Phase 1B recruiting routes', () => {
       expect((await res.json()).isPublished).toBe(true)
     })
 
-    test('recruiter can set explicit vacancy selection role', async () => {
-      const res = await app.request(`/api/vacancies/${vacancyId}/role`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: 'Bearer ' + recruiterToken,
-        },
-        body: JSON.stringify({ role: 'logist_domestic' }),
-      })
-      expect(res.status).toBe(200)
-      expect((await res.json()).role).toBe('logist_domestic')
-    })
-
     test('hiring manager cannot publish vacancy', async () => {
       const res = await app.request(`/api/vacancies/${vacancyId}/publish`, {
         method: 'PATCH',
@@ -603,18 +469,6 @@ maybeDescribe('Phase 1B recruiting routes', () => {
           Authorization: `Bearer ${hiringManagerToken}`,
         },
         body: JSON.stringify({ isPublished: true }),
-      })
-      expect(res.status).toBe(403)
-    })
-
-    test('hiring manager cannot update vacancy role', async () => {
-      const res = await app.request(`/api/vacancies/${vacancyId}/role`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: 'Bearer ' + hiringManagerToken,
-        },
-        body: JSON.stringify({ role: 'logist' }),
       })
       expect(res.status).toBe(403)
     })
@@ -1010,15 +864,6 @@ maybeDescribe('Phase 1B recruiting routes', () => {
       const res = await app.request('/api/integrations/hh/sync', {
         method: 'POST',
         headers: { Authorization: `Bearer ${ownerToken}` },
-      })
-
-      expect(res.status).toBe(400)
-    })
-
-    test('sourcing sync endpoint is unavailable when feature is disabled', async () => {
-      const res = await app.request('/api/integrations/hh/sourcing/sync', {
-        method: 'POST',
-        headers: { Authorization: 'Bearer ' + ownerToken },
       })
 
       expect(res.status).toBe(400)

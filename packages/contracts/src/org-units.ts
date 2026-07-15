@@ -18,13 +18,6 @@ export const createOrgUnitRequestSchema = z.object({
 
 export type CreateOrgUnitRequest = z.infer<typeof createOrgUnitRequestSchema>
 
-export const updateOrgUnitRequestSchema = z.object({
-  name: z.string().min(1).max(200).optional(),
-  parentId: z.string().uuid().nullable().optional(),
-})
-
-export type UpdateOrgUnitRequest = z.infer<typeof updateOrgUnitRequestSchema>
-
 export const listOrgUnitsResponseSchema = z.object({
   items: z.array(orgUnitSchema),
 })

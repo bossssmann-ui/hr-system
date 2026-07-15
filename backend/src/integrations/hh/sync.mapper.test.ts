@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { enqueueHhNegotiationsSyncJob, shouldSyncNegotiation, upsertNegotiationFromHh } from './sync'
+import { shouldSyncNegotiation, upsertNegotiationFromHh } from './sync'
 
 type CandidateRow = {
   id: string
@@ -20,7 +20,6 @@ type ApplicationRow = {
   candidateId: string
   vacancyId: string
   externalIds: Record<string, unknown>
-  assignedToUserId?: string | null
 }
 
 describe('hh sync mapper', () => {
@@ -31,15 +30,14 @@ describe('hh sync mapper', () => {
     const state = {
       candidateSeq: 0,
       applicationSeq: 0,
+      conversationSeq: 0,
       candidates: [] as CandidateRow[],
       applications: [] as ApplicationRow[],
-      auditEvents: [] as Array<Record<string, unknown>>,
+      conversations: [] as Array<Record<string, unknown>>,
       notifications: [] as Array<Record<string, unknown>>,
-      userRoles: [{ tenantId: 'tenant-1', userId: 'admin-1', role: 'hr_admin' }] as Array<{
-        tenantId: string
-        userId: string
-        role: string
-      }>,
+      auditEvents: [] as Array<Record<string, unknown>>,
+      vacancies: [{ id: 'vacancy-1', tenantId: 'tenant-1', title: 'Logistics Manager' }],
+      userRoles: [{ tenantId: 'tenant-1', userId: 'recruiter-1', role: 'recruiter', user: { disabledAt: null } }],
     }
 
     const prisma = createFakePrisma(state)
@@ -51,10 +49,6 @@ describe('hh sync mapper', () => {
       negotiation,
       resume: resumeFixture,
       actorUserId: 'user-1',
-      env: {
-        RECRUITER_NOTIFICATIONS_ENABLED: true,
-        MOBILE_PUSH_ENABLED: false,
-      } as never,
     })
 
     expect(state.candidates).toHaveLength(1)
@@ -62,6 +56,13 @@ describe('hh sync mapper', () => {
     expect(state.candidates[0]?.source).toBe('hh_ru')
     expect(state.candidates[0]?.externalIds.hh_resume_id).toBe('resume-501')
     expect(state.applications[0]?.externalIds.hh_negotiation_id).toBe('neg-1001')
+    expect(state.conversations).toHaveLength(1)
+    expect(state.notifications).toHaveLength(1)
+    expect(state.notifications[0]).toMatchObject({
+      tenantId: 'tenant-1',
+      recipientUserId: 'recruiter-1',
+      template: 'application.new_inbound',
+    })
 
     await upsertNegotiationFromHh(prisma as never, {
       tenantId: 'tenant-1',
@@ -69,16 +70,58 @@ describe('hh sync mapper', () => {
       negotiation,
       resume: resumeFixture,
       actorUserId: 'user-1',
-      env: {
-        RECRUITER_NOTIFICATIONS_ENABLED: true,
-        MOBILE_PUSH_ENABLED: false,
-      } as never,
     })
 
     expect(state.candidates).toHaveLength(1)
     expect(state.applications).toHaveLength(1)
-    expect(state.auditEvents).toHaveLength(2)
+    expect(state.conversations).toHaveLength(1)
     expect(state.notifications).toHaveLength(1)
+    expect(state.auditEvents).toHaveLength(2)
+  })
+
+  test('imports HH resume contacts when phone value is an object', async () => {
+    const resumeFixture = await readFixture<any>('resume-501.json')
+    const negotiationsFixture = await readFixture<any>('negotiations-response-page-0.json')
+
+    const state = {
+      candidateSeq: 0,
+      applicationSeq: 0,
+      conversationSeq: 0,
+      candidates: [] as CandidateRow[],
+      applications: [] as ApplicationRow[],
+      conversations: [] as Array<Record<string, unknown>>,
+      notifications: [] as Array<Record<string, unknown>>,
+      auditEvents: [] as Array<Record<string, unknown>>,
+      vacancies: [{ id: 'vacancy-1', tenantId: 'tenant-1', title: 'Logistics Manager' }],
+      userRoles: [{ tenantId: 'tenant-1', userId: 'recruiter-1', role: 'recruiter', user: { disabledAt: null } }],
+    }
+
+    const prisma = createFakePrisma(state)
+    const resume = {
+      ...resumeFixture,
+      contact: [
+        {
+          type: { id: 'cell' },
+          value: {
+            country: '7',
+            city: '999',
+            number: '0001122',
+            formatted: '+7 (999) 000-11-22',
+          },
+        },
+        { type: { id: 'email' }, value: 'alice@example.com' },
+      ],
+    }
+
+    await upsertNegotiationFromHh(prisma as never, {
+      tenantId: 'tenant-1',
+      vacancyId: 'vacancy-1',
+      negotiation: negotiationsFixture.items[0]!,
+      resume,
+    })
+
+    expect(state.candidates[0]?.phone).toBe('+7 (999) 000-11-22')
+    expect(state.candidates[0]?.email).toBe('alice@example.com')
   })
 
   test('dedups candidates by email/phone when hh id is absent', async () => {
@@ -88,6 +131,7 @@ describe('hh sync mapper', () => {
     const state = {
       candidateSeq: 0,
       applicationSeq: 0,
+      conversationSeq: 0,
       candidates: [
         {
           id: 'cand-existing',
@@ -102,9 +146,11 @@ describe('hh sync mapper', () => {
         },
       ],
       applications: [] as ApplicationRow[],
-      auditEvents: [] as Array<Record<string, unknown>>,
+      conversations: [] as Array<Record<string, unknown>>,
       notifications: [] as Array<Record<string, unknown>>,
-      userRoles: [] as Array<{ tenantId: string; userId: string; role: string }>,
+      auditEvents: [] as Array<Record<string, unknown>>,
+      vacancies: [{ id: 'vacancy-2', tenantId: 'tenant-1', title: 'Forwarder' }],
+      userRoles: [{ tenantId: 'tenant-1', userId: 'recruiter-1', role: 'recruiter', user: { disabledAt: null } }],
     }
 
     const prisma = createFakePrisma(state)
@@ -125,115 +171,60 @@ describe('hh sync mapper', () => {
     expect(state.applications).toHaveLength(1)
   })
 
-  test('sends application.new to assigned recruiter when feature flag enabled', async () => {
+  test('keeps HH resume version history when an existing candidate updates resume facts', async () => {
     const resumeFixture = await readFixture<any>('resume-501.json')
     const negotiationsFixture = await readFixture<any>('negotiations-response-page-0.json')
 
     const state = {
       candidateSeq: 0,
       applicationSeq: 0,
-      candidates: [
-        {
-          id: 'cand-1',
-          tenantId: 'tenant-1',
-          fullName: 'Existing Candidate',
-          source: 'hh_ru' as const,
-          email: 'alice@example.com',
-          phone: '+79990001122',
-          location: 'Moscow',
-          externalIds: { hh_resume_id: 'resume-501' },
-          consentContext: null,
-        },
-      ] as CandidateRow[],
-      applications: [
-        {
-          id: 'app-1',
-          tenantId: 'tenant-1',
-          candidateId: 'cand-1',
-          vacancyId: 'vacancy-1',
-          assignedToUserId: 'user-assigned',
-          externalIds: { hh_negotiation_id: 'neg-legacy' },
-        },
-      ] as ApplicationRow[],
-      auditEvents: [] as Array<Record<string, unknown>>,
+      conversationSeq: 0,
+      candidates: [] as CandidateRow[],
+      applications: [] as ApplicationRow[],
+      conversations: [] as Array<Record<string, unknown>>,
       notifications: [] as Array<Record<string, unknown>>,
-      userRoles: [] as Array<{ tenantId: string; userId: string; role: string }>,
+      auditEvents: [] as Array<Record<string, unknown>>,
+      vacancies: [{ id: 'vacancy-1', tenantId: 'tenant-1', title: 'Logistics Manager' }],
+      userRoles: [{ tenantId: 'tenant-1', userId: 'recruiter-1', role: 'recruiter', user: { disabledAt: null } }],
     }
 
-    await upsertNegotiationFromHh(createFakePrisma(state) as never, {
+    const prisma = createFakePrisma(state)
+    const negotiation = negotiationsFixture.items[0]!
+
+    await upsertNegotiationFromHh(prisma as never, {
       tenantId: 'tenant-1',
       vacancyId: 'vacancy-1',
-      negotiation: negotiationsFixture.items[0]!,
-      resume: resumeFixture,
-      actorUserId: 'user-1',
-      env: {
-        RECRUITER_NOTIFICATIONS_ENABLED: true,
-        MOBILE_PUSH_ENABLED: false,
-      } as never,
+      negotiation,
+      resume: {
+        ...resumeFixture,
+        title: 'Junior logist',
+        total_experience: { months: 24 },
+        skills: ['LTL'],
+      },
     })
 
-    expect(state.notifications).toHaveLength(1)
-    expect(state.notifications[0]).toMatchObject({
-      template: 'application.new',
-      recipientUserId: 'user-assigned',
-      payload: expect.objectContaining({
-        applicationId: 'app-1',
-      }),
-    })
-  })
-
-  test('falls back to hr_admin recipients when assignee is empty', async () => {
-    const resumeFixture = await readFixture<any>('resume-501.json')
-    const negotiationsFixture = await readFixture<any>('negotiations-response-page-0.json')
-
-    const state = {
-      candidateSeq: 0,
-      applicationSeq: 0,
-      candidates: [
-        {
-          id: 'cand-1',
-          tenantId: 'tenant-1',
-          fullName: 'Existing Candidate',
-          source: 'hh_ru' as const,
-          email: 'alice@example.com',
-          phone: '+79990001122',
-          location: 'Moscow',
-          externalIds: { hh_resume_id: 'resume-501' },
-          consentContext: null,
-        },
-      ] as CandidateRow[],
-      applications: [
-        {
-          id: 'app-1',
-          tenantId: 'tenant-1',
-          candidateId: 'cand-1',
-          vacancyId: 'vacancy-1',
-          assignedToUserId: null,
-          externalIds: { hh_negotiation_id: 'neg-legacy' },
-        },
-      ] as ApplicationRow[],
-      auditEvents: [] as Array<Record<string, unknown>>,
-      notifications: [] as Array<Record<string, unknown>>,
-      userRoles: [
-        { tenantId: 'tenant-1', userId: 'admin-1', role: 'hr_admin' },
-        { tenantId: 'tenant-1', userId: 'admin-2', role: 'hr_admin' },
-        { tenantId: 'tenant-1', userId: 'recruiter-1', role: 'recruiter' },
-      ] as Array<{ tenantId: string; userId: string; role: string }>,
-    }
-
-    await upsertNegotiationFromHh(createFakePrisma(state) as never, {
+    await upsertNegotiationFromHh(prisma as never, {
       tenantId: 'tenant-1',
       vacancyId: 'vacancy-1',
-      negotiation: negotiationsFixture.items[0]!,
-      resume: resumeFixture,
-      actorUserId: 'user-1',
-      env: {
-        RECRUITER_NOTIFICATIONS_ENABLED: true,
-        MOBILE_PUSH_ENABLED: false,
-      } as never,
+      negotiation: { ...negotiation, updated_at: '2026-07-06T10:00:00+0300' },
+      resume: {
+        ...resumeFixture,
+        title: 'Senior logist',
+        total_experience: { months: 72 },
+        skills: ['FTL', 'Негабарит'],
+      },
     })
 
-    expect(state.notifications.map((item) => item.recipientUserId).sort()).toEqual(['admin-1', 'admin-2'])
+    const history = state.candidates[0]?.externalIds.hh_resume_history as Array<Record<string, unknown>>
+    expect(history).toHaveLength(2)
+    expect(history[0]?.title).toBe('Junior logist')
+    expect(history[0]?.total_experience_months).toBe(24)
+    expect(history[1]?.title).toBe('Senior logist')
+    expect(history[1]?.total_experience_months).toBe(72)
+    expect(state.candidates[0]?.externalIds.hh_resume_snapshot).toMatchObject({
+      title: 'Senior logist',
+      total_experience_months: 72,
+    })
   })
 
   test('incremental filter accepts only newer negotiations', () => {
@@ -263,39 +254,6 @@ describe('hh sync mapper', () => {
       ),
     ).toBe(false)
   })
-
-  test('rejects and logs when enqueue fails', async () => {
-    const queueInsertError = new Error('queue insert failed')
-    const logged: string[] = []
-    const originalConsoleError = console.error
-
-    try {
-      console.error = (message?: unknown) => {
-        logged.push(String(message))
-      }
-
-      type EnqueueInput = Parameters<typeof enqueueHhNegotiationsSyncJob>[0]
-      await expect(
-        enqueueHhNegotiationsSyncJob({
-          prisma: {
-            $executeRaw: async () => {
-              throw queueInsertError
-            },
-            $queryRaw: async () => [],
-          } as unknown as EnqueueInput['prisma'],
-          env: {} as EnqueueInput['env'],
-          tenantId: 'tenant-1',
-        }),
-      ).rejects.toBe(queueInsertError)
-    } finally {
-      console.error = originalConsoleError
-    }
-
-    expect(logged).toHaveLength(1)
-    expect(logged[0]).toContain('"level":"error"')
-    expect(logged[0]).toContain('"msg":"hh.sync.enqueue_failed"')
-    expect(logged[0]).toContain('"tenantId":"tenant-1"')
-  })
 })
 
 async function readFixture<T>(name: string): Promise<T> {
@@ -306,11 +264,14 @@ async function readFixture<T>(name: string): Promise<T> {
 function createFakePrisma(state: {
   candidateSeq: number
   applicationSeq: number
+  conversationSeq: number
   candidates: CandidateRow[]
   applications: ApplicationRow[]
-  auditEvents: Array<Record<string, unknown>>
+  conversations: Array<Record<string, unknown>>
   notifications: Array<Record<string, unknown>>
-  userRoles: Array<{ tenantId: string; userId: string; role: string }>
+  auditEvents: Array<Record<string, unknown>>
+  vacancies: Array<Record<string, unknown>>
+  userRoles: Array<{ tenantId: string; userId: string; role: string; user: { disabledAt: Date | null } }>
 }) {
   return {
     candidate: {
@@ -362,7 +323,6 @@ function createFakePrisma(state: {
       },
       create: async ({ data }: { data: Omit<ApplicationRow, 'id'> }) => {
         const row: ApplicationRow = {
-          assignedToUserId: null,
           ...data,
           id: `app-${++state.applicationSeq}`,
         }
@@ -382,37 +342,49 @@ function createFakePrisma(state: {
         return data
       },
     },
+    vacancy: {
+      findFirst: async ({ where }: { where: { id: string; tenantId: string } }) => {
+        return state.vacancies.find((vacancy) => vacancy.id === where.id && vacancy.tenantId === where.tenantId) ?? null
+      },
+    },
+    conversation: {
+      findFirst: async ({ where }: { where: { tenantId: string; candidateId: string } }) => {
+        return (
+          state.conversations.find(
+            (conversation) => conversation.tenantId === where.tenantId && conversation.candidateId === where.candidateId,
+          ) ?? null
+        )
+      },
+      create: async ({ data }: { data: Record<string, unknown> }) => {
+        const row = {
+          id: `conv-${++state.conversationSeq}`,
+          ...data,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }
+        state.conversations.push(row)
+        return row
+      },
+    },
     userRole: {
-      findMany: async ({ where }: { where: { tenantId: string; role: { in: string[] } } }) =>
-        state.userRoles
-          .filter((row) => row.tenantId === where.tenantId && where.role.in.includes(row.role))
-          .map((row) => ({ userId: row.userId })),
+      findMany: async ({ where }: { where: { tenantId: string; role: { in: string[] }; user: { disabledAt: null } } }) => {
+        return state.userRoles
+          .filter((row) => row.tenantId === where.tenantId)
+          .filter((row) => where.role.in.includes(row.role))
+          .filter((row) => row.user.disabledAt === where.user.disabledAt)
+          .map((row) => ({ userId: row.userId }))
+      },
     },
     notification: {
-      findMany: async ({ where }: { where: Record<string, unknown> }) =>
-        state.notifications.filter((row) => {
-          if (row.tenantId !== where.tenantId) return false
-          if (row.recipientUserId !== where.recipientUserId) return false
-          if (row.channel !== where.channel) return false
-          if (row.template !== where.template) return false
-          if (where.readAt === null && row.readAt !== null) return false
-          const createdAtGte = (where.createdAt as { gte?: Date } | undefined)?.gte
-          if (createdAtGte && row.createdAt instanceof Date && row.createdAt < createdAtGte) return false
-          return true
-        }).map((row) => ({ payload: row.payload })),
       create: async ({ data }: { data: Record<string, unknown> }) => {
         const row = {
           id: `notification-${state.notifications.length + 1}`,
           ...data,
-          readAt: null,
           createdAt: new Date(),
         }
         state.notifications.push(row)
         return row
       },
-    },
-    deviceToken: {
-      findMany: async () => [],
     },
   }
 }

@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   competencyAssessmentSchema,
+  isScoringResultInternallyInconsistent,
   scoringResultSchema,
   SCORING_SCHEMA_VERSION,
 } from './scoring.schemas'
@@ -61,5 +62,39 @@ describe('scoring schemas v2 (Phase 9)', () => {
   test('competency assessment rejects out-of-range scores', () => {
     expect(() => competencyAssessmentSchema.parse({ score: 11, reasoning: 'x' })).toThrow()
     expect(() => competencyAssessmentSchema.parse({ score: -1, reasoning: 'x' })).toThrow()
+  })
+
+  test('flags internally inconsistent zero score for same-domain evidence', () => {
+    expect(
+      isScoringResultInternallyInconsistent(
+        {
+          relevance_score: 0,
+          strengths: ['26 лет опыта в транспортной логистике'],
+          competencies: {
+            'Организация перевозок': {
+              score: 7,
+              reasoning: 'Опыт руководства логистикой.',
+            },
+          },
+        },
+        {
+          job_profile: {
+            title: 'Логист',
+            grade: 'М1',
+            description: 'Расширение',
+            required_skills: ['Расширение'],
+            salary_range: { min: 80000, max: 300000, currency: 'RUB' },
+          },
+          candidate_resume: {
+            title: 'Менеджер по транспортной логистике',
+            experience: ['Руководитель отдела логистики'],
+            education: [],
+            skills: [],
+            total_experience_months: 318,
+            location: 'Москва',
+          },
+        },
+      ),
+    ).toBe(true)
   })
 })

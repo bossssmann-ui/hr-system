@@ -9,6 +9,7 @@ import type { SpecializationAssignment } from './domestic-specializations'
 const ALL_PACKAGES = [
   'domestic_core_operations',
   'domestic_road_ftl_ltl',
+  'domestic_distribution',
   'domestic_rail_container',
   'domestic_oversized_heavy',
   'domestic_remote_regions',
@@ -16,86 +17,6 @@ const ALL_PACKAGES = [
 ] as const
 
 describe('getDomesticStageContent', () => {
-  it('добавлены новые батареи вопросов для rail/oversized/remote/cabotage', () => {
-    const rail = getDomesticStageContent('domestic_rail_container', 2) as TestStageContent
-    const oversized = getDomesticStageContent('domestic_oversized_heavy', 2) as TestStageContent
-    const remote = getDomesticStageContent('domestic_remote_regions', 2) as TestStageContent
-    const cab = getDomesticStageContent('domestic_cabotage', 2) as TestStageContent
-
-    expect(rail.questions.some((q) => q.key === 'rail_q_etran')).toBe(true)
-    expect(rail.questions.some((q) => q.key === 'rail_q_gu12')).toBe(true)
-    expect(rail.questions.some((q) => q.key === 'rail_q_etsng')).toBe(true)
-    expect(rail.questions.some((q) => q.key === 'rail_q_operators_open')).toBe(true)
-
-    expect(oversized.questions.some((q) => q.key === 'oversized_q_dimensions')).toBe(true)
-    expect(oversized.questions.some((q) => q.key === 'oversized_q_permit_authority')).toBe(true)
-    expect(oversized.questions.some((q) => q.key === 'oversized_q_project_permits_open')).toBe(true)
-
-    expect(remote.questions.some((q) => q.key === 'remote_q_regions_open')).toBe(true)
-    expect(remote.questions.some((q) => q.key === 'remote_q_north_delivery_open')).toBe(true)
-
-    expect(cab.questions.some((q) => q.key === 'cab_q_document')).toBe(true)
-    expect(cab.questions.some((q) => q.key === 'cab_q_svh')).toBe(true)
-    expect(cab.questions.some((q) => q.key === 'cab_q_ports_lines_open')).toBe(true)
-  })
-
-  it('кросс-блок раскладки груза включён в road/rail/oversized', () => {
-    const road = getDomesticStageContent('domestic_road_ftl_ltl', 2) as TestStageContent
-    const rail = getDomesticStageContent('domestic_rail_container', 2) as TestStageContent
-    const oversized = getDomesticStageContent('domestic_oversized_heavy', 2) as TestStageContent
-
-    expect(road.questions.some((q) => q.key === 'q_cargo_layout_experience')).toBe(true)
-    expect(rail.questions.some((q) => q.key === 'q_cargo_layout_experience')).toBe(true)
-    expect(oversized.questions.some((q) => q.key === 'q_cargo_layout_experience')).toBe(true)
-  })
-
-  it('переведённые в open вопросы не содержат options/correct', () => {
-    const rail = getDomesticStageContent('domestic_rail_container', 2) as TestStageContent
-    const oversized = getDomesticStageContent('domestic_oversized_heavy', 2) as TestStageContent
-    const remote = getDomesticStageContent('domestic_remote_regions', 2) as TestStageContent
-    const cab = getDomesticStageContent('domestic_cabotage', 2) as TestStageContent
-    const road = getDomesticStageContent('domestic_road_ftl_ltl', 2) as TestStageContent
-    const core = getDomesticStageContent('domestic_core_operations', 2) as TestStageContent
-
-    const keys = [
-      'road_q2',
-      'road_q3',
-      'rail_q_etran',
-      'rail_q_gu12',
-      'rail_q_etsng',
-      'rail_q1',
-      'rail_q2',
-      'rail_q3',
-      'rail_q_container_types',
-      'rail_q_demurrage_detention_storage',
-      'oversized_q_dimensions',
-      'oversized_q_train_length',
-      'oversized_q_permit_authority',
-      'oversized_q_axle_load',
-      'oversized_q1',
-      'oversized_q2',
-      'oversized_q3',
-      'remote_q1',
-      'remote_q2',
-      'remote_q3',
-      'cab_q1',
-      'cab_q2',
-      'cab_q3',
-      'cab_q_document',
-      'cab_q_svh',
-      'cab_q_free_period',
-      'core_q2',
-    ]
-    const all = [...core.questions, ...road.questions, ...rail.questions, ...oversized.questions, ...remote.questions, ...cab.questions]
-
-    for (const key of keys) {
-      const q = all.find((item) => item.key === key)
-      expect(q?.type).toBe('textarea')
-      expect(q?.options).toBeUndefined()
-      expect(q?.correct).toBeUndefined()
-    }
-  })
-
   it('возвращает null для неизвестного packageId', () => {
     const result = getDomesticStageContent('unknown_package' as any, 2)
     expect(result).toBeNull()
@@ -104,13 +25,6 @@ describe('getDomesticStageContent', () => {
   it('возвращает null для stage=99 любого пакета', () => {
     const result = getDomesticStageContent('domestic_core_operations', 99)
     expect(result).toBeNull()
-  })
-
-  it('domestic_distribution больше не отдаётся из package content', () => {
-    const stage2 = getDomesticStageContent('domestic_distribution', 2)
-    const stage4 = getDomesticStageContent('domestic_distribution', 4)
-    expect(stage2).toBeNull()
-    expect(stage4).toBeNull()
   })
 
   // Stage 2 tests for all packages
@@ -157,8 +71,6 @@ describe('getDomesticStageContent', () => {
         expect(typeof q.weight).toBe('number')
         expect(q.weight!).toBeGreaterThanOrEqual(0)
       }
-      const sumWeights = result.questions.reduce((acc, q) => acc + (q.weight ?? 0), 0)
-      expect(sumWeights).toBe(result.maxScore)
     })
   }
 
@@ -168,15 +80,6 @@ describe('getDomesticStageContent', () => {
     expect(result.type).toBe('questionnaire')
     expect(result.stage).toBe(1)
     expect(result.questions.length).toBeGreaterThan(0)
-    expect(result.questions.some((q) => q.key === 'q_1c_experience')).toBe(true)
-    expect(result.questions.some((q) => q.key === 'q_counterparty_checks')).toBe(true)
-    expect(result.questions.some((q) => q.key === 'q_hardest_shipment')).toBe(true)
-  })
-
-  it('domestic_core_operations: stage=2 passThreshold обновлён под новый maxScore', () => {
-    const result = getDomesticStageContent('domestic_core_operations', 2) as TestStageContent
-    expect(result.maxScore).toBe(21)
-    expect(result.passThreshold).toBe(13)
   })
 
   it('domestic_road_ftl_ltl: stage=1 возвращает null (нет анкеты)', () => {
@@ -236,14 +139,13 @@ describe('buildDomesticStages', () => {
     const coreOnly = buildDomesticStages([{ packageId: 'domestic_core_operations', level: 'primary' }])
     const coreS2 = coreOnly.find((s) => s.stage === 2) as TestStageContent
     expect(s2.questions.length).toBeGreaterThan(coreS2.questions.length)
-    expect(s2.questions.filter((q) => q.key === 'q_breakdown_500km')).toHaveLength(1)
   })
 
   it('нет дублирования вопросов в Stage 2', () => {
     const specializations: SpecializationAssignment[] = [
       { packageId: 'domestic_core_operations', level: 'primary' },
       { packageId: 'domestic_road_ftl_ltl', level: 'primary' },
-      { packageId: 'domestic_rail_container', level: 'primary' },
+      { packageId: 'domestic_distribution', level: 'primary' },
     ]
     const stages = buildDomesticStages(specializations)
     const s2 = stages.find((s) => s.stage === 2) as TestStageContent
@@ -266,7 +168,7 @@ describe('buildDomesticStages', () => {
     const specializations: SpecializationAssignment[] = [
       { packageId: 'domestic_core_operations', level: 'primary' },
       { packageId: 'domestic_rail_container', level: 'primary' },
-      { packageId: 'domestic_cabotage', level: 'primary' },
+      { packageId: 'domestic_distribution', level: 'primary' },
     ]
     const stages = buildDomesticStages(specializations)
     const s4 = stages.find((s) => s.stage === 4) as AssignmentStageContent

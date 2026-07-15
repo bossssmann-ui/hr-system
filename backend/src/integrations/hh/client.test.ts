@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { createHhClient, type HhHttpTransport } from './client'
+import { createHhClient, HhRequestError, type HhHttpTransport } from './client'
 
 describe('hh client', () => {
   test('refreshAccessToken exchanges refresh token via oauth endpoint', async () => {
@@ -144,5 +144,70 @@ describe('hh client', () => {
     expect(page1.items[0]?.id).toBe('neg-1')
     expect(requestedUrls[0]).toContain('page=0')
     expect(requestedUrls[1]).toContain('page=1')
+  })
+
+  test('loads active employer vacancies through the employer-scoped endpoint', async () => {
+    const requestedUrls: string[] = []
+
+    const transport: HhHttpTransport = async (request) => {
+      requestedUrls.push(request.url)
+      if (request.url.endsWith('/me')) {
+        return {
+          status: 200,
+          headers: {},
+          body: { employer: { id: '11044582' } },
+        }
+      }
+
+      return {
+        status: 200,
+        headers: {},
+        body: {
+          items: [
+            {
+              id: 134599233,
+              name: 'Логист',
+              archived: false,
+            },
+          ],
+        },
+      }
+    }
+
+    const client = createHhClient({
+      env: {
+        HH_CLIENT_ID: 'cid',
+        HH_CLIENT_SECRET: 'csecret',
+      },
+      http: transport,
+      now: () => 0,
+      sleep: async () => {},
+    })
+
+    const vacancies = await client.listEmployerVacancies('access', 2)
+
+    expect(vacancies).toEqual([{ id: '134599233', name: 'Логист', archived: false }])
+    expect(requestedUrls[1]).toBe('https://api.hh.ru/employers/11044582/vacancies/active?page=2')
+  })
+
+  test('preserves HH error status for user-facing route handling', async () => {
+    const transport: HhHttpTransport = async () => ({
+      status: 403,
+      headers: {},
+      body: { errors: [{ type: 'forbidden' }] },
+    })
+
+    const client = createHhClient({
+      env: {
+        HH_CLIENT_ID: 'cid',
+        HH_CLIENT_SECRET: 'csecret',
+      },
+      http: transport,
+      now: () => 0,
+      sleep: async () => {},
+    })
+
+    await expect(client.getNegotiationCollections('access', 'vacancy-1')).rejects.toThrow(HhRequestError)
+    await expect(client.getNegotiationCollections('access', 'vacancy-1')).rejects.toMatchObject({ status: 403 })
   })
 })

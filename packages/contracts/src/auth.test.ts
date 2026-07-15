@@ -6,6 +6,9 @@ import {
   loginRequestSchema,
   logoutRequestSchema,
   meResponseSchema,
+  okResponseSchema,
+  passwordResetConfirmSchema,
+  passwordResetRequestSchema,
   refreshRequestSchema,
   refreshResponseSchema,
   registerRequestSchema,
@@ -54,6 +57,10 @@ describe('auth contracts', () => {
       email: 'user@example.com',
       password: 'password123',
     })
+
+    expect(passwordResetRequestSchema.parse({ email: ' USER@Example.COM ' })).toEqual({
+      email: 'user@example.com',
+    })
   })
 
   test('rejects invalid auth request payloads', () => {
@@ -70,6 +77,14 @@ describe('auth contracts', () => {
         email: 'user@example.com',
         password: 'short',
       }),
+    ).toThrow()
+
+    expect(() => passwordResetRequestSchema.parse({ email: 'not-an-email' })).toThrow()
+    expect(() =>
+      passwordResetConfirmSchema.parse({ token: 'short', password: 'password123' }),
+    ).toThrow()
+    expect(() =>
+      passwordResetConfirmSchema.parse({ token: 't'.repeat(32), password: 'short' }),
     ).toThrow()
   })
 
@@ -114,6 +129,7 @@ describe('auth contracts', () => {
       accessToken: 'access-token',
     })
     expect(meResponseSchema.parse({ user: validUser })).toEqual({ user: validUser })
+    expect(okResponseSchema.parse({ ok: true })).toEqual({ ok: true })
   })
 
   test('validates stable API error response shape', () => {

@@ -12,6 +12,10 @@ career.pacificstar.ru {
         reverse_proxy landing:4321
     }
 
+    handle /_astro/* {
+        reverse_proxy landing:4321
+    }
+
     # Everything else → React SPA served by nginx
     handle {
         reverse_proxy web:80

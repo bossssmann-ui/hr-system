@@ -54,14 +54,18 @@ All other transitions are rejected by `canTransition`. `owner` is always allowed
 ```mermaid
 stateDiagram-v2
     [*] --> new
-    new --> screen: recruiter advances
+    new --> screen: recruiter moves
     new --> rejected: recruiter rejects
-    screen --> tech: recruiter advances
+    screen --> new: recruiter moves back
+    screen --> tech: recruiter moves
     screen --> rejected: recruiter rejects
-    tech --> final: recruiter advances
+    tech --> screen: recruiter moves back
+    tech --> final: recruiter moves
     tech --> rejected: recruiter rejects
-    final --> offer: recruiter advances
+    final --> tech: recruiter moves back
+    final --> offer: recruiter moves
     final --> rejected: recruiter rejects
+    offer --> final: recruiter moves back
     offer --> hired: recruiter records acceptance
     offer --> rejected: recruiter records decline
     hired --> [*]
@@ -80,9 +84,16 @@ Stage enum: `new`, `screen`, `tech`, `final`, `offer`, `hired`, `rejected`.
 | `final → offer` | `recruiter`, `hr_admin`, `owner` |
 | `offer → hired` | `recruiter`, `hr_admin`, `owner` |
 | `* → rejected` (any non-terminal stage) | `recruiter`, `hr_admin`, `owner` |
-| Backward transitions (`screen → new`, etc.) | `hr_admin`, `owner` only (correction path) |
+| Backward transitions (`screen → new`, etc.) | `recruiter`, `hr_admin`, `owner` |
 
-`hired` and `rejected` are terminal. Backward transitions exist to correct mistakes and are deliberately restricted to admin roles.
+`hired` and `rejected` are terminal. Backward transitions exist so recruiters can manually correct the Kanban funnel when screening context changes.
+
+### AI scoring automation
+
+- Applications with AI relevance score `60+` are automatically moved from `new` to `screen`.
+- Scores `60-69` are an attention zone: the application is still moved to `screen`, and the Kanban card is visually highlighted in yellow for recruiter review.
+- Automatically screened applications are returned to `new` only when a later re-score drops below `60`; manual recruiter moves are preserved.
+- Re-running AI scoring for the same normalized resume/vacancy input is idempotent: the existing score is kept unless the input hash changes.
 
 ### Side-effects
 

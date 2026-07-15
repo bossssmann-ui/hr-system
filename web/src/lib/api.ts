@@ -60,7 +60,6 @@ import {
   listCandidatesResponseSchema,
   listInterviewsResponseSchema,
   listOrgUnitsResponseSchema,
-  orgUnitSchema,
   listRequisitionsResponseSchema,
   listUsersResponseSchema,
   listVacanciesResponseSchema,
@@ -76,6 +75,9 @@ import {
   loginRequestSchema,
   logoutRequestSchema,
   meResponseSchema,
+  okResponseSchema,
+  passwordResetConfirmSchema,
+  passwordResetRequestSchema,
   refreshRequestSchema,
   refreshResponseSchema,
   registerRequestSchema,
@@ -98,7 +100,9 @@ import {
   inviteAssessmentRequestSchema,
   inviteAssessmentResponseSchema,
   listAssessmentTemplatesResponseSchema,
+  processCandidateQuestionnaireReplyResponseSchema,
   publicAssessmentViewSchema,
+  sendCandidateQuestionnaireResponseSchema,
   trustPreviewRequestSchema,
   trustPreviewResponseSchema,
   type ApplicationDetail,
@@ -121,15 +125,18 @@ import {
   type LogoutRequest,
   type MeResponse,
   type MoveApplicationStageRequest,
+  type PasswordResetConfirmRequest,
+  type PasswordResetRequest,
+  type ProcessCandidateQuestionnaireReplyRequest,
+  type ProcessCandidateQuestionnaireReplyResponse,
   type OrgUnit,
-  type UpdateOrgUnitRequest,
   type PublishVacancyRequest,
-  type UpdateVacancyRoleRequest,
   type RefreshRequest,
   type RefreshResponse,
   type RegisterRequest,
   type Requisition,
   type ScoreFeedbackRequest,
+  type SendCandidateQuestionnaireResponse,
   type TransitionRequisitionRequest,
   type Vacancy,
   type HhAuthorizeUrlResponse,
@@ -251,6 +258,24 @@ export class ApiClient {
     })
   }
 
+  requestPasswordReset(input: PasswordResetRequest): Promise<{ ok: true }> {
+    const payload = passwordResetRequestSchema.parse(input)
+    return this.request('/api/auth/password-reset/request', okResponseSchema, {
+      method: 'POST',
+      body: payload,
+      auth: false,
+    })
+  }
+
+  resetPassword(input: PasswordResetConfirmRequest): Promise<{ ok: true }> {
+    const payload = passwordResetConfirmSchema.parse(input)
+    return this.request('/api/auth/password-reset/confirm', okResponseSchema, {
+      method: 'POST',
+      body: payload,
+      auth: false,
+    })
+  }
+
   refresh(input: RefreshRequest = {}): Promise<RefreshResponse> {
     const payload = refreshRequestSchema.parse(input)
     return this.request('/api/auth/refresh', refreshResponseSchema, {
@@ -274,24 +299,9 @@ export class ApiClient {
   }
 
   createOrgUnit(input: CreateOrgUnitRequest): Promise<OrgUnit> {
-    return this.request('/api/org-units', orgUnitSchema, {
+    return this.request('/api/org-units', z.any(), {
       method: 'POST',
       body: input,
-      auth: true,
-    })
-  }
-
-  updateOrgUnit(id: string, input: UpdateOrgUnitRequest): Promise<OrgUnit> {
-    return this.request(`/api/org-units/${id}`, orgUnitSchema, {
-      method: 'PATCH',
-      body: input,
-      auth: true,
-    })
-  }
-
-  async deleteOrgUnit(id: string): Promise<void> {
-    await this.request(`/api/org-units/${id}`, z.object({ ok: z.boolean() }), {
-      method: 'DELETE',
       auth: true,
     })
   }
@@ -337,14 +347,6 @@ export class ApiClient {
 
   publishVacancy(id: string, input: PublishVacancyRequest): Promise<Vacancy> {
     return this.request(`/api/vacancies/${id}/publish`, vacancySchema, {
-      method: 'PATCH',
-      body: input,
-      auth: true,
-    })
-  }
-
-  updateVacancyRole(id: string, input: UpdateVacancyRoleRequest): Promise<Vacancy> {
-    return this.request(`/api/vacancies/${id}/role`, vacancySchema, {
       method: 'PATCH',
       body: input,
       auth: true,
@@ -432,6 +434,24 @@ export class ApiClient {
     })
   }
 
+  sendCandidateQuestionnaire(id: string): Promise<SendCandidateQuestionnaireResponse> {
+    return this.request(`/api/applications/${id}/send-questionnaire`, sendCandidateQuestionnaireResponseSchema, {
+      method: 'POST',
+      auth: true,
+    })
+  }
+
+  processCandidateQuestionnaireReply(
+    id: string,
+    input: ProcessCandidateQuestionnaireReplyRequest,
+  ): Promise<ProcessCandidateQuestionnaireReplyResponse> {
+    return this.request(`/api/applications/${id}/questionnaire-reply`, processCandidateQuestionnaireReplyResponseSchema, {
+      method: 'POST',
+      body: input,
+      auth: true,
+    })
+  }
+
   // ─── Assessments (Phase 1D) ─────────────────────────────────────────────────
 
   listAssessmentTemplates(): Promise<ListAssessmentTemplatesResponse> {
@@ -509,7 +529,7 @@ export class ApiClient {
   createSelectionSession(input: {
     vacancyId: string
     applicationId?: string
-    role: 'logist' | 'sales_manager' | 'logist_domestic'
+    role: 'logist' | 'sales_manager'
   }): Promise<{ sessionId: string; token: string; assessmentUrl: string }> {
     return this.request(
       '/api/selection/sessions',
@@ -561,7 +581,6 @@ export class ApiClient {
     totalWeightedScore: string | null
     stageScores: unknown
     crossCheckFlags: unknown
-    retentionPrediction: unknown
     lieScaleResult: unknown
     verdictReason: string | null
     hrNotes: string | null
@@ -577,7 +596,6 @@ export class ApiClient {
         totalWeightedScore: z.string().nullable(),
         stageScores: z.unknown(),
         crossCheckFlags: z.unknown(),
-        retentionPrediction: z.unknown(),
         lieScaleResult: z.unknown(),
         verdictReason: z.string().nullable(),
         hrNotes: z.string().nullable(),
@@ -610,11 +628,8 @@ export class ApiClient {
         verdict: string
         totalWeightedScore: string | null
         crossCheckFlags: unknown
-        retentionPrediction: unknown
         createdAt: string
       } | null
-      specializations: unknown
-      assessmentProfile: unknown
     }>
   }> {
     const qs = new URLSearchParams()
@@ -645,12 +660,9 @@ export class ApiClient {
                 verdict: z.string(),
                 totalWeightedScore: z.string().nullable(),
                 crossCheckFlags: z.unknown(),
-                retentionPrediction: z.unknown(),
                 createdAt: z.string(),
               })
               .nullable(),
-            specializations: z.unknown(),
-            assessmentProfile: z.unknown(),
           }),
         ),
       }),

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import type { TenantSettings } from "@web-app-demo/contracts"
 
-import { buildTenantSettingsPatch, tenantSettingsToPipelineForm } from "../src/pages/settings"
+import { buildTenantSettingsPatch, tenantSettingsToPipelineForm } from "../src/pages/settings-pipeline"
 
 const tenantSettingsFixture: TenantSettings = {
   tenantId: "tenant-1",

@@ -1,5 +1,7 @@
--- Phase 15a: specialization module results table
--- NOTE: specializations + assessment_profile columns are added by Phase 15c migration.
+ALTER TABLE selection_sessions
+  ADD COLUMN IF NOT EXISTS assessment_profile JSONB,
+  ADD COLUMN IF NOT EXISTS specializations JSONB;
+
 CREATE TABLE IF NOT EXISTS specialization_module_results (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id     UUID REFERENCES selection_sessions(id),

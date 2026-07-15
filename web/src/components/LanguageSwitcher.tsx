@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { supportedLngs, type SupportedLng } from '@/i18n'
+import { persistLanguagePreference, supportedLngs, type SupportedLng } from '@/i18n'
 
 const LABELS: Record<SupportedLng, string> = {
   ru: 'RU',
@@ -31,6 +31,7 @@ export function LanguageSwitcher() {
             aria-pressed={isActive}
             onClick={() => {
               if (!isActive) {
+                persistLanguagePreference(lng)
                 void i18n.changeLanguage(lng)
               }
             }}

@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   computeCrossCheckFlags,
+  recoverPendingSelectionEvaluations,
   shouldAutoRejectAfterStage1,
 } from './selection.queue'
 
@@ -14,56 +15,54 @@ describe('computeCrossCheckFlags', () => {
   test('flags stop-criterion answers on stage 1 as RED', () => {
     const flags = computeCrossCheckFlags(
       1,
-      { stop_experience: 'fail' },
+      { stop_salary: true, stop_location: 'fail' },
       'logist',
       [],
     )
-    expect(flags).toHaveLength(1)
+    expect(flags).toHaveLength(2)
     expect(flags.every((f) => f.type === 'RED')).toBe(true)
     expect(flags.every((f) => f.id >= 100)).toBe(true)
   })
 
-  test('flags wrong rail-gauge trap answer on stage 1 for logist', () => {
+  test('flags both trap answers on stage 1 for logist', () => {
     const flags = computeCrossCheckFlags(
       1,
-      { trap_answer_1: 'Да, перегруза нет' },
+      { trap_answer_1: true, trap_answer_2: 'regular' },
       'logist',
       [],
     )
-    expect(flags.map((f) => f.id).sort()).toEqual([1])
+    expect(flags.map((f) => f.id).sort()).toEqual([1, 2])
     expect(flags.every((f) => f.type === 'RED')).toBe(true)
-    expect(flags[0]?.description).toContain('разрыв колеи')
+    expect(flags[0]?.description).toContain('несуществующей TMS')
   })
 
   test('uses sales-manager wording for traps when role=sales_manager', () => {
     const flags = computeCrossCheckFlags(
       1,
-      { trap_answer_1: 'Да, FOB универсален для контейнеров' },
+      { trap_answer_1: 'active' },
       'sales_manager',
       [],
     )
     expect(flags).toHaveLength(1)
-    expect(flags[0]?.description).toContain('FOB')
+    expect(flags[0]?.description).toContain('несуществующей CRM')
   })
 
-  test('does not flag logist trap when candidate selected correct gauge answer', () => {
+  test('flags the Russian-labelled trap answer when the candidate selected the trap', () => {
     const flags = computeCrossCheckFlags(
       1,
-      { trap_answer_1: 'Нет: в Китае колея 1435 мм, в России 1520 мм — нужен перегруз/смена тележек' },
+      { trap_answer_1: 'Активно использовал' },
       'logist',
       [],
     )
-    expect(flags).toEqual([])
+    expect(flags).toHaveLength(1)
+    expect(flags[0]).toMatchObject({ id: 1, type: 'RED' })
   })
 
-  test('does not flag sales trap when candidate selected correct Incoterms answer', () => {
+  test('does not flag the trap when the candidate selected "Не работал"', () => {
     const flags = computeCrossCheckFlags(
       1,
-      {
-        trap_answer_1:
-          'Нет: для контейнеров обычно используют FCA/CPT/CIP; FOB/CIF — в основном для неконтейнерных морских грузов',
-      },
-      'sales_manager',
+      { trap_answer_1: 'Не работал' },
+      'logist',
       [],
     )
     expect(flags).toEqual([])
@@ -96,7 +95,7 @@ describe('shouldAutoRejectAfterStage1', () => {
     expect(
       shouldAutoRejectAfterStage1([
         { id: 1, type: 'RED', description: 'trap-1', triggeredAt: 1 },
-        { id: 5, type: 'RED', description: 'trap-2', triggeredAt: 1 },
+        { id: 2, type: 'RED', description: 'trap-2', triggeredAt: 1 },
       ]),
     ).toBe(true)
   })
@@ -116,5 +115,48 @@ describe('shouldAutoRejectAfterStage1', () => {
         { id: 7, type: 'ORANGE', description: 'inconsistency', triggeredAt: 2 },
       ]),
     ).toBe(false)
+  })
+})
+
+describe('recoverPendingSelectionEvaluations', () => {
+  test('re-evaluates stale completed sessions without verdicts', async () => {
+    const evaluated: string[] = []
+    const now = new Date('2026-07-07T00:00:00.000Z')
+    const originalNow = Date.now
+    Date.now = () => now.getTime()
+
+    try {
+      const prisma = {
+        selectionSession: {
+          findMany: async (args: Record<string, unknown>) => {
+            expect(args).toMatchObject({
+              where: {
+                status: 'completed',
+                completedAt: { lte: new Date('2026-07-06T23:55:00.000Z') },
+                verdict: null,
+              },
+              orderBy: { completedAt: 'asc' },
+              take: 2,
+              select: { id: true },
+            })
+            return [{ id: 'session-1' }, { id: 'session-2' }]
+          },
+        },
+      }
+
+      const result = await recoverPendingSelectionEvaluations({
+        prisma: prisma as never,
+        env: {} as never,
+        limit: 2,
+        evaluate: async ({ sessionId }) => {
+          evaluated.push(sessionId)
+        },
+      })
+
+      expect(result).toEqual({ recovered: 2 })
+      expect(evaluated).toEqual(['session-1', 'session-2'])
+    } finally {
+      Date.now = originalNow
+    }
   })
 })

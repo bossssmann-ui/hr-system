@@ -53,20 +53,20 @@ describe('applications FSM', () => {
     }
   })
 
-  test('recruiter can advance the funnel forward but cannot move backwards', () => {
+  test('recruiter can move applications forward and backward across active funnel stages', () => {
     expect(canTransition('new', 'screen', ['recruiter'])).toBe(true)
     expect(canTransition('screen', 'tech', ['recruiter'])).toBe(true)
     expect(canTransition('tech', 'final', ['recruiter'])).toBe(true)
     expect(canTransition('final', 'offer', ['recruiter'])).toBe(true)
     expect(canTransition('offer', 'hired', ['recruiter'])).toBe(true)
 
-    expect(canTransition('screen', 'new', ['recruiter'])).toBe(false)
-    expect(canTransition('tech', 'screen', ['recruiter'])).toBe(false)
-    expect(canTransition('offer', 'final', ['recruiter'])).toBe(false)
+    expect(canTransition('screen', 'new', ['recruiter'])).toBe(true)
+    expect(canTransition('tech', 'screen', ['recruiter'])).toBe(true)
+    expect(canTransition('offer', 'final', ['recruiter'])).toBe(true)
   })
 
-  test('hr_admin and owner can move backwards as a correction path', () => {
-    for (const role of ['hr_admin', 'owner'] as Role[]) {
+  test('recruiter, hr_admin, and owner can move backwards as a correction path', () => {
+    for (const role of ['recruiter', 'hr_admin', 'owner'] as Role[]) {
       expect(canTransition('screen', 'new', [role])).toBe(true)
       expect(canTransition('tech', 'screen', [role])).toBe(true)
       expect(canTransition('final', 'tech', [role])).toBe(true)
@@ -100,11 +100,11 @@ describe('applications FSM', () => {
   test('allowedNextStages returns the union of role permissions', () => {
     expect(allowedNextStages('new', ['recruiter']).sort()).toEqual(['rejected', 'screen'])
     expect(allowedNextStages('new', ['employee'])).toEqual([])
-    // hr_admin from 'tech' can go forward, backward, or reject.
-    const adminFromTech = allowedNextStages('tech', ['hr_admin']).sort()
-    expect(adminFromTech).toContain('final')
-    expect(adminFromTech).toContain('screen')
-    expect(adminFromTech).toContain('new')
-    expect(adminFromTech).toContain('rejected')
+    // Recruiter from 'tech' can go forward, backward, or reject.
+    const recruiterFromTech = allowedNextStages('tech', ['recruiter']).sort()
+    expect(recruiterFromTech).toContain('final')
+    expect(recruiterFromTech).toContain('screen')
+    expect(recruiterFromTech).toContain('new')
+    expect(recruiterFromTech).toContain('rejected')
   })
 })

@@ -36,6 +36,19 @@ export const loginRequestSchema = z.object({
   password: passwordSchema,
 })
 
+export const passwordResetRequestSchema = z.object({
+  email: emailSchema,
+})
+
+export const passwordResetConfirmSchema = z.object({
+  token: z.string().trim().min(32).max(512),
+  password: passwordSchema,
+})
+
+export const okResponseSchema = z.object({
+  ok: z.literal(true),
+})
+
 export const refreshRequestSchema = z
   .object({
     refreshToken: z.string().min(32).optional(),
@@ -69,6 +82,9 @@ export type UserDto = z.infer<typeof userSchema>
 export type RegisterRequest = z.input<typeof registerRequestSchema>
 export type RegisterPayload = z.output<typeof registerRequestSchema>
 export type LoginRequest = z.infer<typeof loginRequestSchema>
+export type PasswordResetRequest = z.infer<typeof passwordResetRequestSchema>
+export type PasswordResetConfirmRequest = z.infer<typeof passwordResetConfirmSchema>
+export type OkResponse = z.infer<typeof okResponseSchema>
 export type RefreshRequest = z.infer<typeof refreshRequestSchema>
 export type LogoutRequest = z.infer<typeof logoutRequestSchema>
 export type AuthResponse = z.infer<typeof authResponseSchema>

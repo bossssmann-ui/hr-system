@@ -1,4 +1,5 @@
 import { callGeminiGenerateContent } from '../../integrations/llm/gemini'
+import type { FetchLike } from '../../integrations/llm/gemini'
 import type { SpecializationAssignment, SpecializationPackageId } from './domestic-specializations'
 
 export interface InterviewQuestion {
@@ -90,7 +91,7 @@ export async function classifyInterviewAnswers(
   specializations: SpecializationAssignment[],
   answers: Record<string, string>,
   apiKey: string,
-  fetchImpl?: typeof fetch
+  fetchImpl?: FetchLike
 ): Promise<InterviewClassification> {
   try {
     const userText = JSON.stringify({ specializations, answers })

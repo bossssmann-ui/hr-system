@@ -50,9 +50,9 @@ const envSchema = z.object({
   HH_TOKEN_ENCRYPTION_KEY: optionalStringSchema,
   AI_SCORING_ENABLED: booleanStringSchema,
   LLM_SCORING_PROVIDER: stringWithDefault('anthropic'),
-  LLM_SCORING_BASE_URL: optionalUrlSchema,
   LLM_SCORING_API_KEY: optionalStringSchema,
   LLM_SCORING_MODEL: stringWithDefault('claude-haiku-4-5-20251001'),
+  LLM_SCORING_BASE_URL: optionalUrlSchema,
   TRANSCRIPTION_ENABLED: booleanStringSchema,
   ASR_PROVIDER: stringWithDefault('yandex_speechkit'),
   ASR_API_KEY: optionalStringSchema,
@@ -131,11 +131,6 @@ const envSchema = z.object({
   // Phase 11 — Mobile push notifications via Expo Push API
   MOBILE_PUSH_ENABLED: booleanStringSchema,
   EXPO_PUSH_API_URL: stringWithDefault('https://exp.host/--/api/v2/push/send'),
-  // Durable Postgres-backed job queue
-  QUEUE_POLL_INTERVAL_MS: z.coerce.number().int().positive().optional(),
-  QUEUE_BATCH_SIZE: z.coerce.number().int().positive().max(500).optional(),
-  QUEUE_MAX_RETRIES: z.coerce.number().int().positive().max(50).optional(),
-  QUEUE_JOB_TIMEOUT_MS: z.coerce.number().int().positive().optional(),
   // Phase 12 — Multi-tenancy, compliance, enterprise admin
   BILLING_ENABLED: booleanStringSchema,
   SUBDOMAIN_ROUTING_ENABLED: booleanStringSchema,
@@ -303,18 +298,6 @@ function validateAiScoringEnv(env: z.infer<typeof envSchema>, ctx: z.RefinementC
       code: 'custom',
       path: ['LLM_SCORING_API_KEY'],
       message: 'LLM_SCORING_API_KEY is required when AI_SCORING_ENABLED=true',
-    })
-  }
-
-  if (
-    (env.LLM_SCORING_PROVIDER === 'openai' || env.LLM_SCORING_PROVIDER === 'openai_compatible') &&
-    !env.LLM_SCORING_BASE_URL
-  ) {
-    ctx.addIssue({
-      code: 'custom',
-      path: ['LLM_SCORING_BASE_URL'],
-      message:
-        'LLM_SCORING_BASE_URL is required when AI_SCORING_ENABLED=true and LLM_SCORING_PROVIDER is openai_compatible',
     })
   }
 }

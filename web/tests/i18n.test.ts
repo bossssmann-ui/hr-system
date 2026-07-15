@@ -1,10 +1,51 @@
 import { expect, test } from 'bun:test'
 
-import { resources, supportedLngs } from '../src/i18n'
+import {
+  defaultLng,
+  initialLng,
+  persistLanguagePreference,
+  resources,
+  supportedLngs,
+} from '../src/i18n'
 
 test('i18n includes RU + EN', () => {
   expect(supportedLngs).toEqual(['ru', 'en'])
   expect(Object.keys(resources)).toEqual(['ru', 'en'])
+  expect(defaultLng).toBe('ru')
+})
+
+test('initial language defaults to detector unless the user explicitly chose one', () => {
+  const storage = new Map<string, string>()
+  Object.defineProperty(globalThis, 'window', {
+    value: {
+      localStorage: {
+        getItem: (key: string) => storage.get(key) ?? null,
+        setItem: (key: string, value: string) => storage.set(key, value),
+        removeItem: (key: string) => storage.delete(key),
+      },
+    },
+    configurable: true,
+  })
+
+  window.localStorage.removeItem('i18nextLng')
+  expect(initialLng()).toBeUndefined()
+
+  window.localStorage.setItem('i18nextLng', 'en')
+  expect(initialLng()).toBeUndefined()
+
+  persistLanguagePreference('en')
+  expect(storage.get('onboardixLanguagePreferenceExplicit')).toBe('true')
+  window.localStorage.setItem('i18nextLng', 'en')
+  expect(initialLng()).toBe('en')
+
+  persistLanguagePreference('ru')
+  expect(initialLng()).toBe('ru')
+
+  window.localStorage.setItem('i18nextLng', 'de')
+  expect(initialLng()).toBe('ru')
+  window.localStorage.removeItem('i18nextLng')
+
+  Reflect.deleteProperty(globalThis, 'window')
 })
 
 test('all RU namespaces exist with matching EN counterparts', () => {

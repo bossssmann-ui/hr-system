@@ -34,7 +34,10 @@ import { Hono } from 'hono'
 import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
 import { AppError } from '../../http/errors'
-import { getRealtimeBus } from '../../services/realtime'
+import {
+  processInboundApplicationCreated,
+  withInboundProcessingPending,
+} from '../applications/inbound-application.service'
 import { enqueueApplicationScoringJob } from '../scoring/scoring.queue'
 
 type RouteBindings = {
@@ -254,22 +257,9 @@ export function createPublicCareersRoutes() {
           vacancyId: vacancy.id,
           stage: 'new',
           notes: body.cover_note ?? null,
+          externalIds: withInboundProcessingPending({}, 'careers_page'),
         },
       })
-
-      try {
-        getRealtimeBus().publishToTenant(tenantId, {
-          type: 'application.created',
-          payload: {
-            applicationId: application.id,
-            candidateId: candidate.id,
-            vacancyId: vacancy.id,
-            source: 'public_apply',
-          },
-        })
-      } catch {
-        // realtime is best-effort
-      }
 
       // ── Audit event ──
       c.set('auditEntry', {
@@ -286,14 +276,25 @@ export function createPublicCareersRoutes() {
 
       // ── AI scoring (async, if enabled) ──
       if (env.AI_SCORING_ENABLED) {
-        void enqueueApplicationScoringJob({
+        await enqueueApplicationScoringJob({
           prisma,
           env,
           applicationId: application.id,
-        }).catch(() => {
-          // Scoring queue enqueue must never fail the apply response.
         })
       }
+
+      void processInboundApplicationCreated({
+        prisma,
+        tenantId,
+        applicationId: application.id,
+        candidateId: candidate.id,
+        vacancyId: vacancy.id,
+        source: 'careers_page',
+        candidateName: candidate.fullName,
+        vacancyTitle: vacancy.title,
+      }).catch((err) => {
+        console.error(JSON.stringify({ level: 'error', msg: 'application.inbound_processing_failed', applicationId: application.id, err: String(err) }))
+      })
 
       // ── Response: no internal IDs leaked ──
       const response: PublicApplyResponse = publicApplyResponseSchema.parse({

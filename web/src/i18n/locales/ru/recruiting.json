@@ -91,15 +91,6 @@
     "publish": "Опубликовать",
     "unpublish": "Снять с публикации",
     "viewApplications": "Открыть отклики",
-    "roleLabel": "Роль отбора",
-    "rolePlaceholder": "Не выбрано (автоопределение по ключевым словам)",
-    "roleSaved": "Роль отбора обновлена",
-    "roleSaveFailed": "Не удалось обновить роль отбора",
-    "roles": {
-      "logist_domestic": "Логист — внутренние перевозки РФ",
-      "logist": "Логист — международная/мультимодальная",
-      "sales_manager": "Менеджер по продажам"
-    },
     "back": "← Назад",
     "notFound": "Вакансия не найдена",
     "loadFailed": "Не удалось загрузить вакансии",
@@ -157,6 +148,11 @@
     },
     "create": "Создать отклик",
     "cannotMove": "Нельзя перевести из «{{from}}» в «{{to}}»",
+    "hhSync": {
+      "button": "Синхронизировать HH.ru",
+      "success": "HH.ru синхронизирован: просмотрено откликов {{scanned}}, обновлено откликов {{applications}}, новых кандидатов {{candidates}}.",
+      "failed": "Не удалось синхронизировать HH.ru"
+    },
     "toasts": {
       "created": "Отклик создан",
       "createFailed": "Не удалось создать отклик",
@@ -214,7 +210,15 @@
       "redFlags": "Красные флаги",
       "antiFraudSignals": "Антифрод-сигналы",
       "interviewFocusAreas": "Темы для интервью",
-      "valuesFitHypothesis": "Гипотеза о соответствии ценностям"
+      "valuesFitHypothesis": "Гипотеза о соответствии ценностям",
+      "recommendations": "Рекомендации",
+      "suggestedGrade": "Рекомендуемый грейд: {{grade}}",
+      "suggestedSalary": "Рекомендуемая зарплата: {{salary}}",
+      "competencies": "Компетенции",
+      "interviewQuestions": "Вопросы для интервью",
+      "modelInfo": "Модель: {{model}} · {{date}}",
+      "historyTitle": "Предыдущие AI-оценки",
+      "historyItem": "{{model}} · {{date}}"
     },
     "feedback": {
       "title": "Обратная связь рекрутера",
@@ -234,6 +238,11 @@
       "empty": "Сгенерированных вопросов пока нет.",
       "success": "Вопросы для интервью сгенерированы",
       "failed": "Не удалось сгенерировать вопросы"
+    },
+    "questionnaire": {
+      "send": "Отправить вопросы кандидату",
+      "sent": "Вопросы отправлены кандидату",
+      "failed": "Не удалось отправить вопросы кандидату"
     },
     "assessments": {
       "title": "Ассессменты",
@@ -342,32 +351,6 @@
       },
       "loadFailed": "Не удалось загрузить пользователей"
     },
-    "orgUnits": {
-      "title": "Подразделения",
-      "loadFailed": "Не удалось загрузить подразделения",
-      "parentNone": "Без родителя",
-      "confirmDelete": "Удалить подразделение «{{name}}»?",
-      "fields": {
-        "name": "Название",
-        "parent": "Родитель"
-      },
-      "create": {
-        "title": "Создать подразделение",
-        "namePlaceholder": "Например, Engineering",
-        "submit": "Создать"
-      },
-      "validation": {
-        "name": "Название обязательно (1–200 символов)"
-      },
-      "toasts": {
-        "created": "Подразделение создано",
-        "createFailed": "Не удалось создать подразделение",
-        "updated": "Подразделение обновлено",
-        "updateFailed": "Не удалось обновить подразделение",
-        "deleted": "Подразделение удалено",
-        "deleteFailed": "Не удалось удалить подразделение"
-      }
-    },
     "audit": {
       "title": "Журнал аудита",
       "entityTypeLabel": "Тип сущности:",
@@ -406,7 +389,7 @@
         "syncFailed": "Синхронизация HH не удалась",
         "mappingUpdated": "Сопоставление вакансии обновлено",
         "mappingFailed": "Не удалось сохранить связь с вакансией",
-        "syncResult": "Импортировано кандидатов: {{candidates}}; обновлено откликов: {{applications}}.",
+        "syncResult": "Просмотрено откликов: {{scanned}}; обновлено откликов: {{applications}}; новых кандидатов: {{candidates}}.",
         "authorizeUnavailable": "URL авторизации HH недоступен",
         "prepareFailed": "Не удалось подготовить OAuth HH",
         "completeFailed": "Не удалось завершить OAuth HH",

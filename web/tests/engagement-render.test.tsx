@@ -37,12 +37,27 @@ mock.module('../src/components/ui/dialog', () => ({
   Dialog: ({ children }: { children?: React.ReactNode }) =>
     React.createElement('div', { 'data-slot': 'dialog' }, children),
   DialogTrigger: ({ children }: { children?: React.ReactNode; asChild?: boolean }) => children,
+  DialogPortal: ({ children }: { children?: React.ReactNode }) => children,
+  DialogOverlay: ({ children }: { children?: React.ReactNode }) =>
+    React.createElement('div', { 'data-slot': 'dialog-overlay' }, children),
   DialogContent: ({ children }: { children?: React.ReactNode }) =>
     React.createElement('div', { 'data-slot': 'dialog-content' }, children),
   DialogHeader: ({ children }: { children?: React.ReactNode }) =>
     React.createElement('div', { 'data-slot': 'dialog-header' }, children),
-  DialogTitle: ({ children }: { children?: React.ReactNode }) =>
-    React.createElement('div', { 'data-slot': 'dialog-title' }, children),
+  DialogFooter: ({ children }: { children?: React.ReactNode }) =>
+    React.createElement('div', { 'data-slot': 'dialog-footer' }, children),
+  DialogTitle: ({ children, className }: { children?: React.ReactNode; className?: string }) =>
+    React.createElement(
+      'div',
+      { 'data-slot': 'dialog-title', className: ['font-heading text-base', className].filter(Boolean).join(' ') },
+      children,
+    ),
+  DialogDescription: ({ children, className }: { children?: React.ReactNode; className?: string }) =>
+    React.createElement(
+      'p',
+      { 'data-slot': 'dialog-description', className: ['text-muted-foreground text-sm', className].filter(Boolean).join(' ') },
+      children,
+    ),
   DialogClose: ({ children }: { children?: React.ReactNode }) => children,
 }))
 

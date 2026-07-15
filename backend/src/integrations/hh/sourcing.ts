@@ -2,7 +2,6 @@ import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
 import { Prisma } from '../../generated/prisma/client'
 import { enqueueApplicationScoringJob } from '../../features/scoring/scoring.queue'
-import { enqueueSelectionBridgeJob } from '../../features/selection/selection-application-bridge'
 import { createInMemoryQueue } from '../../queues'
 import { createHhClient } from './client'
 import { ensureFreshAccessToken } from './sync'
@@ -295,14 +294,6 @@ async function importSourcedResume(input: {
     actorUserId: input.actorUserId,
   })
 
-  void enqueueSelectionBridgeJob({
-    prisma: input.prisma,
-    env: input.env,
-    tenantId: input.tenantId,
-    applicationId: application.id,
-    source: 'hh_sourcing',
-  })
-
   if (input.contactEnabled) {
     const invite = await handleHhRequest(
       () =>
@@ -401,7 +392,7 @@ function extractResumeContacts(resume: HhResume) {
 
   for (const contact of resume.contact ?? []) {
     const type = contact.type?.id?.toLowerCase() ?? ''
-    const value = contact.value?.trim()
+    const value = normalizeContactValue(contact.value)
     if (!value) continue
 
     if (!email && (type === 'email' || value.includes('@'))) {
@@ -416,6 +407,19 @@ function extractResumeContacts(resume: HhResume) {
   }
 
   return { email, phone }
+}
+
+function normalizeContactValue(value: NonNullable<HhResume['contact']>[number]['value']) {
+  if (typeof value === 'string') return value.trim()
+  if (!value || typeof value !== 'object') return null
+
+  const formatted = value.formatted?.trim()
+  if (formatted) return formatted
+
+  const parts = [value.country, value.city, value.number]
+    .map((part) => part?.trim())
+    .filter((part): part is string => Boolean(part))
+  return parts.length > 0 ? parts.join('') : null
 }
 
 function resolveInvitationMessage(criteria: unknown): string {

@@ -263,6 +263,10 @@ import CareersLayout from '../../layouts/CareersLayout.astro';
       });
     }
 
+    function safeDecode(value: string) {
+      try { return decodeURIComponent(value); } catch { return value; }
+    }
+
     function dispatch() {
       const path = window.location.pathname.replace(/\/+$/, '');
       const m = path.match(/^\/careers(?:\/([^/]+)(?:\/([^/]+))?)?$/);
@@ -270,7 +274,8 @@ import CareersLayout from '../../layouts/CareersLayout.astro';
         renderList();
         return;
       }
-      const [, slug, sub] = m;
+      const [, rawSlug, sub] = m;
+      const slug = rawSlug ? safeDecode(rawSlug) : undefined;
       if (slug && sub === 'apply') {
         renderApply(slug);
       } else if (slug) {

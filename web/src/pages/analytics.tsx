@@ -30,10 +30,10 @@ export function AnalyticsPage() {
   const { t } = useTranslation('analytics')
   if (!user) {
     return (
-      <section className="mx-auto grid w-full max-w-6xl gap-3 px-5 py-12">
+      <div style={{ padding: '2rem' }}>
         <h1>{t('title')}</h1>
         <p>{t('signInPrompt')}</p>
-      </section>
+      </div>
     )
   }
   return <AnalyticsContent />
@@ -63,8 +63,8 @@ function AnalyticsContent() {
   })
 
   return (
-    <section className="mx-auto grid w-full max-w-6xl gap-8 px-5 py-12">
-      <header className="flex items-center justify-between gap-3">
+    <div style={{ padding: '2rem' }}>
+      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <h1>{t('title')}</h1>
         <button
           type="button"
@@ -75,14 +75,14 @@ function AnalyticsContent() {
         </button>
       </header>
 
-      <section className="grid gap-3">
+      <section style={{ marginTop: '1.5rem' }}>
         <h2>{t('todayKpis')}</h2>
         {dashboard.isLoading ? (
           <p>{t('loading')}</p>
         ) : dashboard.isError ? (
           <p style={{ color: 'crimson' }}>{t('loadFailed')}</p>
         ) : dashboard.data ? (
-          <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(180px,1fr))]">
+          <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))' }}>
             <Kpi label={t('kpi.headcount')} value={dashboard.data.headcount} />
             <Kpi label={t('kpi.hiresMtd')} value={dashboard.data.hiredMtd} />
             <Kpi label={t('kpi.terminatedMtd')} value={dashboard.data.terminatedMtd} />
@@ -107,7 +107,7 @@ function AnalyticsContent() {
         ) : null}
       </section>
 
-      <section className="grid gap-3">
+      <section style={{ marginTop: '2rem' }}>
         <h2>{t('rosterTitle')}</h2>
         <p>{t('rosterDescription')}</p>
         <label>
@@ -127,7 +127,7 @@ function AnalyticsContent() {
         </a>
       </section>
 
-      <section className="grid gap-3">
+      <section style={{ marginTop: '2rem' }}>
         <h2>{t('snapshots.title')}</h2>
         {snapshots.isLoading ? (
           <p>{t('loading')}</p>
@@ -162,7 +162,7 @@ function AnalyticsContent() {
       <SignalsSection />
 
       <RecruiterFunnelSection />
-    </section>
+    </div>
   )
 }
 
@@ -181,25 +181,38 @@ function SignalsSection() {
       void queryClient.invalidateQueries({ queryKey: ['analytics'] })
     },
   })
+  const recompute = useMutation({
+    mutationFn: () => api.computeAnalyticsSignals(),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['analytics'] })
+    },
+  })
   const sortedSignals = useMemo(
     () => [...(signals.data?.items ?? [])].sort((a, b) => b.score - a.score),
     [signals.data?.items],
   )
 
   return (
-    <section className="grid gap-3">
-      <header className="flex items-center justify-between gap-3">
+    <section style={{ marginTop: '2rem' }}>
+      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <h2>{t('signals.flightRiskTitle')}</h2>
-        <label className="flex items-center gap-2">
-          <span>{t('signals.filterStatus')}</span>
-          <select
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value as 'open' | 'reviewed')}
-          >
-            <option value="open">{t('signals.status.open')}</option>
-            <option value="reviewed">{t('signals.status.reviewed')}</option>
-          </select>
-        </label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <button type="button" onClick={() => recompute.mutate()} disabled={recompute.isPending}>
+            {recompute.isPending ? t('signals.recomputing') : t('signals.recompute')}
+          </button>
+          <label className="flex items-center gap-2">
+            <span>{t('signals.filterStatus')}</span>
+            <select
+              value={statusFilter}
+              onChange={(event) =>
+                setStatusFilter(event.target.value as 'open' | 'reviewed')
+              }
+            >
+              <option value="open">{t('signals.status.open')}</option>
+              <option value="reviewed">{t('signals.status.reviewed')}</option>
+            </select>
+          </label>
+        </div>
       </header>
       {signals.isLoading ? (
         <p>{t('loading')}</p>
@@ -238,13 +251,25 @@ function SignalsSection() {
                 </td>
                 <td>
                   {s.status === 'open' ? (
-                    <button
-                      type="button"
-                      onClick={() => update.mutate(s.id)}
-                      disabled={update.isPending}
-                    >
-                      {t('signals.markReviewed')}
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => update.mutate(s.id)}
+                        disabled={update.isPending}
+                      >
+                        {t('signals.markReviewed')}
+                      </button>{' '}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void api.reviewSignal(s.id, { status: 'dismissed' }).then(() => {
+                            void queryClient.invalidateQueries({ queryKey: ['analytics'] })
+                          })
+                        }}
+                      >
+                        {t('signals.dismiss')}
+                      </button>
+                    </>
                   ) : '—'}
                 </td>
               </tr>
@@ -392,9 +417,9 @@ export function RecruiterFunnelDisplay({ data }: { data: RecruiterFunnelMetrics 
 
 function Kpi({ label, value }: { label: string; value: number | string }) {
   return (
-    <div className="rounded-md border px-4 py-3">
-      <div className="text-sm text-muted-foreground">{label}</div>
-      <div className="text-2xl font-semibold">{value}</div>
+    <div style={{ border: '1px solid #ddd', padding: '0.75rem 1rem', borderRadius: 4 }}>
+      <div style={{ fontSize: '0.85rem', color: '#666' }}>{label}</div>
+      <div style={{ fontSize: '1.5rem', fontWeight: 600 }}>{value}</div>
     </div>
   )
 }
