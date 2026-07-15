@@ -10,8 +10,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 
 import type { RecruiterFunnelMetrics } from '@web-app-demo/contracts'
+import { ApiRequestError } from '@/lib/api'
 import { useAuth } from '@/lib/use-auth'
 
 function todayMonth(): string {
@@ -59,6 +61,22 @@ function AnalyticsContent() {
     mutationFn: () => api.computeHrSnapshot(),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['analytics'] })
+    },
+  })
+
+  const downloadCsv = useMutation({
+    mutationFn: () => api.downloadPayrollCsv({ month }),
+    onSuccess: (csv) => {
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = `payroll-${month}.csv`
+      anchor.click()
+      URL.revokeObjectURL(url)
+    },
+    onError: (error: unknown) => {
+      toast.error(error instanceof ApiRequestError ? error.message : t('loadFailed'))
     },
   })
 
@@ -118,13 +136,13 @@ function AnalyticsContent() {
             onChange={(event) => setMonth(event.target.value)}
           />
         </label>{' '}
-        <a
-          href={api.payrollExportCsvUrl({ month })}
-          target="_blank"
-          rel="noreferrer"
+        <button
+          type="button"
+          onClick={() => downloadCsv.mutate()}
+          disabled={downloadCsv.isPending}
         >
-          {t('downloadCsv')}
-        </a>
+          {downloadCsv.isPending ? t('loading') : t('downloadCsv')}
+        </button>
       </section>
 
       <section style={{ marginTop: '2rem' }}>

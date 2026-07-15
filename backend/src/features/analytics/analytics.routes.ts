@@ -19,6 +19,7 @@ import {
   listHrSnapshotsResponseSchema,
   payrollExportQuerySchema,
   payrollExportResponseSchema,
+  recruiterFunnelMetricsSchema,
 } from '@web-app-demo/contracts'
 import { z } from 'zod'
 
@@ -29,6 +30,7 @@ import { AppError } from '../../http/errors'
 import {
   buildPayrollExport,
   computeHrSnapshot,
+  computeRecruiterFunnel,
   payrollRowsToCsv,
 } from './analytics.service'
 
@@ -182,6 +184,25 @@ export function createAnalyticsRoutes() {
       }
       const result = await computeHrSnapshot({ prisma, tenantId })
       return c.json(hrDashboardSchema.parse(result))
+    },
+  )
+
+  // ── Recruiter funnel metrics (selection + applications) ───────────────────
+  app.get(
+    '/recruiter-funnel',
+    requireRole('hr_admin', 'owner', 'hiring_manager', 'recruiter'),
+    zValidator(
+      'query',
+      z.object({
+        period: z.enum(['today', 'week', 'all']).default('today'),
+      }),
+    ),
+    async (c) => {
+      const prisma = c.get('prisma')
+      const tenantId = c.get('tenantId')
+      const { period } = c.req.valid('query')
+      const result = await computeRecruiterFunnel({ prisma, tenantId, period })
+      return c.json(recruiterFunnelMetricsSchema.parse(result))
     },
   )
 

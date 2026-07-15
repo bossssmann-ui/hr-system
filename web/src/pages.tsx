@@ -76,6 +76,26 @@ export function RootLayout() {
                 {t('navigation:nav.applications')}
               </Link>
             </Typography>
+            <Typography asChild variant="control" tone="muted">
+              <Link to="/learning" className={navLinkClass}>
+                {t('navigation:nav.learning')}
+              </Link>
+            </Typography>
+            <Typography asChild variant="control" tone="muted">
+              <Link to="/reviews" className={navLinkClass}>
+                {t('navigation:nav.reviews')}
+              </Link>
+            </Typography>
+            <Typography asChild variant="control" tone="muted">
+              <Link to="/knowledge" className={navLinkClass}>
+                {t('navigation:nav.knowledge')}
+              </Link>
+            </Typography>
+            <Typography asChild variant="control" tone="muted">
+              <Link to="/careers" className={navLinkClass}>
+                {t('navigation:nav.careers')}
+              </Link>
+            </Typography>
             {showComp && (
               <Typography asChild variant="control" tone="muted">
                 <Link to="/comp" className={navLinkClass}>
@@ -105,6 +125,13 @@ export function RootLayout() {
                 {t('navigation:nav.admin')}
               </Link>
             </Typography>
+            {showComp && (
+              <Typography asChild variant="control" tone="muted">
+                <Link to="/admin/audit-log" className={navLinkClass}>
+                  {t('navigation:nav.audit')}
+                </Link>
+              </Typography>
+            )}
             <Typography asChild variant="control" tone="muted">
               <Link to="/admin/integrations/hh" className={navLinkClass}>
                 {t('navigation:nav.hh')}

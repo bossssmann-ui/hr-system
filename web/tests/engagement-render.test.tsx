@@ -149,6 +149,7 @@ mock.module('../src/lib/use-auth', () => ({
     user: { id: 'u1' },
     api: {
       listSurveys: async () => ({ items: [draftSurvey, openSurvey, closedSurvey] }),
+      listOpenSurveys: async () => ({ items: [openSurvey] }),
       createSurvey: async () => draftSurvey,
       openSurvey: async () => ({ ...draftSurvey, status: 'open' }),
       closeSurvey: async () => ({ ...openSurvey, status: 'closed' }),
@@ -279,7 +280,7 @@ describe('EngagementPage', () => {
           return {
             isLoading: false,
             isError: false,
-            data: { items: [draftSurvey, closedSurvey] },
+            data: { items: [] },
           }
         }
         return { isLoading: false, isError: false, data: null }
