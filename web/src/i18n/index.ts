@@ -100,11 +100,18 @@ export type SupportedLng = (typeof supportedLngs)[number]
 export const defaultLng: SupportedLng = 'ru'
 const explicitLanguagePreferenceKey = 'onboardixLanguagePreferenceExplicit'
 
-export function initialLng(): SupportedLng {
+/**
+ * Language for i18next init.
+ * - SSR: always `defaultLng` (ru)
+ * - Browser without an explicit user choice: `undefined` so LanguageDetector
+ *   can use localStorage / navigator (Playwright E2E stays on en-US)
+ * - Browser after LanguageSwitcher: honour the stored preference
+ */
+export function initialLng(): SupportedLng | undefined {
   if (typeof window === 'undefined') return defaultLng
 
   if (window.localStorage.getItem(explicitLanguagePreferenceKey) !== 'true') {
-    return defaultLng
+    return undefined
   }
 
   const stored = window.localStorage.getItem('i18nextLng')?.slice(0, 2)
@@ -124,7 +131,7 @@ void i18n
   .init({
     resources,
     lng: initialLng(),
-    fallbackLng: defaultLng,
+    fallbackLng: 'en',
     supportedLngs: [...supportedLngs],
     nonExplicitSupportedLngs: true,
     defaultNS,
@@ -154,7 +161,7 @@ void i18n
       escapeValue: false,
     },
     detection: {
-      order: ['localStorage'],
+      order: ['localStorage', 'navigator', 'htmlTag'],
       caches: ['localStorage'],
       lookupLocalStorage: 'i18nextLng',
     },

@@ -14,7 +14,7 @@ test('i18n includes RU + EN', () => {
   expect(defaultLng).toBe('ru')
 })
 
-test('initial language defaults to RU unless the user explicitly chose EN', () => {
+test('initial language defaults to detector unless the user explicitly chose one', () => {
   const storage = new Map<string, string>()
   Object.defineProperty(globalThis, 'window', {
     value: {
@@ -28,15 +28,18 @@ test('initial language defaults to RU unless the user explicitly chose EN', () =
   })
 
   window.localStorage.removeItem('i18nextLng')
-  expect(initialLng()).toBe('ru')
+  expect(initialLng()).toBeUndefined()
 
   window.localStorage.setItem('i18nextLng', 'en')
-  expect(initialLng()).toBe('ru')
+  expect(initialLng()).toBeUndefined()
 
   persistLanguagePreference('en')
   expect(storage.get('onboardixLanguagePreferenceExplicit')).toBe('true')
   window.localStorage.setItem('i18nextLng', 'en')
   expect(initialLng()).toBe('en')
+
+  persistLanguagePreference('ru')
+  expect(initialLng()).toBe('ru')
 
   window.localStorage.setItem('i18nextLng', 'de')
   expect(initialLng()).toBe('ru')
