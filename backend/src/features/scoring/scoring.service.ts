@@ -16,7 +16,6 @@ import {
   recomputeCompositeScoreForApplication,
   recordCompositeScoreRecomputeFailure,
 } from '../applications/composite-score'
-import { runAutoSelectionAfterScoring } from '../selection/auto-selection-after-scoring'
 
 const AUTO_SCREEN_THRESHOLD = 60
 const AUTO_NEW_MAX_SCORE = 59
@@ -175,14 +174,6 @@ export async function scoreApplication(input: ScoreApplicationInput) {
         error,
       })
     }
-
-    await runAutoSelectionAfterScoring({
-      prisma,
-      env,
-      applicationId: snapshot.id,
-      actorUserId,
-      relevanceScore: result.relevance_score,
-    })
 
     return { skipped: false as const, status: 'scored' as const, result, autoStage, autoReturn }
   } catch (error) {

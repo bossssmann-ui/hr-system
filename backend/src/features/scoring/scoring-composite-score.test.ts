@@ -4,15 +4,10 @@ const recomputeCompositeScoreForApplication = mock(async () => {
   throw new Error('recompute failed')
 })
 const recordCompositeScoreRecomputeFailure = mock(async () => undefined)
-const runAutoSelectionAfterScoring = mock(async () => undefined)
 
 mock.module('../applications/composite-score', () => ({
   recomputeCompositeScoreForApplication,
   recordCompositeScoreRecomputeFailure,
-}))
-
-mock.module('../selection/auto-selection-after-scoring', () => ({
-  runAutoSelectionAfterScoring,
 }))
 
 const { scoreApplication } = await import('./scoring.service')
@@ -45,37 +40,63 @@ describe('scoreApplication composite score isolation', () => {
         LLM_SCORING_MODEL: 'claude-haiku-4-5-20251001',
       } as never,
       applicationId: 'app-1',
+      actorUserId: 'user-1',
       provider,
     })
 
     expect(result).toMatchObject({ skipped: false, status: 'scored' })
     expect(recordCompositeScoreRecomputeFailure).toHaveBeenCalledTimes(1)
-    expect(runAutoSelectionAfterScoring).toHaveBeenCalledTimes(1)
   })
 })
 
 function createPrismaMock() {
+  const state = {
+    application: {
+      id: 'app-1',
+      tenantId: 'tenant-1',
+      candidateId: 'cand-1',
+      stage: 'new',
+      aiScoring: null,
+      candidate: { location: 'Moscow', externalIds: {} },
+      vacancy: {
+        title: 'Backend Engineer',
+        description: 'TypeScript',
+        requisition: { grade: 'M3', salaryMin: 100000, salaryMax: 150000, currency: 'RUB' },
+      },
+    },
+  }
+
   return {
     application: {
-      findFirst: async () => ({
-        id: 'app-1',
-        tenantId: 'tenant-1',
-        candidateId: 'cand-1',
-        aiScoring: null,
-        candidate: { location: 'Moscow', externalIds: {} },
-        vacancy: {
-          title: 'Backend Engineer',
-          description: 'TypeScript',
-          requisition: { grade: 'M3', salaryMin: 100000, salaryMax: 150000, currency: 'RUB' },
-        },
-      }),
-      update: async () => undefined,
+      findFirst: async () => state.application,
+      update: async ({ data }: { data: Record<string, unknown> }) => {
+        Object.assign(state.application, data)
+        return state.application
+      },
     },
     resume: {
       findFirst: async () => null,
     },
+    applicationStageEvent: {
+      create: async () => undefined,
+    },
     auditEvent: {
       create: async () => undefined,
     },
+    $transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn({
+      application: {
+        findFirst: async () => ({ stage: state.application.stage }),
+        update: async ({ data }: { data: Record<string, unknown> }) => {
+          Object.assign(state.application, data)
+          return state.application
+        },
+      },
+      applicationStageEvent: {
+        create: async () => undefined,
+      },
+      auditEvent: {
+        create: async () => undefined,
+      },
+    }),
   }
 }
