@@ -135,9 +135,9 @@ test.describe('Phase 1B recruiting smoke', () => {
     await page.getByTestId('new-application-button').click()
 
     await page.getByTestId('app-vacancy-select').selectOption({ label: 'Senior Engineer E2E' })
-    await page.getByTestId('app-candidate-select').selectOption({ label: 'Alice Smoketest' })
-    await page.getByTestId('create-application-submit').click()
-    await expect(page.getByText('Application created')).toBeVisible()
+    await page.getByTestId('applications.create.candidate-checkbox').first().check()
+    await page.getByTestId('applications.create.submit').click()
+    await expect(page.getByText(/Created 1, skipped 0/i)).toBeVisible()
 
     // Verify the card appears in the `new` column.
     await expect(page.getByTestId('kanban-column-new')).toBeVisible()

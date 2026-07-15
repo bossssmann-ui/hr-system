@@ -161,7 +161,11 @@
       "candidate": "Кандидат",
       "candidatePlaceholder": "Выберите кандидата…"
     },
+    "selectAll": "Выбрать всех",
     "create": "Создать отклик",
+    "createMany": "Создать отклики ({{count}})",
+    "noCandidates": "Кандидатов пока нет",
+    "alreadyApplied": "уже есть отклик",
     "cannotMove": "Нельзя перевести из «{{from}}» в «{{to}}»",
     "hhSync": {
       "button": "Синхронизировать HH.ru",
@@ -170,6 +174,7 @@
     },
     "toasts": {
       "created": "Отклик создан",
+      "createdBatch": "Создано {{created}}, пропущено {{skipped}} (уже есть отклик)",
       "createFailed": "Не удалось создать отклик",
       "moveFailed": "Не удалось перевести на этот этап"
     },
