@@ -2,7 +2,7 @@ import { expect, describe, test } from "bun:test"
 import type { FunnelStageEntry, TenantSettings } from "@web-app-demo/contracts"
 
 import { resolveFunnelStages, APPLICATION_STAGES } from "../src/lib/funnel-stages"
-import { buildFunnelStagePatch, stageRowsFromSettings } from "../src/pages/settings"
+import { buildFunnelStagePatch, stageRowsFromSettings } from "../src/pages/settings-pipeline"
 
 // ─── resolveFunnelStages ──────────────────────────────────────────────────────
 

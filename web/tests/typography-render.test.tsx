@@ -100,6 +100,10 @@ mock.module('radix-ui', () => ({
   Slot: {
     Root: SlotRoot,
   },
+  Switch: {
+    Root: Primitive('button'),
+    Thumb: span,
+  },
   Tabs: {
     Content: div,
     List: div,
