@@ -144,7 +144,8 @@ describe('NewApplicationForm multi-select rendering', () => {
 
 /**
  * Mirrors the sequential creation logic used in KanbanBoard.handleCreateApplications.
- * Extracted here as a testable pure function.
+ * The spec explicitly requires sequential execution (not parallel), so this helper
+ * intentionally duplicates that pattern to test it in isolation without React.
  */
 async function runBatch(
   candidateIds: string[],
