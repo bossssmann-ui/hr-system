@@ -151,7 +151,7 @@ export function createEngagementRoutes() {
       const { status, kind } = c.req.valid('query')
 
       const surveys = await listSurveys({ prisma, tenantId, status, kind })
-      return c.json(surveys)
+      return c.json({ items: surveys })
     },
   )
 
@@ -163,7 +163,7 @@ export function createEngagementRoutes() {
       const prisma = c.get('prisma')
       const tenantId = c.get('tenantId')
       const surveys = await listSurveys({ prisma, tenantId, status: 'open' })
-      return c.json(surveys)
+      return c.json({ items: surveys })
     },
   )
 

@@ -1400,7 +1400,7 @@ export class ApiClient {
   }
 
   async deleteCourse(id: string): Promise<void> {
-    await this.request(`/api/learning/courses/${id}`, z.object({ ok: z.boolean() }), {
+    await this.rawRequest(`/api/learning/courses/${id}`, {
       method: 'DELETE',
       auth: true,
     })
@@ -1433,7 +1433,7 @@ export class ApiClient {
   }
 
   async deletePath(id: string): Promise<void> {
-    await this.request(`/api/learning/paths/${id}`, z.object({ ok: z.boolean() }), {
+    await this.rawRequest(`/api/learning/paths/${id}`, {
       method: 'DELETE',
       auth: true,
     })
