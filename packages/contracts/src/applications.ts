@@ -73,6 +73,22 @@ export const previousAiScoringSchema = z.object({
   history: z.array(aiScoringHistoryEntrySchema).optional(),
 })
 
+export const aiClarificationStatusSchema = z.enum(['sent', 'answered', 'rescored'])
+
+export type AiClarificationStatus = z.infer<typeof aiClarificationStatusSchema>
+
+export const aiClarificationSchema = z.object({
+  status: aiClarificationStatusSchema,
+  channel: z.string(),
+  questions: z.array(z.string()),
+  sentAt: z.string().datetime(),
+  answers: z.array(z.string()).optional(),
+  answeredAt: z.string().datetime().nullable().optional(),
+  rounds: z.number().int().nonnegative().optional(),
+})
+
+export type AiClarification = z.infer<typeof aiClarificationSchema>
+
 export const aiScoringSchema = z.object({
   status: aiScoringStatusSchema,
   input_hash: z.string().optional(),
@@ -141,6 +157,7 @@ export const applicationSchema = z.object({
   selectionHrNotes: z.string().nullable().optional(),
   selectionPipelineEnabled: z.boolean().optional(),
   trustFlagged: z.boolean().optional().default(false),
+  aiClarification: aiClarificationSchema.nullable().optional(),
   externalIds: z.record(z.string(), z.unknown()).optional().default({}),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
@@ -208,6 +225,16 @@ export const processCandidateQuestionnaireReplyResponseSchema = z.object({
 })
 
 export type ProcessCandidateQuestionnaireReplyResponse = z.infer<typeof processCandidateQuestionnaireReplyResponseSchema>
+
+export const sendClarificationResponseSchema = z.object({
+  sent: z.boolean(),
+  reason: z.string().optional(),
+  messageId: z.string().optional(),
+  questionCount: z.number().int().nonnegative().optional(),
+  channel: z.string().optional(),
+})
+
+export type SendClarificationResponse = z.infer<typeof sendClarificationResponseSchema>
 
 export const rescoreAllApplicationsRequestSchema = z.object({
   vacancyId: z.string().uuid().optional(),

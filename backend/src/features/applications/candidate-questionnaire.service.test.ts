@@ -73,6 +73,8 @@ const baseEnv: AppEnv = {
   BILLING_ENABLED: false,
   SUBDOMAIN_ROUTING_ENABLED: false,
   TENANT_REGISTRATION_ENABLED: true,
+  CLARIFICATION_LOOP_ENABLED: false,
+  CLARIFICATION_MIN_SCORE: 30,
 }
 
 describe('candidate questionnaire service', () => {
@@ -119,6 +121,9 @@ describe('candidate questionnaire service', () => {
           contradictions: [],
           confidence: 82,
         }
+      },
+      async generateClarificationQuestions() {
+        return { questions: ['Уточните опыт FTL'] }
       },
     }
     const scoringProvider: ScoringProvider = {

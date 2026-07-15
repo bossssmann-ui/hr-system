@@ -259,7 +259,23 @@
       "selectTemplateFirst": "Сначала выберите шаблон"
     },
     "backToKanban": "← Назад к канбану",
-    "notFound": "Отклик не найден или доступ запрещён"
+    "notFound": "Отклик не найден или доступ запрещён",
+    "clarification": {
+      "title": "AI-уточнение",
+      "description": "Автоматический цикл уточнения пробелов в резюме кандидата.",
+      "send": "Запросить уточнения",
+      "sending": "Отправка…",
+      "sent": "Уточнение отправлено",
+      "sendFailed": "Не удалось отправить уточнение",
+      "statusSent": "Ожидаем ответ",
+      "statusAnswered": "Ответ получен",
+      "statusRescored": "Пересчитано",
+      "questions": "Вопросы",
+      "answers": "Ответы",
+      "rounds": "Раунд {{current}} из {{max}}",
+      "kanbanWaiting": "Ждём ответ",
+      "kanbanAnswered": "Ответил"
+    }
   },
   "interviews": {
     "title": "Интервью",

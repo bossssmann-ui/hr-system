@@ -259,7 +259,23 @@
       "selectTemplateFirst": "Select a template first"
     },
     "backToKanban": "← Back to kanban",
-    "notFound": "Application not found or access denied"
+    "notFound": "Application not found or access denied",
+    "clarification": {
+      "title": "AI Clarification",
+      "description": "Automated loop to clarify resume gaps before human review.",
+      "send": "Request clarification",
+      "sending": "Sending…",
+      "sent": "Clarification sent",
+      "sendFailed": "Failed to send clarification",
+      "statusSent": "Awaiting reply",
+      "statusAnswered": "Reply received",
+      "statusRescored": "Rescored",
+      "questions": "Questions",
+      "answers": "Answers",
+      "rounds": "Round {{current}} of {{max}}",
+      "kanbanWaiting": "Awaiting reply",
+      "kanbanAnswered": "Replied"
+    }
   },
   "interviews": {
     "title": "Interviews",

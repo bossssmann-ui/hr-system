@@ -1,10 +1,14 @@
 import type { AppEnv } from '../../env'
 
-export type PipelineFlagKey = 'autoSelection' | 'autoAssessment' | 'compositeScore' | 'recruiterNotifications'
+export type PipelineFlagKey = 'autoSelection' | 'autoAssessment' | 'compositeScore' | 'recruiterNotifications' | 'clarification'
 
 type PipelineFlagEnv = Pick<
   AppEnv,
-  'AUTO_SELECTION_ENABLED' | 'AUTO_ASSESSMENT_ENABLED' | 'COMPOSITE_SCORE_ENABLED' | 'RECRUITER_NOTIFICATIONS_ENABLED'
+  | 'AUTO_SELECTION_ENABLED'
+  | 'AUTO_ASSESSMENT_ENABLED'
+  | 'COMPOSITE_SCORE_ENABLED'
+  | 'RECRUITER_NOTIFICATIONS_ENABLED'
+  | 'CLARIFICATION_LOOP_ENABLED'
 >
 
 /**
@@ -30,6 +34,7 @@ export function resolvePipelineFlag(
     autoAssessment: env.AUTO_ASSESSMENT_ENABLED,
     compositeScore: env.COMPOSITE_SCORE_ENABLED,
     recruiterNotifications: env.RECRUITER_NOTIFICATIONS_ENABLED,
+    clarification: env.CLARIFICATION_LOOP_ENABLED,
   }
   return envMap[flag]
 }

@@ -36,6 +36,14 @@ export const scoringInputSchema = z.object({
   candidate_resume: resumeSnapshotSchema.extend({
     previous_versions: z.array(resumeSnapshotSchema).optional(),
   }),
+  candidate_clarifications: z
+    .array(
+      z.object({
+        question: z.string(),
+        answer: z.string(),
+      }),
+    )
+    .optional(),
 })
 
 export type ScoringInput = z.infer<typeof scoringInputSchema>

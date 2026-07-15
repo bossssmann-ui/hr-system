@@ -94,6 +94,8 @@ const baseEnv: AppEnv = {
   BILLING_ENABLED: false,
   SUBDOMAIN_ROUTING_ENABLED: false,
   TENANT_REGISTRATION_ENABLED: true,
+  CLARIFICATION_LOOP_ENABLED: false,
+  CLARIFICATION_MIN_SCORE: 30,
 }
 
 // ─── Prisma mock builder ──────────────────────────────────────────────────────

@@ -778,6 +778,8 @@ function KanbanBoard() {
                     const vac = vacancies.find((v) => v.id === app.vacancyId)
                     const candidate = candidates.find((item) => item.id === app.candidateId)
                     const scoreBadge = aiScoreBadge(t, (app.aiScoring ?? null) as Record<string, unknown> | null)
+                    const clarif = app.aiClarification ?? null
+                    const clarifStatus = clarif?.status ?? null
                     return (
                       <div key={app.id} draggable onDragStart={() => setDragging({ id: app.id, from: app.stage })} onDragEnd={() => setDragging(null)}
                         className={cn(
@@ -796,6 +798,16 @@ function KanbanBoard() {
                         </div>
                         {vac && <Typography variant="bodySm" tone="muted">{vac.title}</Typography>}
                         <Typography variant="bodySm" className="line-clamp-3">{scoreBadge.summary}</Typography>
+                        {clarifStatus === 'sent' && (
+                          <Badge variant="outline" className="mt-1 text-[11px] text-amber-700 border-amber-300" data-testid={"clarification-badge-" + app.id}>
+                            {t('applications.clarification.kanbanWaiting')}
+                          </Badge>
+                        )}
+                        {clarifStatus === 'answered' && (
+                          <Badge variant="secondary" className="mt-1 text-[11px]" data-testid={"clarification-badge-" + app.id}>
+                            {t('applications.clarification.kanbanAnswered')}
+                          </Badge>
+                        )}
                         <Link to="/applications/$applicationId" params={{ applicationId: app.id }} className="text-xs text-primary underline-offset-4 hover:underline">
                           {t('applications.openDetail')}
                         </Link>
@@ -942,6 +954,22 @@ function ApplicationDetail() {
     },
   })
 
+  const sendClarificationMutation = useMutation({
+    mutationFn: () => api.sendClarification(applicationId),
+    onSuccess: async (result) => {
+      if (result.sent) {
+        toast.success(t('applications.clarification.sent'))
+      } else {
+        toast.error(t('applications.clarification.sendFailed'))
+      }
+      await queryClient.invalidateQueries({ queryKey: ["applications"] })
+      await queryClient.invalidateQueries({ queryKey: ["applications", applicationId, "detail"] })
+    },
+    onError: (error: unknown) => {
+      toast.error(error instanceof ApiRequestError ? error.message : t('applications.clarification.sendFailed'))
+    },
+  })
+
   const inviteAssessmentMutation = useMutation({
     mutationFn: () => {
       if (!selectedTemplateId) throw new Error("template_required")
@@ -989,6 +1017,7 @@ function ApplicationDetail() {
   const scoringModel = typeof result?.model === "string" ? result.model : null
   const scoredAt = typeof result?.scored_at === "string" ? result.scored_at : null
   const scoringHistory = asScoringHistory(scoring?.history ?? previousScoring?.history)
+  const clarification = app.aiClarification ?? null
 
   return (
     <section className="mx-auto grid w-full max-w-6xl gap-6 px-5 py-12">
@@ -1164,6 +1193,57 @@ function ApplicationDetail() {
                 )
               })}
             </ul>
+          )}
+        </CardContent>
+      </Card>
+      <Card data-testid="clarification-card">
+        <CardHeader className="flex flex-row items-center justify-between gap-3">
+          <div className="grid gap-1">
+            <CardTitle>{t('applications.clarification.title')}</CardTitle>
+            <CardDescription>{t('applications.clarification.description')}</CardDescription>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => sendClarificationMutation.mutate()}
+            disabled={sendClarificationMutation.isPending}
+            data-testid="send-clarification-button"
+          >
+            {sendClarificationMutation.isPending ? t('applications.clarification.sending') : t('applications.clarification.send')}
+          </Button>
+        </CardHeader>
+        <CardContent className="grid gap-3">
+          {!clarification ? (
+            <Typography tone="muted" data-testid="clarification-empty">—</Typography>
+          ) : (
+            <div className="grid gap-4" data-testid="clarification-detail">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant={clarification.status === 'answered' || clarification.status === 'rescored' ? 'secondary' : 'outline'} data-testid="clarification-status">
+                  {clarification.status === 'sent' && t('applications.clarification.statusSent')}
+                  {clarification.status === 'answered' && t('applications.clarification.statusAnswered')}
+                  {clarification.status === 'rescored' && t('applications.clarification.statusRescored')}
+                </Badge>
+                <Typography variant="bodySm" tone="muted">
+                  {t('applications.clarification.rounds', { current: clarification.rounds, max: 3 })}
+                </Typography>
+              </div>
+              {clarification.questions.length > 0 && (
+                <div className="grid gap-2">
+                  <Typography variant="bodySm" tone="muted">{t('applications.clarification.questions')}</Typography>
+                  <ul className="grid gap-2">
+                    {clarification.questions.map((q, idx) => (
+                      <li key={idx} className="rounded-md border p-3" data-testid={`clarification-question-${idx}`}>
+                        <Typography variant="bodySm" className="font-medium">{q}</Typography>
+                        {clarification.answers && clarification.answers[idx] !== undefined && (
+                          <Typography variant="bodySm" tone="muted" className="mt-1" data-testid={`clarification-answer-${idx}`}>
+                            {clarification.answers[idx]}
+                          </Typography>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
           )}
         </CardContent>
       </Card>
