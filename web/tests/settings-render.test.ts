@@ -43,6 +43,7 @@ describe("settings pipeline helpers", () => {
     expect(form.flags.autoAssessment).toBeNull()
     expect(form.flags.compositeScore).toBeNull()
     expect(form.flags.recruiterNotifications).toBeNull()
+    expect(form.flags.clarification).toBeNull()
   })
 
   test("flags are loaded from featureFlags when set", () => {
