@@ -12,6 +12,7 @@ const {
   sendAiClarification,
   handleClarificationAnswer,
   maybeTriggerClarificationAfterScoring,
+  buildHhMessagesUrl,
 } = await import('./clarification.service')
 
 // ─── Env ─────────────────────────────────────────────────────────────────────
@@ -382,6 +383,72 @@ describe('sendAiClarification', () => {
     if (!result.ok) expect(result.reason).toBe('auto_round_already_sent')
   })
 
+  test('sends via hh_chat using URL built from hh_negotiation_id when hh_messages_url is absent', async () => {
+    const prisma = createPrismaMock({ externalIds: { hh_negotiation_id: 'neg-42' } })
+
+    let capturedSendInput: { destination: string; body: string; subject?: string } | undefined
+    const mockHhAdapter: MessageChannelAdapter = {
+      channelName: 'hh_chat',
+      async send(sendInput) {
+        capturedSendInput = sendInput
+        return { status: 'sent', externalId: 'hh-ext-1' }
+      },
+    }
+
+    const result = await sendAiClarification({
+      prisma: prisma as never,
+      env: baseEnv,
+      applicationId: 'app-1',
+      actorUserId: 'user-1',
+      manual: true,
+      provider: createMockProvider(),
+      channelAdapter: mockHhAdapter,
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.channel).toBe('hh_chat')
+    expect(capturedSendInput?.destination).toBe(buildHhMessagesUrl('neg-42'))
+
+    const clarification = prisma.state.application.aiClarification as Record<string, unknown>
+    expect(clarification.channel).toBe('hh_chat')
+  })
+
+  test('falls back to email with correct subject when HH has no messages_url or negotiation_id', async () => {
+    // HH candidate: has hh_resume_id but no messages_url and no negotiation_id — email fallback.
+    const prisma = createPrismaMock({
+      candidateExternalIds: { hh_resume_id: 'resume-99' },
+    })
+
+    let capturedSendInput: { destination: string; body: string; subject?: string } | undefined
+    const mockEmailAdapter: MessageChannelAdapter = {
+      channelName: 'email',
+      async send(sendInput) {
+        capturedSendInput = sendInput
+        return { status: 'sent', externalId: 'mail-1' }
+      },
+    }
+
+    const result = await sendAiClarification({
+      prisma: prisma as never,
+      env: baseEnv,
+      applicationId: 'app-1',
+      actorUserId: 'user-1',
+      manual: true,
+      provider: createMockProvider(),
+      channelAdapter: mockEmailAdapter,
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.channel).toBe('email')
+    expect(capturedSendInput?.subject).toBe('Уточняющие вопросы по вакансии «Логист»')
+    expect(capturedSendInput?.destination).toBe('candidate@example.com')
+
+    const clarification = prisma.state.application.aiClarification as Record<string, unknown>
+    expect(clarification.channel).toBe('email')
+  })
+
   test('returns channel_unavailable when email is not configured', async () => {
     const noEmailEnv: AppEnv = { ...baseEnv, EMAIL_ENABLED: false, SMTP_FROM: undefined }
     const prisma = createPrismaMock()
@@ -587,5 +654,14 @@ describe('maybeTriggerClarificationAfterScoring', () => {
     })
     expect(result.triggered).toBe(false)
     if (!result.triggered) expect(result.reason).toBe('no_channel')
+  })
+})
+
+// ─── Tests: buildHhMessagesUrl ────────────────────────────────────────────────
+
+describe('buildHhMessagesUrl', () => {
+  test('returns the standard HH API negotiations messages URL for a given negotiation ID', () => {
+    expect(buildHhMessagesUrl('12345')).toBe('https://api.hh.ru/negotiations/12345/messages')
+    expect(buildHhMessagesUrl('abc-def-789')).toBe('https://api.hh.ru/negotiations/abc-def-789/messages')
   })
 })

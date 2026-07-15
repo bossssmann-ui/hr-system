@@ -17,15 +17,13 @@ import { Prisma } from '../../generated/prisma/client'
 import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
 import { createAssessmentProvider, type AssessmentProvider } from '../../integrations/llm'
+import { EmailChannel } from '../../integrations/messaging/email.channel'
+import type { MessageChannelAdapter } from '../../integrations/messaging'
 import { getChannelAdapter } from '../messaging/messaging.service'
 import { findOrCreateConversation } from '../messaging/messaging.service'
 import { resolvePipelineFlag } from '../tenant/resolve-pipeline-flag'
 import { enqueueApplicationScoringJob } from '../scoring/scoring.queue'
-import {
-  resolvePreferredChannel,
-  resolveDestination,
-  resolveHhAccessToken,
-} from '../selection/auto-selection-after-scoring'
+import { resolveHhAccessToken } from '../selection/auto-selection-after-scoring'
 
 const AUTO_SCREEN_THRESHOLD = 60
 const MAX_CLARIFICATION_ROUNDS = 3
@@ -99,6 +97,100 @@ function parseClarification(value: unknown): {
   }
 }
 
+// ─── Channel cascade helpers ──────────────────────────────────────────────────
+
+function firstStr(...values: unknown[]): string | null {
+  for (const v of values) {
+    if (typeof v === 'string' && v.length > 0) return v
+  }
+  return null
+}
+
+/**
+ * Builds a standard HH API negotiations messages URL from a negotiation ID.
+ * Used as step 2 in the channel cascade when hh_messages_url is absent.
+ * Exported for unit testing.
+ */
+export function buildHhMessagesUrl(negotiationId: string): string {
+  return `https://api.hh.ru/negotiations/${negotiationId}/messages`
+}
+
+/** Finds the best HH destination: stored messages_url first, then built from negotiation_id. */
+function resolveHhDestination(
+  appIds: Record<string, unknown>,
+  candidateIds: Record<string, unknown>,
+): string | null {
+  const existingUrl = firstStr(candidateIds.hh_messages_url, appIds.hh_messages_url)
+  if (existingUrl) return existingUrl
+  const negotiationId = firstStr(appIds.hh_negotiation_id, candidateIds.hh_negotiation_id)
+  if (negotiationId) return buildHhMessagesUrl(negotiationId)
+  return null
+}
+
+type CascadeChannelResult =
+  | { ok: true; channel: 'hh_chat' | 'email'; destination: string; adapter: MessageChannelAdapter }
+  | { ok: false; reason: 'destination_unavailable' | 'channel_unavailable' }
+
+/**
+ * Three-step cascade for resolving the outbound channel:
+ *   1. hh_chat using existing hh_messages_url
+ *   2. hh_chat built from hh_negotiation_id
+ *   3. email fallback using candidate.email
+ *
+ * Returns `destination_unavailable` only when no destination exists at all;
+ * returns `channel_unavailable` when a destination exists but the adapter
+ * cannot be initialised (e.g. SMTP not configured).
+ */
+async function resolveClarificationChannel(params: {
+  appExternalIds: unknown
+  candidateExternalIds: unknown
+  candidateEmail: string | null
+  env: AppEnv
+  prisma: DbClient
+  tenantId: string
+  injectedAdapter?: MessageChannelAdapter
+}): Promise<CascadeChannelResult> {
+  const { appExternalIds, candidateExternalIds, candidateEmail, env, prisma, tenantId, injectedAdapter } = params
+  const appIds = asRecord(appExternalIds)
+  const candidateIds = asRecord(candidateExternalIds)
+
+  // Steps 1 & 2: Try HH chat (existing URL or built from negotiation_id).
+  const hhDestination = resolveHhDestination(appIds, candidateIds)
+  if (hhDestination) {
+    let adapter: MessageChannelAdapter | null = injectedAdapter ?? null
+    if (!adapter) {
+      const token = await resolveHhAccessToken(prisma, env, tenantId)
+      adapter = token ? getChannelAdapter('hh_chat', env, token) : null
+    }
+    if (adapter) {
+      return { ok: true, channel: 'hh_chat', destination: hhDestination, adapter }
+    }
+    // HH destination found but adapter unavailable — fall through to email.
+  }
+
+  // Step 3: Email fallback.
+  if (!candidateEmail) {
+    return { ok: false, reason: 'destination_unavailable' }
+  }
+
+  let emailAdapter: MessageChannelAdapter | null = injectedAdapter ?? getChannelAdapter('email', env)
+  if (!emailAdapter && env.SMTP_HOST && env.SMTP_PORT && env.SMTP_FROM) {
+    // Direct fallback: EMAIL_ENABLED flag may be off but SMTP vars are present.
+    emailAdapter = new EmailChannel({
+      host: env.SMTP_HOST,
+      port: env.SMTP_PORT,
+      from: env.SMTP_FROM,
+      user: env.SMTP_USER,
+      pass: env.SMTP_PASS,
+    })
+  }
+  if (!emailAdapter) {
+    return { ok: false, reason: 'channel_unavailable' }
+  }
+
+  return { ok: true, channel: 'email', destination: candidateEmail, adapter: emailAdapter }
+}
+
 // ─── Send clarification questions ────────────────────────────────────────────
 
 export async function sendAiClarification(input: SendClarificationInput) {
@@ -135,20 +227,20 @@ export async function sendAiClarification(input: SendClarificationInput) {
     return { ok: false as const, reason: 'auto_round_already_sent' as const }
   }
 
-  // Resolve channel + destination.
-  const channel = resolvePreferredChannel(snapshot.externalIds, snapshot.candidate.externalIds)
-  const hhAccessToken = channel === 'hh_chat'
-    ? await resolveHhAccessToken(prisma, env, snapshot.tenantId)
-    : null
-  const adapter = input.channelAdapter ?? getChannelAdapter(channel, env, hhAccessToken ?? undefined)
-  if (!adapter) {
-    return { ok: false as const, reason: 'channel_unavailable' as const }
+  // Resolve channel + destination via three-step cascade.
+  const cascadeResult = await resolveClarificationChannel({
+    appExternalIds: snapshot.externalIds,
+    candidateExternalIds: snapshot.candidate.externalIds,
+    candidateEmail: snapshot.candidate.email,
+    env,
+    prisma,
+    tenantId: snapshot.tenantId,
+    injectedAdapter: input.channelAdapter,
+  })
+  if (!cascadeResult.ok) {
+    return { ok: false as const, reason: cascadeResult.reason }
   }
-
-  const destination = resolveDestination(channel, snapshot.externalIds, snapshot.candidate.externalIds, snapshot.candidate.email)
-  if (!destination) {
-    return { ok: false as const, reason: 'destination_unavailable' as const }
-  }
+  const { channel, destination, adapter } = cascadeResult
 
   // Extract gaps from latest scoring result.
   const aiScoring = asRecord(snapshot.aiScoring)
@@ -206,7 +298,9 @@ export async function sendAiClarification(input: SendClarificationInput) {
     const deliveryResult = await adapter.send({
       destination,
       body,
-      subject: `Уточняющие вопросы: ${snapshot.vacancy.title}`,
+      subject: channel === 'email'
+        ? `Уточняющие вопросы по вакансии «${snapshot.vacancy.title}»`
+        : `Уточняющие вопросы: ${snapshot.vacancy.title}`,
     })
     deliveryStatus = deliveryResult.status === 'sent' ? 'sent' : 'failed'
     externalId = deliveryResult.externalId ?? undefined
@@ -388,14 +482,16 @@ export async function maybeTriggerClarificationAfterScoring(input: MaybeTriggerI
     return { triggered: false as const, reason: 'auto_round_already_sent' as const }
   }
 
-  // Guard: candidate has no reachable channel.
-  const channel = resolvePreferredChannel(application.externalIds, application.candidate.externalIds)
-  const hhToken = channel === 'hh_chat'
-    ? await resolveHhAccessToken(prisma, env, application.tenantId)
-    : null
-  const adapter = getChannelAdapter(channel, env, hhToken ?? undefined)
-  const destination = resolveDestination(channel, application.externalIds, application.candidate.externalIds, application.candidate.email)
-  if (!adapter || !destination) {
+  // Guard: candidate has no reachable channel (cascade check).
+  const cascadeCheck = await resolveClarificationChannel({
+    appExternalIds: application.externalIds,
+    candidateExternalIds: application.candidate.externalIds,
+    candidateEmail: application.candidate.email,
+    env,
+    prisma,
+    tenantId: application.tenantId,
+  })
+  if (!cascadeCheck.ok) {
     return { triggered: false as const, reason: 'no_channel' as const }
   }
 
