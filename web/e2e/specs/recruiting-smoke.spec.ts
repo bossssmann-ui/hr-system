@@ -117,7 +117,7 @@ test.describe('Phase 1B recruiting smoke', () => {
     await page.getByTestId('candidate-fullname').fill('Alice Smoketest')
     await page.getByTestId('candidate-email').fill(candidateEmail)
     await page.getByTestId('create-candidate-submit').click()
-    await expect(page.getByText('Alice Smoketest')).toBeVisible()
+    await expect(page.getByText('Alice Smoketest').first()).toBeVisible()
 
     // Get the candidate ID via API.
     const candidatesRes = await api('GET', '/api/candidates')
