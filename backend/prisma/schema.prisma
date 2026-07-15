@@ -406,6 +406,7 @@ model Application {
   aiScoring            Json?            @map("ai_scoring")
   aiScoreFeedback      Json?            @map("ai_score_feedback")
   aiInterviewQuestions Json?            @map("ai_interview_questions")
+  aiClarification      Json?            @map("ai_clarification")
   aiScore              Decimal?         @map("ai_score")
   aiVerdict            String?          @map("ai_verdict")
   aiAssessedAt         DateTime?        @map("ai_assessed_at")

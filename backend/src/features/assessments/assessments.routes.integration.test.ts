@@ -70,6 +70,8 @@ const env: AppEnv = {
   BILLING_ENABLED: false,
   SUBDOMAIN_ROUTING_ENABLED: false,
   TENANT_REGISTRATION_ENABLED: true,
+  CLARIFICATION_LOOP_ENABLED: false,
+  CLARIFICATION_MIN_SCORE: 30,
 }
 
 async function loginAs(app: ReturnType<typeof createApp>, email: string, password: string) {

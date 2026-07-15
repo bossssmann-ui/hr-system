@@ -97,6 +97,9 @@ const envSchema = z.object({
   RECRUITER_NOTIFICATIONS_ENABLED: booleanStringSchema,
   AUTO_SELECTION_THRESHOLD: z.coerce.number().int().min(0).max(100).default(70),
   AUTO_REJECT_THRESHOLD: z.coerce.number().int().min(0).max(100).default(30),
+  // Phase N — AI clarification loop (opt-in; both env + tenant flag must be enabled)
+  CLARIFICATION_LOOP_ENABLED: booleanStringSchema,
+  CLARIFICATION_MIN_SCORE: z.coerce.number().int().min(0).max(100).default(30),
   // Gemini 2.0 Flash AI evaluator for Phase 14 selection verdicts.
   // Called via fetch on generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent.
   GEMINI_API_KEY: optionalStringSchema,

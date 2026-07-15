@@ -16,6 +16,7 @@ import {
   recomputeCompositeScoreForApplication,
   recordCompositeScoreRecomputeFailure,
 } from '../applications/composite-score'
+import { maybeTriggerClarificationAfterScoring } from '../applications/clarification.service'
 
 const AUTO_SCREEN_THRESHOLD = 60
 const AUTO_NEW_MAX_SCORE = 59
@@ -173,6 +174,21 @@ export async function scoreApplication(input: ScoreApplicationInput) {
         applicationId: snapshot.id,
         error,
       })
+    }
+
+    // Best-effort: trigger clarification cycle if score is in the clarification band
+    // and all guards pass. Errors are swallowed so they never block scoring.
+    try {
+      await maybeTriggerClarificationAfterScoring({
+        prisma,
+        env,
+        applicationId: snapshot.id,
+        relevanceScore: result.relevance_score,
+        actorUserId,
+      })
+    } catch (err) {
+      // non-blocking
+      console.error('[scoring] clarification trigger failed:', err)
     }
 
     return { skipped: false as const, status: 'scored' as const, result, autoStage, autoReturn }
@@ -534,6 +550,7 @@ export function buildScoringInput(
         currency: string
       }
     }
+    aiClarification?: unknown
   },
   parsedResumePayload: unknown,
 ): ScoringInput {
@@ -567,6 +584,8 @@ export function buildScoringInput(
     questionnaire_enrichment: questionnaireEnrichment ?? undefined,
   }
 
+  const candidateClarifications = normalizeClarifications(snapshot.aiClarification)
+
   return {
     job_profile: {
       title: snapshot.vacancy.title,
@@ -580,7 +599,24 @@ export function buildScoringInput(
       },
     },
     candidate_resume: mergedResume,
+    ...(candidateClarifications.length > 0 ? { candidate_clarifications: candidateClarifications } : {}),
   }
+}
+
+function normalizeClarifications(value: unknown): Array<{ question: string; answer: string }> {
+  const record = asRecord(value)
+  if (!record || record.status !== 'answered') return []
+
+  const questions = asStringArray(record.questions)
+  const answers = asStringArray(record.answers)
+  if (questions.length === 0 || answers.length === 0) return []
+
+  const pairs: Array<{ question: string; answer: string }> = []
+  const len = Math.min(questions.length, answers.length)
+  for (let i = 0; i < len; i++) {
+    pairs.push({ question: questions[i]!, answer: answers[i]! })
+  }
+  return pairs
 }
 
 function normalizeQuestionnaireEnrichment(value: unknown) {

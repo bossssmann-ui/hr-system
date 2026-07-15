@@ -301,6 +301,7 @@ export async function generateAiDraft(input: AiDraftInput) {
 
 type IngestMessageInput = {
   prisma: DbClient
+  env?: AppEnv
   tenantId: string
   candidateId: string
   channel: string
@@ -314,9 +315,11 @@ type IngestMessageInput = {
  * Deduplicates by (channel, external_id).
  * Auto-creates/finds the conversation.
  * Emits audit event `message.received`.
+ * If the conversation is linked to an application with a pending clarification,
+ * triggers the clarification answer handler (force re-score).
  */
 export async function ingestInboundMessage(input: IngestMessageInput) {
-  const { prisma, tenantId, candidateId, channel, body, externalId, direction = 'inbound' } = input
+  const { prisma, env, tenantId, candidateId, channel, body, externalId, direction = 'inbound' } = input
 
   // Dedup: check if we already have this external message.
   const existing = await prisma.message.findFirst({
@@ -364,6 +367,23 @@ export async function ingestInboundMessage(input: IngestMessageInput) {
       diff: { channel, direction, externalId } as Prisma.InputJsonValue,
     },
   })
+
+  // If the conversation is linked to an application with a pending clarification
+  // and env is provided, process the answer (best-effort, non-blocking).
+  if (env && conversation.applicationId && direction !== 'outbound') {
+    try {
+      const { handleClarificationAnswer } = await import('../applications/clarification.service')
+      await handleClarificationAnswer({
+        prisma,
+        env,
+        applicationId: conversation.applicationId,
+        answer: body,
+      })
+    } catch (err) {
+      // Non-blocking — do not fail message ingestion.
+      console.error('[messaging] clarification answer handling failed:', err)
+    }
+  }
 
   return { ok: true as const, message, duplicate: false }
 }

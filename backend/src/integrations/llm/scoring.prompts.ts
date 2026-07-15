@@ -22,11 +22,28 @@ export const SCORING_SYSTEM_PROMPT = [
 ].join(' ')
 
 export function buildScoringUserMessage(input: ScoringInput) {
+  const clarificationSection =
+    input.candidate_clarifications && input.candidate_clarifications.length > 0
+      ? [
+          'The candidate provided clarification answers to specific questions about their experience.',
+          'Each answer below is a self-reported fact from the candidate:',
+          '- Specific answers with numbers, system names, or concrete examples increase confidence and raise the score.',
+          '- Vague, evasive, or empty answers should be flagged under "flags" or "red_flags".',
+          '- Treat these as claimed but unverified facts; weigh them with the rest of the evidence.',
+          'Candidate clarifications:',
+          ...input.candidate_clarifications.map(
+            (c, i) => `  Q${i + 1}: ${c.question}\n  A${i + 1}: ${c.answer}`,
+          ),
+          '',
+        ]
+      : []
+
   return [
     'Evaluate the candidate resume against the vacancy profile and respond with JSON.',
     'Write every text value in Russian. Do not write English prose in any JSON value unless it is a proper noun, company name, technology name, or quoted source term.',
     'The numeric relevance_score must be consistent with strengths, gaps, competencies, and the resume/vacancy domain. A score of 0 means there is effectively no job-relevant evidence.',
     'For sparse same-domain resumes, generate interview_questions that test facts hidden by poor resume writing: actual duties, routes/cargo types, volumes, systems, contractors, KPIs, incidents, responsibility level, and examples with dates.',
+    ...clarificationSection,
     'Schema fields required:',
     '{',
     '  "relevance_score": integer 0-100,',

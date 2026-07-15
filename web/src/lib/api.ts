@@ -104,6 +104,7 @@ import {
   processCandidateQuestionnaireReplyResponseSchema,
   publicAssessmentViewSchema,
   sendCandidateQuestionnaireResponseSchema,
+  sendClarificationResponseSchema,
   trustPreviewRequestSchema,
   trustPreviewResponseSchema,
   type ApplicationDetail,
@@ -139,6 +140,7 @@ import {
   type Requisition,
   type ScoreFeedbackRequest,
   type SendCandidateQuestionnaireResponse,
+  type SendClarificationResponse,
   type TransitionRequisitionRequest,
   type Vacancy,
   type HhAuthorizeUrlResponse,
@@ -446,6 +448,13 @@ export class ApiClient {
 
   sendCandidateQuestionnaire(id: string): Promise<SendCandidateQuestionnaireResponse> {
     return this.request(`/api/applications/${id}/send-questionnaire`, sendCandidateQuestionnaireResponseSchema, {
+      method: 'POST',
+      auth: true,
+    })
+  }
+
+  sendClarification(id: string): Promise<SendClarificationResponse> {
+    return this.request(`/api/applications/${id}/send-clarification`, sendClarificationResponseSchema, {
       method: 'POST',
       auth: true,
     })
