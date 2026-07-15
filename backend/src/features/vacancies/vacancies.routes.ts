@@ -117,23 +117,17 @@ export function createVacanciesRoutes() {
       const existing = await prisma.vacancy.findFirst({ where: { id, tenantId } })
       if (!existing) throw new AppError(404, 'NOT_FOUND', 'Vacancy not found')
 
-      const diff: Record<string, unknown> = {}
-      if (body.title !== undefined) diff.title = body.title
-      if (body.description !== undefined) diff.description = body.description
+      const data: { title?: string; description?: string } = {}
+      if (body.title !== undefined) data.title = body.title
+      if (body.description !== undefined) data.description = body.description
 
-      const updated = await prisma.vacancy.update({
-        where: { id },
-        data: {
-          ...(body.title !== undefined ? { title: body.title } : {}),
-          ...(body.description !== undefined ? { description: body.description } : {}),
-        },
-      })
+      const updated = await prisma.vacancy.update({ where: { id }, data })
 
       c.set('auditEntry', {
         action: 'vacancy.update',
         entityType: 'Vacancy',
         entityId: id,
-        diff,
+        diff: data,
       })
 
       return c.json(vacancySchema.parse(toDto(updated)))

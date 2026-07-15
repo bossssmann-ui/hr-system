@@ -479,8 +479,10 @@ function VacancyDetail() {
   function handleEditSubmit(e: React.FormEvent) {
     e.preventDefault()
     const input: { title?: string; description?: string } = {}
-    if (editTitle.trim() !== v.title) input.title = editTitle.trim()
-    if (editDescription.trim() !== v.description) input.description = editDescription.trim()
+    const trimmedTitle = editTitle.trim()
+    const trimmedDescription = editDescription.trim()
+    if (trimmedTitle && trimmedTitle !== v.title) input.title = trimmedTitle
+    if (trimmedDescription && trimmedDescription !== v.description) input.description = trimmedDescription
     if (Object.keys(input).length === 0) { setEditOpen(false); return }
     updateMutation.mutate(input)
   }
