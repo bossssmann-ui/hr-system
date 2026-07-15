@@ -56,6 +56,7 @@ function snapshotToDto(row: {
   terminatedMtd: number
   avgTimeToHireDays: DecimalLike | null
   probationPassRateQtd: DecimalLike | null
+  enpsScore: DecimalLike | null
   createdAt: Date
 }) {
   return hrSnapshotSchema.parse({
@@ -70,6 +71,7 @@ function snapshotToDto(row: {
     terminatedMtd: row.terminatedMtd,
     avgTimeToHireDays: decimalToNumber(row.avgTimeToHireDays),
     probationPassRateQtd: decimalToNumber(row.probationPassRateQtd),
+    enpsScore: decimalToNumber(row.enpsScore),
     createdAt: row.createdAt.toISOString(),
   })
 }
@@ -174,6 +176,7 @@ export function createAnalyticsRoutes() {
             terminatedMtd: latest.terminatedMtd,
             avgTimeToHireDays: decimalToNumber(latest.avgTimeToHireDays),
             probationPassRateQtd: decimalToNumber(latest.probationPassRateQtd),
+            enpsScore: decimalToNumber(latest.enpsScore),
           }),
         )
       }

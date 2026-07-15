@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import { AnthropicScoringProvider } from './anthropic.provider'
+import { OpenAiCompatibleScoringProvider } from './openai-compatible.provider'
 
 describe('AnthropicScoringProvider', () => {
   test('parses valid JSON and adds model metadata', async () => {
@@ -105,5 +106,77 @@ describe('AnthropicScoringProvider', () => {
 
     expect(calls).toBe(2)
     expect(result.relevance_score).toBe(55)
+  })
+})
+
+describe('OpenAiCompatibleScoringProvider', () => {
+  const scoringInput = {
+    job_profile: {
+      title: 'Backend Engineer',
+      grade: 'M3',
+      description: 'Build APIs',
+      required_skills: ['TypeScript'],
+      salary_range: { min: 200000, max: 300000, currency: 'RUB' },
+    },
+    candidate_resume: {
+      title: null,
+      experience: [],
+      education: [],
+      skills: [],
+      total_experience_months: null,
+      location: null,
+    },
+  }
+
+  test('parses OpenAI-compatible response into scoring result', async () => {
+    const provider = new OpenAiCompatibleScoringProvider({
+      apiKey: 'test-key',
+      model: 'deepseek-chat',
+      baseUrl: 'https://api.deepseek.com/v1',
+      fetcher: async () =>
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    relevance_score: 91,
+                    summary: 'Strong technical fit.',
+                    strengths: ['TypeScript'],
+                    gaps: [],
+                    soft_skills_signals: ['Clear communication'],
+                    red_flags: [],
+                    anti_fraud_signals: [],
+                    values_fit_hypothesis: 'Likely aligned.',
+                    interview_focus_areas: ['Domain depth'],
+                  }),
+                },
+              },
+            ],
+          }),
+        ),
+    })
+
+    const result = await provider.score(scoringInput)
+
+    expect(result.relevance_score).toBe(91)
+    expect(result.model).toBe('deepseek-chat')
+    expect(result.schema_version).toBe(2)
+  })
+
+  test('throws on invalid JSON after retry', async () => {
+    const provider = new OpenAiCompatibleScoringProvider({
+      apiKey: 'test-key',
+      model: 'deepseek-chat',
+      baseUrl: 'https://api.deepseek.com/v1',
+      fetcher: async () =>
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: 'not json' } }],
+          }),
+        ),
+    })
+
+    await expect(provider.score(scoringInput)).rejects.toThrow('Malformed JSON response from scoring provider')
   })
 })

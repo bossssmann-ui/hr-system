@@ -2,7 +2,9 @@
 
 Corporate HRIS/ERP platform covering the full employee lifecycle: from job requisition and resume parsing through onboarding, performance, learning, and alumni network. This repository was bootstrapped from the [vibe coding template](https://github.com/bossssmann-ui/vibe) and is being built in 12 phases. The roadmap lives in a private Obsidian vault; each phase is tracked by a GitHub issue.
 
-The current phase is **Phase 0 — foundation**. See `docs/contracts/00-overview.md` for the canonical statement of scope, active surfaces, and decision rules. Future Copilot/Claude agents must read the `docs/contracts/*.md` files at the start of every task.
+The current phase is **Phase 18 — Авто-конвейер (Горизонт 1)**. See `docs/contracts/00-overview.md` for the canonical statement of scope, active surfaces, and decision rules. Future Copilot/Claude agents must read the `docs/contracts/*.md` files at the start of every task.
+
+**Phase 18 (fully implemented)** добавляет сквозной авто-конвейер рекрутинга: HH-импорт → AI-скоринг → авто-selection → авто-assessment → composite score → уведомления рекрутеру. Весь конвейер управляется feature-флагами (`AUTO_SELECTION_ENABLED`, `AUTO_ASSESSMENT_ENABLED`, `COMPOSITE_SCORE_ENABLED`, `RECRUITER_NOTIFICATIONS_ENABLED`) и покрыт сквозным интеграционным тестом. Подробная схема потоков — в `docs/contracts/00-overview.md#phase-18`.
 
 ## Active vs deferred surfaces
 

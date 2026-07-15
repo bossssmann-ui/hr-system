@@ -6,14 +6,27 @@
  * Работа.ру). One round-trip to `/api/integrations/status` powers the
  * whole page.
  */
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
-import type { IntegrationsStatus } from "@web-app-demo/contracts"
+import type {
+  ApplicationStage,
+  FunnelStageEntry,
+  IntegrationsStatus,
+  TenantSettings,
+  UpdateTenantSettingsRequest,
+} from "@web-app-demo/contracts"
+import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
-import { buttonVariants } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
+import { ApiRequestError } from "@/lib/api"
+import { APPLICATION_STAGES, resolveFunnelStages } from "@/lib/funnel-stages"
+import { isAdmin } from "@/lib/roles"
 import { Spinner } from "@/components/ui/spinner"
 import { Typography } from "@/components/ui/typography"
 import { useAuth } from "@/lib/use-auth"
@@ -23,6 +36,137 @@ const JOB_BOARD_LABELS: Record<string, string> = {
   sber_podbor: "СберПодбор",
   avito_jobs: "Avito Jobs",
   rabota_ru: "Работа.ру",
+}
+
+const SCORING_WEIGHT_KEYS = ["resume", "selection", "assessment", "retention"] as const
+
+type ScoringWeightKey = (typeof SCORING_WEIGHT_KEYS)[number]
+
+export const PIPELINE_FLAG_KEYS = ["autoSelection", "autoAssessment", "compositeScore", "recruiterNotifications"] as const
+
+export type PipelineFlagKey = (typeof PIPELINE_FLAG_KEYS)[number]
+
+type PipelineScoringForm = {
+  autoSelection: string
+  autoReject: string
+  weights: Record<ScoringWeightKey, string>
+  flags: Record<PipelineFlagKey, boolean | null>
+}
+
+function parseNumberOrNull(value: string): number | null {
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  const parsed = Number(trimmed)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function parseThresholds(
+  autoSelection: string,
+  autoReject: string,
+): { value: { autoSelection: number; autoReject: number } | null; errorKey: string | null } {
+  const hasAutoSelection = autoSelection.trim().length > 0
+  const hasAutoReject = autoReject.trim().length > 0
+  const parsedAutoSelection = parseNumberOrNull(autoSelection)
+  const parsedAutoReject = parseNumberOrNull(autoReject)
+
+  if (!hasAutoSelection && !hasAutoReject) {
+    return { value: null, errorKey: null }
+  }
+
+  if (!hasAutoSelection || !hasAutoReject) {
+    return { value: null, errorKey: "pipeline.validation.thresholdsBothOrEmpty" }
+  }
+
+  if (parsedAutoSelection === null || parsedAutoReject === null) {
+    return { value: null, errorKey: "pipeline.validation.thresholdsRange" }
+  }
+
+  if (
+    parsedAutoSelection < 0 ||
+    parsedAutoSelection > 100 ||
+    parsedAutoReject < 0 ||
+    parsedAutoReject > 100
+  ) {
+    return { value: null, errorKey: "pipeline.validation.thresholdsRange" }
+  }
+
+  if (parsedAutoReject > parsedAutoSelection) {
+    return { value: null, errorKey: "pipeline.validation.thresholdsOrder" }
+  }
+
+  return {
+    value: {
+      autoSelection: parsedAutoSelection,
+      autoReject: parsedAutoReject,
+    },
+    errorKey: null,
+  }
+}
+
+function parseScoringWeights(weights: Record<ScoringWeightKey, string>): {
+  value: Record<ScoringWeightKey, number> | null
+  errorKey: string | null
+} {
+  const parsedWeights = {} as Record<ScoringWeightKey, number>
+  for (const key of SCORING_WEIGHT_KEYS) {
+    const parsed = parseNumberOrNull(weights[key])
+    if (parsed === null) {
+      return { value: null, errorKey: "pipeline.validation.weightsRequired" }
+    }
+    parsedWeights[key] = parsed
+  }
+  return { value: parsedWeights, errorKey: null }
+}
+
+export function tenantSettingsToPipelineForm(settings: TenantSettings): PipelineScoringForm {
+  const flags = settings.featureFlags ?? {}
+  return {
+    autoSelection: settings.pipelineThresholds?.autoSelection?.toString() ?? "",
+    autoReject: settings.pipelineThresholds?.autoReject?.toString() ?? "",
+    weights: {
+      resume: settings.scoringWeights?.resume?.toString() ?? "",
+      selection: settings.scoringWeights?.selection?.toString() ?? "",
+      assessment: settings.scoringWeights?.assessment?.toString() ?? "",
+      retention: settings.scoringWeights?.retention?.toString() ?? "",
+    },
+    flags: {
+      autoSelection: typeof flags.autoSelection === "boolean" ? flags.autoSelection : null,
+      autoAssessment: typeof flags.autoAssessment === "boolean" ? flags.autoAssessment : null,
+      compositeScore: typeof flags.compositeScore === "boolean" ? flags.compositeScore : null,
+      recruiterNotifications: typeof flags.recruiterNotifications === "boolean" ? flags.recruiterNotifications : null,
+    },
+  }
+}
+
+export function buildTenantSettingsPatch(form: PipelineScoringForm): {
+  patch: Pick<UpdateTenantSettingsRequest, "pipelineThresholds" | "scoringWeights" | "featureFlags"> | null
+  errorKey: string | null
+} {
+  const thresholds = parseThresholds(form.autoSelection, form.autoReject)
+  if (thresholds.errorKey) {
+    return { patch: null, errorKey: thresholds.errorKey }
+  }
+
+  const scoringWeights = parseScoringWeights(form.weights)
+  if (scoringWeights.errorKey) {
+    return { patch: null, errorKey: scoringWeights.errorKey }
+  }
+
+  const featureFlags: Record<string, boolean> = {}
+  for (const key of PIPELINE_FLAG_KEYS) {
+    if (form.flags[key] !== null) {
+      featureFlags[key] = form.flags[key] as boolean
+    }
+  }
+
+  return {
+    patch: {
+      pipelineThresholds: thresholds.value,
+      scoringWeights: scoringWeights.value,
+      featureFlags,
+    },
+    errorKey: null,
+  }
 }
 
 function StatusBadge({ enabled, configured }: { enabled: boolean; configured: boolean }) {
@@ -93,6 +237,9 @@ function SettingsIntegrations() {
         <Typography tone="muted">{t("intro")}</Typography>
       </header>
 
+      {isAdmin(user) && <PipelineScoringSettingsCard />}
+      {isAdmin(user) && <FunnelStageEditorCard />}
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-4">
           <div>
@@ -162,5 +309,381 @@ function SettingsIntegrations() {
         </Card>
       ))}
     </section>
+  )
+}
+
+function PipelineScoringSettingsCard() {
+  const { api } = useAuth()
+  const { t } = useTranslation("settings")
+  const queryClient = useQueryClient()
+  const tenantSettingsQuery = useQuery({
+    queryKey: ["settings", "tenant"],
+    queryFn: () => api.getTenantSettings(),
+  })
+
+  const [form, setForm] = useState<PipelineScoringForm>({
+    autoSelection: "",
+    autoReject: "",
+    weights: {
+      resume: "",
+      selection: "",
+      assessment: "",
+      retention: "",
+    },
+    flags: {
+      autoSelection: null,
+      autoAssessment: null,
+      compositeScore: null,
+      recruiterNotifications: null,
+    },
+  })
+  const [submitErrorKey, setSubmitErrorKey] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!tenantSettingsQuery.data) return
+    setForm(tenantSettingsToPipelineForm(tenantSettingsQuery.data))
+    setSubmitErrorKey(null)
+  }, [tenantSettingsQuery.data])
+
+  const thresholdsValidation = useMemo(
+    () => parseThresholds(form.autoSelection, form.autoReject),
+    [form.autoSelection, form.autoReject],
+  )
+
+  const saveMutation = useMutation({
+    mutationFn: (patch: Pick<UpdateTenantSettingsRequest, "pipelineThresholds" | "scoringWeights" | "featureFlags">) =>
+      api.updateTenantSettings(patch),
+    onSuccess: () => {
+      setSubmitErrorKey(null)
+      toast.success(t("pipeline.saveSuccess"))
+      void queryClient.invalidateQueries({ queryKey: ["settings", "tenant"] })
+    },
+    onError: (error) => {
+      const message = error instanceof ApiRequestError ? error.message : t("pipeline.saveFailed")
+      toast.error(message)
+    },
+  })
+
+  function updateWeightField(key: ScoringWeightKey, value: string) {
+    setForm((prev) => ({
+      ...prev,
+      weights: {
+        ...prev.weights,
+        [key]: value,
+      },
+    }))
+  }
+
+  function updateFlagField(key: PipelineFlagKey, value: boolean) {
+    setForm((prev) => ({
+      ...prev,
+      flags: {
+        ...prev.flags,
+        [key]: value,
+      },
+    }))
+  }
+
+  function handleSubmit() {
+    const payload = buildTenantSettingsPatch(form)
+    if (!payload.patch) {
+      setSubmitErrorKey(payload.errorKey)
+      return
+    }
+    setSubmitErrorKey(null)
+    saveMutation.mutate(payload.patch)
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("pipeline.title")}</CardTitle>
+        <CardDescription>{t("pipeline.description")}</CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-6">
+        {tenantSettingsQuery.isLoading ? (
+          <div className="flex items-center gap-2">
+            <Spinner aria-hidden />
+            <Typography tone="muted">{t("loading")}</Typography>
+          </div>
+        ) : tenantSettingsQuery.isError ? (
+          <Typography tone="destructive">{t("pipeline.loadFailed")}</Typography>
+        ) : !tenantSettingsQuery.data ? (
+          <Typography tone="muted">{t("pipeline.empty")}</Typography>
+        ) : (
+          <>
+            <div className="grid gap-3">
+              <Typography variant="h6">{t("pipeline.thresholds.title")}</Typography>
+              <Typography tone="muted" variant="bodySm">
+                {t("pipeline.thresholds.hint")}
+              </Typography>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="grid gap-1">
+                  <Typography variant="label">{t("pipeline.thresholds.autoSelection")}</Typography>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={form.autoSelection}
+                    onChange={(event) =>
+                      setForm((prev) => ({ ...prev, autoSelection: event.target.value }))
+                    }
+                  />
+                </label>
+                <label className="grid gap-1">
+                  <Typography variant="label">{t("pipeline.thresholds.autoReject")}</Typography>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={form.autoReject}
+                    onChange={(event) =>
+                      setForm((prev) => ({ ...prev, autoReject: event.target.value }))
+                    }
+                  />
+                </label>
+              </div>
+              {thresholdsValidation.errorKey ? (
+                <Typography tone="destructive" variant="bodySm">
+                  {t(thresholdsValidation.errorKey)}
+                </Typography>
+              ) : null}
+            </div>
+
+            <div className="grid gap-3">
+              <Typography variant="h6">{t("pipeline.weights.title")}</Typography>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {SCORING_WEIGHT_KEYS.map((key) => (
+                  <label className="grid gap-1" key={key}>
+                    <Typography variant="label">{t(`pipeline.weights.${key}`)}</Typography>
+                    <Input
+                      type="number"
+                      step="any"
+                      value={form.weights[key]}
+                      onChange={(event) => updateWeightField(key, event.target.value)}
+                    />
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid gap-3">
+              <Typography variant="h6">{t("pipeline.automations.title")}</Typography>
+              <Typography tone="muted" variant="bodySm">
+                {t("pipeline.automations.hint")}
+              </Typography>
+              <div className="grid gap-3">
+                {PIPELINE_FLAG_KEYS.map((key) => (
+                  <div key={key} className="flex items-center justify-between gap-4">
+                    <div className="grid gap-0.5">
+                      <Typography variant="label">{t(`pipeline.automations.${key}`)}</Typography>
+                    </div>
+                    <Switch
+                      checked={form.flags[key] === true}
+                      onCheckedChange={(checked) => updateFlagField(key, checked)}
+                      data-testid={`pipeline-flag-${key}`}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {submitErrorKey ? (
+              <Typography tone="destructive" variant="bodySm">
+                {t(submitErrorKey)}
+              </Typography>
+            ) : null}
+
+            <div>
+              <Button
+                type="button"
+                onClick={handleSubmit}
+                disabled={saveMutation.isPending || Boolean(thresholdsValidation.errorKey)}
+              >
+                {t("pipeline.actions.save")}
+              </Button>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+// ─── Funnel Stage Editor ──────────────────────────────────────────────────────
+
+export type FunnelStageRow = {
+  stage: ApplicationStage
+  label: string
+  order: string
+  hidden: boolean
+}
+
+export function stageRowsFromSettings(settings: TenantSettings): FunnelStageRow[] {
+  const descriptors = resolveFunnelStages(settings.funnelStageConfig ?? null)
+  return descriptors.map((d) => ({
+    stage: d.stage,
+    label: d.label ?? "",
+    order: String(d.order),
+    hidden: d.hidden,
+  }))
+}
+
+export function buildFunnelStagePatch(rows: FunnelStageRow[]): {
+  patch: Pick<UpdateTenantSettingsRequest, "funnelStageConfig"> | null
+  errorKey: string | null
+} {
+  const stages = rows.map((r) => r.stage)
+  if (stages.length !== new Set(stages).size) {
+    return { patch: null, errorKey: "funnelStages.validation.duplicateStages" }
+  }
+
+  const config: FunnelStageEntry[] = rows.map((row, idx) => {
+    const order = Number(row.order)
+    return {
+      stage: row.stage,
+      ...(row.label.trim() ? { label: row.label.trim() } : {}),
+      order: Number.isFinite(order) ? order : idx,
+      ...(row.hidden ? { hidden: true } : {}),
+    }
+  })
+
+  return { patch: { funnelStageConfig: config }, errorKey: null }
+}
+
+function FunnelStageEditorCard() {
+  const { api } = useAuth()
+  const { t } = useTranslation("settings")
+  const queryClient = useQueryClient()
+
+  const tenantSettingsQuery = useQuery({
+    queryKey: ["settings", "tenant"],
+    queryFn: () => api.getTenantSettings(),
+  })
+
+  const [rows, setRows] = useState<FunnelStageRow[]>(() =>
+    APPLICATION_STAGES.map((stage, idx) => ({ stage, label: "", order: String(idx), hidden: false })),
+  )
+  const [submitErrorKey, setSubmitErrorKey] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!tenantSettingsQuery.data) return
+    setRows(stageRowsFromSettings(tenantSettingsQuery.data))
+    setSubmitErrorKey(null)
+  }, [tenantSettingsQuery.data])
+
+  const saveMutation = useMutation({
+    mutationFn: (patch: Pick<UpdateTenantSettingsRequest, "funnelStageConfig">) =>
+      api.updateTenantSettings(patch),
+    onSuccess: () => {
+      setSubmitErrorKey(null)
+      toast.success(t("funnelStages.saveSuccess"))
+      void queryClient.invalidateQueries({ queryKey: ["settings", "tenant"] })
+    },
+    onError: (error) => {
+      const message = error instanceof ApiRequestError ? error.message : t("funnelStages.saveFailed")
+      toast.error(message)
+    },
+  })
+
+  function updateRow(idx: number, field: keyof FunnelStageRow, value: string | boolean) {
+    setRows((prev) => prev.map((r, i) => i === idx ? ({ ...r, [field]: value }) : r))
+  }
+
+  function handleSubmit() {
+    const payload = buildFunnelStagePatch(rows)
+    if (!payload.patch) {
+      setSubmitErrorKey(payload.errorKey)
+      return
+    }
+    setSubmitErrorKey(null)
+    saveMutation.mutate(payload.patch)
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("funnelStages.title")}</CardTitle>
+        <CardDescription>{t("funnelStages.description")}</CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-4">
+        {tenantSettingsQuery.isLoading ? (
+          <div className="flex items-center gap-2">
+            <Spinner aria-hidden />
+            <Typography tone="muted">{t("loading")}</Typography>
+          </div>
+        ) : tenantSettingsQuery.isError ? (
+          <Typography tone="destructive">{t("funnelStages.loadFailed")}</Typography>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left">
+                    <th className="pb-2 pr-4 font-medium">{t("funnelStages.columns.stage")}</th>
+                    <th className="pb-2 pr-4 font-medium">{t("funnelStages.columns.label")}</th>
+                    <th className="pb-2 pr-4 font-medium">{t("funnelStages.columns.order")}</th>
+                    <th className="pb-2 font-medium">{t("funnelStages.columns.hidden")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row, idx) => (
+                    <tr key={row.stage} className="border-b last:border-0">
+                      <td className="py-2 pr-4">
+                        <Typography variant="bodySm" className="font-mono">{row.stage}</Typography>
+                      </td>
+                      <td className="py-2 pr-4">
+                        <Input
+                          className="h-8 text-sm"
+                          value={row.label}
+                          placeholder={t("funnelStages.columns.labelPlaceholder")}
+                          onChange={(e) => updateRow(idx, "label", e.target.value)}
+                          data-testid={`funnel-stage-label-${row.stage}`}
+                        />
+                      </td>
+                      <td className="py-2 pr-4">
+                        <Input
+                          className="h-8 w-20 text-sm"
+                          type="number"
+                          value={row.order}
+                          onChange={(e) => updateRow(idx, "order", e.target.value)}
+                          data-testid={`funnel-stage-order-${row.stage}`}
+                        />
+                      </td>
+                      <td className="py-2">
+                        <input
+                          type="checkbox"
+                          checked={row.hidden}
+                          onChange={(e) => updateRow(idx, "hidden", e.target.checked)}
+                          className={cn("h-4 w-4 rounded border-input")}
+                          data-testid={`funnel-stage-hidden-${row.stage}`}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {submitErrorKey ? (
+              <Typography tone="destructive" variant="bodySm">
+                {t(submitErrorKey)}
+              </Typography>
+            ) : null}
+
+            <div>
+              <Button
+                type="button"
+                onClick={handleSubmit}
+                disabled={saveMutation.isPending}
+                data-testid="funnel-stages-save"
+              >
+                {t("funnelStages.actions.save")}
+              </Button>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
   )
 }

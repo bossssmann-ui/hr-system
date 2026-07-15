@@ -1,0 +1,67 @@
+{
+  "title": "Engagement",
+  "loading": "Loading…",
+  "loadFailed": "Failed to load data",
+  "empty": "No surveys found",
+  "signInPrompt": "Sign in to view engagement surveys",
+  "tabs": {
+    "surveys": "Surveys",
+    "results": "Results",
+    "respond": "Respond"
+  },
+  "actions": {
+    "create": "Create survey",
+    "open": "Open",
+    "close": "Close",
+    "submit": "Submit",
+    "save": "Save",
+    "cancel": "Cancel",
+    "selectSurvey": "Select a survey to see results"
+  },
+  "surveys": {
+    "title": "Surveys",
+    "empty": "No surveys found",
+    "status": {
+      "draft": "Draft",
+      "open": "Open",
+      "closed": "Closed"
+    },
+    "kind": {
+      "enps": "eNPS",
+      "pulse": "Pulse"
+    },
+    "closesAt": "Closes",
+    "createdAt": "Created",
+    "responded": "Responses: {{responded}} / {{total}}"
+  },
+  "create": {
+    "title": "Create survey",
+    "titleLabel": "Title",
+    "kindLabel": "Kind",
+    "questionLabel": "Question",
+    "closesAtLabel": "Closes at (optional)"
+  },
+  "results": {
+    "title": "eNPS Results",
+    "noSurveySelected": "Select a survey to see results",
+    "score": "eNPS Score",
+    "scoreRange": "Range: −100 to +100",
+    "promoters": "Promoters (9–10)",
+    "passives": "Passives (7–8)",
+    "detractors": "Detractors (0–6)",
+    "responses": "Responses: {{responded}} / {{total}}",
+    "distribution": "Score distribution",
+    "comments": "Comments",
+    "noComments": "No comments submitted",
+    "groups": "Groups"
+  },
+  "respond": {
+    "title": "Submit your response",
+    "noOpenSurvey": "No open survey available",
+    "question": "On a scale of 0–10, how likely are you to recommend this company as a place to work?",
+    "scoreLabel": "Your score",
+    "commentLabel": "Comment (optional)",
+    "alreadyAnswered": "You have already submitted a response to this survey",
+    "success": "Response submitted"
+  }
+}

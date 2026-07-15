@@ -4,6 +4,7 @@ import type {
   CreateApplicationRequest,
   MoveApplicationStageRequest,
   ProcessCandidateQuestionnaireReplyRequest,
+  RescoreAllApplicationsRequest,
   ScoreFeedbackRequest,
   Vacancy,
 } from '@web-app-demo/contracts'
@@ -19,6 +20,8 @@ import {
   moveApplicationStageRequestSchema,
   processCandidateQuestionnaireReplyRequestSchema,
   processCandidateQuestionnaireReplyResponseSchema,
+  rescoreAllApplicationsRequestSchema,
+  rescoreAllApplicationsResponseSchema,
   scoreFeedbackRequestSchema,
   sendCandidateQuestionnaireResponseSchema,
 } from '@web-app-demo/contracts'
@@ -128,6 +131,66 @@ export function createApplicationsRoutes() {
       })
 
       return c.json(listApplicationsResponseSchema.parse({ items: rows.map((row) => toDto(row, env)) }))
+    },
+  )
+
+  // ─── Mass re-score (must be registered before /:id routes) ─────────────────
+
+  app.post(
+    '/rescore-all',
+    requireRole('owner', 'hr_admin'),
+    zValidator('json', rescoreAllApplicationsRequestSchema),
+    async (c) => {
+      const prisma = c.get('prisma')
+      const env = c.get('env')
+      const tenantId = c.get('tenantId')
+      const userId = c.get('userId')
+      const body: RescoreAllApplicationsRequest = c.req.valid('json')
+
+      const rows = await prisma.application.findMany({
+        where: {
+          tenantId,
+          AND: [
+            ...(body.vacancyId ? [{ vacancyId: body.vacancyId }] : []),
+            ...(body.stage ? [{ stage: body.stage }] : []),
+            { stage: { notIn: ['hired', 'rejected'] } },
+          ],
+        },
+        select: { id: true },
+        orderBy: { createdAt: 'desc' },
+        take: 500,
+      })
+
+      let queued = 0
+      let skipped = 0
+      for (const row of rows) {
+        try {
+          const queueResult = await enqueueApplicationScoringJob({
+            prisma,
+            env,
+            applicationId: row.id,
+            actorUserId: userId,
+            force: true,
+          })
+          if (queueResult.queued) queued += 1
+          else skipped += 1
+        } catch {
+          skipped += 1
+        }
+      }
+
+      c.set('auditEntry', {
+        action: 'application.rescore_all_requested',
+        entityType: 'Application',
+        entityId: tenantId,
+        diff: {
+          queued,
+          vacancyId: body.vacancyId ?? null,
+          stage: body.stage ?? null,
+        },
+      })
+
+      return c.json(rescoreAllApplicationsResponseSchema.parse({ queued, skipped }), 202)
     },
   )
 

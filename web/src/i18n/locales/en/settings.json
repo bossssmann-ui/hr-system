@@ -27,5 +27,63 @@
   },
   "jobBoards": {
     "published": "Published vacancies: {{count}}"
+  },
+  "pipeline": {
+    "title": "Pipeline and scoring",
+    "description": "Configure auto-pipeline thresholds and composite scoring weights. Owner / hr_admin only.",
+    "loadFailed": "Failed to load pipeline settings.",
+    "empty": "Pipeline settings are currently unavailable.",
+    "saveSuccess": "Pipeline settings saved.",
+    "saveFailed": "Failed to save pipeline settings.",
+    "actions": {
+      "save": "Save"
+    },
+    "thresholds": {
+      "title": "Auto-pipeline thresholds",
+      "hint": "If left empty, environment defaults are used.",
+      "autoSelection": "autoSelection (0..100)",
+      "autoReject": "autoReject (0..100)"
+    },
+    "weights": {
+      "title": "Composite scoring weights",
+      "resume": "resume",
+      "selection": "selection",
+      "assessment": "assessment",
+      "retention": "retention"
+    },
+    "automations": {
+      "title": "Pipeline automation",
+      "hint": "Toggle each automation on or off for this tenant. When not set, the environment default is used.",
+      "autoSelection": "Auto-selection after scoring",
+      "autoAssessment": "Auto-assessment after selection",
+      "compositeScore": "Composite score calculation",
+      "recruiterNotifications": "Recruiter notifications"
+    },
+    "validation": {
+      "thresholdsBothOrEmpty": "Fill both thresholds or leave both empty to use environment defaults.",
+      "thresholdsRange": "Thresholds must be numbers between 0 and 100.",
+      "thresholdsOrder": "autoReject must be less than or equal to autoSelection.",
+      "weightsRequired": "All scoring weights must be filled with numeric values."
+    }
+  },
+  "funnelStages": {
+    "title": "Funnel stage display",
+    "description": "Customise Kanban column labels, order, and visibility. Owner / hr_admin only.",
+    "loadFailed": "Failed to load funnel stage settings.",
+    "saveSuccess": "Funnel stage settings saved.",
+    "saveFailed": "Failed to save funnel stage settings.",
+    "columns": {
+      "stage": "Stage",
+      "label": "Label",
+      "labelPlaceholder": "Default label",
+      "order": "Order",
+      "hidden": "Hide"
+    },
+    "actions": {
+      "save": "Save"
+    },
+    "validation": {
+      "duplicateStages": "Each stage must appear at most once."
+    }
   }
 }

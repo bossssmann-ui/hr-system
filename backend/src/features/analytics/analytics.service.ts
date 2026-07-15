@@ -11,6 +11,42 @@
  */
 
 import type { DbClient } from '../../db'
+import { computeEnps } from '../engagement/engagement.service'
+
+export type RecruiterFunnelPeriod = 'today' | 'week' | 'all'
+
+export type RecruiterFunnelCandidate = {
+  applicationId: string
+  candidateId: string
+  unifiedScore: number | null
+  scoreStatus: 'preliminary' | 'final'
+  verdict: string | null
+  trustScore: number | null
+  retentionPrediction: Record<string, unknown> | null
+  hrNotes: string | null
+  createdAt: string
+}
+
+export type FunnelSourceStats = {
+  applications: number
+  aiProcessed: number
+  passedToRecruiter: number
+  aiRejected: number
+  manualReview: number
+  inProgress: number
+}
+
+export type RecruiterFunnelMetrics = {
+  period: RecruiterFunnelPeriod
+  newApplications: number
+  aiProcessed: number
+  passedToRecruiter: number
+  aiRejected: number
+  manualReview: number
+  inProgress: number
+  processedCandidates: RecruiterFunnelCandidate[]
+  bySource: Record<string, FunnelSourceStats>
+}
 
 export type ComputeHrSnapshotInput = {
   prisma: DbClient
@@ -29,6 +65,7 @@ export type ComputeHrSnapshotResult = {
   terminatedMtd: number
   avgTimeToHireDays: number | null
   probationPassRateQtd: number | null
+  enpsScore: number | null
 }
 
 const ACTIVE_STATUSES = ['pre_onboarding', 'onboarding', 'probation', 'active', 'notice', 'on_leave'] as const
@@ -46,6 +83,20 @@ function toDateOnly(date: Date): Date {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
 }
 
+function startOfUtcWeek(date: Date): Date {
+  const start = toDateOnly(date)
+  const day = start.getUTCDay() // 0..6 (Sun..Sat)
+  const mondayOffset = day === 0 ? -6 : 1 - day
+  start.setUTCDate(start.getUTCDate() + mondayOffset)
+  return start
+}
+
+function periodStart(period: RecruiterFunnelPeriod, now: Date): Date | null {
+  if (period === 'all') return null
+  if (period === 'today') return toDateOnly(now)
+  return startOfUtcWeek(now)
+}
+
 function daysBetween(a: Date, b: Date): number {
   const ms = b.getTime() - a.getTime()
   return ms / (1000 * 60 * 60 * 24)
@@ -54,6 +105,170 @@ function daysBetween(a: Date, b: Date): number {
 function roundTo(value: number, digits: number): number {
   const factor = 10 ** digits
   return Math.round(value * factor) / factor
+}
+
+function verdictBucket(verdict: string | null | undefined): 'passed' | 'rejected' | 'manual' | 'other' {
+  if (!verdict) return 'other'
+  if (verdict === 'ДОПУСТИТЬ' || verdict === 'STRONG_CANDIDATE' || verdict === 'ADMIT_TO_INTERVIEW') return 'passed'
+  if (verdict === 'ОТКЛОНИТЬ' || verdict === 'REJECT' || verdict === 'AUTO_REJECT') return 'rejected'
+  if (verdict === 'НА РУЧНУЮ ПРОВЕРКУ HR' || verdict === 'MANUAL_REVIEW_HR' || verdict === 'MANUAL_EXCEPTION_ONLY') {
+    return 'manual'
+  }
+  return 'other'
+}
+
+function resolveApplicationSource(externalIds: unknown): 'hh' | 'direct' {
+  if (externalIds && typeof externalIds === 'object') {
+    if (Object.keys(externalIds as Record<string, unknown>).some((k) => k.startsWith('hh_'))) {
+      return 'hh'
+    }
+  }
+  return 'direct'
+}
+
+export async function computeRecruiterFunnel({
+  prisma,
+  tenantId,
+  period,
+  now,
+}: {
+  prisma: DbClient
+  tenantId: string
+  period: RecruiterFunnelPeriod
+  now?: Date
+}): Promise<RecruiterFunnelMetrics> {
+  const nowDate = now ?? new Date()
+  const from = periodStart(period, nowDate)
+  const appWhere = {
+    tenantId,
+    ...(from ? { createdAt: { gte: from } } : {}),
+  }
+
+  const [allApplications, sessions] = await Promise.all([
+    prisma.application.findMany({
+      where: appWhere,
+      select: { id: true, externalIds: true },
+    }),
+    prisma.selectionSession.findMany({
+      where: {
+        tenantId,
+        ...(from ? { createdAt: { gte: from } } : {}),
+      },
+      include: { verdict: true },
+      orderBy: { createdAt: 'desc' },
+    }),
+  ])
+
+  const newApplications = allApplications.length
+
+  const sourceByAppId = new Map<string, 'hh' | 'direct'>()
+  for (const app of allApplications) {
+    sourceByAppId.set(app.id, resolveApplicationSource(app.externalIds))
+  }
+
+  const aiProcessed = sessions.filter((session) => session.verdict != null).length
+  const inProgress = sessions.filter((session) => session.verdict == null).length
+
+  let passedToRecruiter = 0
+  let aiRejected = 0
+  let manualReview = 0
+  for (const session of sessions) {
+    const bucket = verdictBucket(session.verdict?.verdict)
+    if (bucket === 'passed') passedToRecruiter += 1
+    if (bucket === 'rejected') aiRejected += 1
+    if (bucket === 'manual') manualReview += 1
+  }
+
+  const appIds = Array.from(new Set(sessions.map((session) => session.applicationId).filter((id): id is string => Boolean(id))))
+  const [apps, trustRows] = await Promise.all([
+    appIds.length > 0
+      ? prisma.application.findMany({
+          where: {
+            tenantId,
+            id: { in: appIds },
+            ...(from ? { createdAt: { gte: from } } : {}),
+          },
+          select: { id: true, candidateId: true, aiScore: true, createdAt: true },
+        })
+      : Promise.resolve([]),
+    appIds.length > 0
+      ? prisma.assessmentSession.findMany({
+          where: { tenantId, applicationId: { in: appIds } },
+          select: { applicationId: true, trustScore: true, createdAt: true },
+          orderBy: { createdAt: 'desc' },
+        })
+      : Promise.resolve([]),
+  ])
+
+  const appById = new Map(apps.map((app) => [app.id, app]))
+  const trustByApp = new Map<string, number | null>()
+  for (const row of trustRows) {
+    if (!trustByApp.has(row.applicationId)) {
+      trustByApp.set(row.applicationId, row.trustScore)
+    }
+  }
+
+  const processedCandidates = sessions
+    .filter((session) => session.applicationId && session.verdict)
+    .map((session) => {
+      const app = appById.get(session.applicationId!)
+      const finalScore = session.verdict?.totalWeightedScore != null ? Number(session.verdict.totalWeightedScore) : null
+      const fallbackScore = app?.aiScore != null ? Number(app.aiScore) : null
+      return {
+        applicationId: session.applicationId!,
+        candidateId: app?.candidateId ?? session.applicationId!,
+        unifiedScore: finalScore ?? fallbackScore,
+        scoreStatus: finalScore != null ? 'final' as const : 'preliminary' as const,
+        verdict: session.verdict?.verdict ?? null,
+        trustScore: trustByApp.get(session.applicationId!) ?? null,
+        retentionPrediction:
+          session.verdict?.retentionPrediction && typeof session.verdict.retentionPrediction === 'object'
+            ? (session.verdict.retentionPrediction as Record<string, unknown>)
+            : null,
+        hrNotes: session.verdict?.hrNotes ?? null,
+        createdAt: session.createdAt.toISOString(),
+      }
+    })
+
+  const bySource: Record<string, FunnelSourceStats> = {}
+
+  const ensureSource = (src: string): FunnelSourceStats => {
+    if (!bySource[src]) {
+      bySource[src] = { applications: 0, aiProcessed: 0, passedToRecruiter: 0, aiRejected: 0, manualReview: 0, inProgress: 0 }
+    }
+    return bySource[src]
+  }
+
+  for (const app of allApplications) {
+    const src = sourceByAppId.get(app.id) ?? 'direct'
+    ensureSource(src).applications += 1
+  }
+
+  for (const session of sessions) {
+    const src = (session.applicationId ? sourceByAppId.get(session.applicationId) : undefined) ?? 'direct'
+    const entry = ensureSource(src)
+    if (session.verdict != null) {
+      entry.aiProcessed += 1
+      const bucket = verdictBucket(session.verdict.verdict)
+      if (bucket === 'passed') entry.passedToRecruiter += 1
+      if (bucket === 'rejected') entry.aiRejected += 1
+      if (bucket === 'manual') entry.manualReview += 1
+    } else {
+      entry.inProgress += 1
+    }
+  }
+
+  return {
+    period,
+    newApplications,
+    aiProcessed,
+    passedToRecruiter,
+    aiRejected,
+    manualReview,
+    inProgress,
+    processedCandidates,
+    bySource,
+  }
 }
 
 export async function computeHrSnapshot({
@@ -123,6 +338,24 @@ export async function computeHrSnapshot({
     probationPassRateQtd = roundTo((passed / decidedThisQuarter.length) * 100, 2)
   }
 
+  // ── eNPS — last closed eNPS survey for the tenant ──────────────────────
+  let enpsScore: number | null = null
+  const lastEnpsSurvey = await prisma.engagementSurvey.findFirst({
+    where: { tenantId, kind: 'enps', status: 'closed' },
+    orderBy: { closedAt: 'desc' },
+    select: { id: true },
+  })
+  if (lastEnpsSurvey) {
+    const responses = await prisma.surveyResponse.findMany({
+      where: { surveyId: lastEnpsSurvey.id, tenantId },
+      select: { score: true },
+    })
+    const scores = responses.map((r) => r.score)
+    if (scores.length > 0) {
+      enpsScore = computeEnps(scores).score
+    }
+  }
+
   await prisma.hrSnapshot.upsert({
     where: { tenantId_snapshotDate: { tenantId, snapshotDate } },
     update: {
@@ -134,6 +367,7 @@ export async function computeHrSnapshot({
       terminatedMtd,
       avgTimeToHireDays,
       probationPassRateQtd,
+      enpsScore,
     },
     create: {
       tenantId,
@@ -146,6 +380,7 @@ export async function computeHrSnapshot({
       terminatedMtd,
       avgTimeToHireDays,
       probationPassRateQtd,
+      enpsScore,
     },
   })
 
@@ -159,6 +394,7 @@ export async function computeHrSnapshot({
     terminatedMtd,
     avgTimeToHireDays,
     probationPassRateQtd,
+    enpsScore,
   }
 }
 

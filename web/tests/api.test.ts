@@ -347,6 +347,10 @@ test('ApiClient application scoring methods hit expected endpoints', async () =>
       return json({ queued: true }, 202)
     }
 
+    if (url.pathname === '/api/applications/rescore-all') {
+      return json({ queued: 3, skipped: 1 }, 202)
+    }
+
     if (url.pathname === '/api/applications/app-1/score-feedback') {
       return json({
         id: 'app-1',
@@ -378,14 +382,101 @@ test('ApiClient application scoring methods hit expected endpoints', async () =>
   })
 
   const rescore = await client.rescoreApplication('app-1')
+  const rescoreAll = await client.rescoreAllApplications()
   const feedback = await client.submitApplicationScoreFeedback('app-1', { agrees: true, note: 'Looks right' })
 
   expect(rescore.queued).toBe(true)
+  expect(rescoreAll).toEqual({ queued: 3, skipped: 1 })
   expect(feedback.aiScoreFeedback?.agrees).toBe(true)
   expect(calls).toEqual([
     { path: '/api/applications/app-1/rescore', method: 'POST' },
+    { path: '/api/applications/rescore-all', method: 'POST' },
     { path: '/api/applications/app-1/score-feedback', method: 'POST' },
   ])
+})
+
+test('ApiClient tenant settings methods hit expected endpoints', async () => {
+  const calls: Array<{ path: string; method: string; body: string | null }> = []
+
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(String(input))
+    calls.push({
+      path: url.pathname,
+      method: init?.method ?? 'GET',
+      body: typeof init?.body === 'string' ? init.body : null,
+    })
+
+    if (url.pathname === '/api/settings/tenant') {
+      return json(
+        {
+          tenantId: 'tenant-1',
+          name: 'Acme HR',
+          slug: 'acme-hr',
+          subdomain: 'acme',
+          logoUrl: null,
+          primaryColor: null,
+          timezone: 'Europe/Moscow',
+          locale: 'ru',
+          featureFlags: {},
+          scoringWeights: {
+            resume: 0.5,
+            selection: 0.2,
+            assessment: 0.2,
+            retention: 0.1,
+          },
+          pipelineThresholds: {
+            autoSelection: 85,
+            autoReject: 20,
+          },
+        },
+        200,
+      )
+    }
+
+    return json({ error: { code: 'NOT_FOUND', message: 'Unexpected request' } }, 404)
+  }
+
+  const client = new ApiClient({
+    getAccessToken: () => 'token',
+    setAccessToken: () => undefined,
+  })
+
+  const current = await client.getTenantSettings()
+  const updated = await client.updateTenantSettings({
+    pipelineThresholds: {
+      autoSelection: 90,
+      autoReject: 30,
+    },
+    scoringWeights: {
+      resume: 0.6,
+      selection: 0.15,
+      assessment: 0.15,
+      retention: 0.1,
+    },
+  })
+
+  expect(current.pipelineThresholds?.autoSelection).toBe(85)
+  expect(updated.pipelineThresholds?.autoSelection).toBe(85)
+  expect(calls.map((call) => `${call.method} ${call.path}`)).toEqual([
+    'GET /api/settings/tenant',
+    'PATCH /api/settings/tenant',
+  ])
+  expect(calls[1]).toBeDefined()
+  expect(calls[1]?.body).not.toBeNull()
+  expect(JSON.parse(calls[1]!.body!)).toEqual(
+    {
+      pipelineThresholds: {
+        autoSelection: 90,
+        autoReject: 30,
+      },
+      scoringWeights: {
+        resume: 0.6,
+        selection: 0.15,
+        assessment: 0.15,
+        retention: 0.1,
+      },
+    },
+  )
 })
 
 test('ApiClient assessment methods hit expected endpoints', async () => {

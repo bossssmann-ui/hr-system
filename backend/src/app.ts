@@ -15,7 +15,7 @@ import { createCandidatesRoutes } from './features/candidates/candidates.routes'
 import { createDevicesRoutes } from './features/devices/devices.routes'
 import { createEmployeesRoutes } from './features/employees/employees.routes'
 import { createKnowledgeRoutes } from './features/knowledge/knowledge.routes'
-import { createLearningRoutes, createOkrsRoutes, createReviewsRoutes } from './features/learning/learning.routes'
+import { createLearningRoutes } from './features/learning/learning.routes'
 import { createOrgUnitsRoutes } from './features/org-units/org-units.routes'
 import { createPublicCareersRoutes } from './features/public/public.routes'
 import { createPortalRoutes } from './features/portal/portal.routes'
@@ -50,7 +50,12 @@ import {
   createTenantRegistrationRoutes,
   createTenantSettingsRoutes,
 } from './features/tenant/tenant.routes'
+import { createOneOnOneRoutes } from './features/performance/one-on-one.routes'
+import { createOkrRoutes } from './features/performance/okr.routes'
+import { createReviewRoutes } from './features/performance/review.routes'
+import { createIdpRoutes } from './features/performance/idp.routes'
 import { createAuditMiddleware } from './http/audit'
+import { createEngagementRoutes } from './features/engagement/engagement.routes'
 import { errorResponse, handleError } from './http/errors'
 import { createStorageServiceFromEnv, type StorageService } from './storage/service'
 
@@ -128,8 +133,10 @@ export function createApp({ env, prisma }: CreateAppOptions) {
   app.route('/api/employees', createEmployeesRoutes())
   app.route('/api/employees', createEmployeeSignalsRoutes())
   app.route('/api/learning', createLearningRoutes())
-  app.route('/api/reviews', createReviewsRoutes())
-  app.route('/api/okrs', createOkrsRoutes())
+  app.route('/api/one-on-ones', createOneOnOneRoutes())
+  app.route('/api/reviews', createReviewRoutes())
+  app.route('/api/okrs', createOkrRoutes())
+  app.route('/api/idps', createIdpRoutes())
   app.route('/api/alumni', createAlumniRoutes())
   app.route('/api/portal', createPortalRoutes())
   app.route('/api/applications', createApplicationsRoutes())
@@ -160,6 +167,7 @@ export function createApp({ env, prisma }: CreateAppOptions) {
   app.route('/api/notifications', createNotificationsRoutes())
   app.route('/api/devices', createDevicesRoutes())
   app.route('/api/realtime', createRealtimeRoutes())
+  app.route('/api/engagement', createEngagementRoutes())
   // Phase 12 — multi-tenancy, compliance, billing
   app.route('/api/register', createTenantRegistrationRoutes())
   app.route('/api/settings/tenant', createTenantSettingsRoutes())

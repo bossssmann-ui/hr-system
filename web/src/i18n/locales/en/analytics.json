@@ -10,7 +10,8 @@
     "openVacancies": "Open vacancies",
     "openRequisitions": "Open requisitions",
     "avgTimeToHire": "Avg time-to-hire (days)",
-    "probationPassRate": "Probation pass rate (QTD)"
+    "probationPassRate": "Probation pass rate (QTD)",
+    "enps": "eNPS"
   },
   "todayKpis": "Today’s KPIs",
   "rosterTitle": "Payroll export",
@@ -25,11 +26,57 @@
   },
   "signals": {
     "title": "Signals (flight-risk & burnout)",
+    "flightRiskTitle": "Flight-risk",
     "empty": "No open signals. Recompute to populate after the next daily run.",
+    "loadFailed": "Failed to load signals.",
+    "filterStatus": "Status",
+    "markReviewed": "Mark reviewed",
+    "noFactors": "No factors provided",
+    "status": {
+      "open": "Open",
+      "reviewed": "Reviewed"
+    },
+    "level": {
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
     "recompute": "Recompute signals",
     "recomputing": "Computing…",
     "reviewed": "Reviewed",
     "dismiss": "Dismiss"
+  },
+  "funnel": {
+    "title": "Recruiting Funnel",
+    "period": "Period",
+    "periodToday": "Today",
+    "periodWeek": "Week",
+    "periodAll": "All time",
+    "newApplications": "New applications",
+    "aiProcessed": "AI processed",
+    "passedToRecruiter": "Passed to recruiter",
+    "aiRejected": "AI rejected",
+    "manualReview": "Manual review",
+    "inProgress": "In progress",
+    "conversionAiProcessed": "AI conversion (processed)",
+    "conversionPassed": "Conversion (to recruiter)",
+    "empty": "No funnel data for the selected period.",
+    "tableTitle": "Processed candidates",
+    "colCandidate": "Candidate",
+    "colScore": "Score",
+    "colVerdict": "Verdict",
+    "colTrust": "Trust Score",
+    "colDate": "Date",
+    "scorePreliminary": "prelim.",
+    "scoreFinal": "final",
+    "bySource": {
+      "title": "By source",
+      "colSource": "Source",
+      "colApplications": "Applications",
+      "colConversion": "Conversion to recruiter",
+      "hh": "hh.ru",
+      "direct": "Direct"
+    }
   },
   "table": {
     "month": "Month",

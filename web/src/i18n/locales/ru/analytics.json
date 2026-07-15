@@ -10,7 +10,8 @@
     "openVacancies": "Открытые вакансии",
     "openRequisitions": "Открытые заявки на найм",
     "avgTimeToHire": "Среднее время найма (дни)",
-    "probationPassRate": "Прохождение испытательного (QTD)"
+    "probationPassRate": "Прохождение испытательного (QTD)",
+    "enps": "eNPS"
   },
   "todayKpis": "KPI на сегодня",
   "rosterTitle": "Выгрузка зарплатного реестра",
@@ -25,11 +26,57 @@
   },
   "signals": {
     "title": "Сигналы (риск ухода и выгорание)",
+    "flightRiskTitle": "Риск ухода / Flight-risk",
     "empty": "Открытых сигналов нет. Запустите пересчёт после следующего ежедневного запуска.",
+    "loadFailed": "Не удалось загрузить сигналы.",
+    "filterStatus": "Статус",
+    "markReviewed": "Отметить рассмотренным",
+    "noFactors": "Причины не указаны",
+    "status": {
+      "open": "Открытые",
+      "reviewed": "Рассмотренные"
+    },
+    "level": {
+      "high": "Высокий",
+      "medium": "Средний",
+      "low": "Низкий"
+    },
     "recompute": "Пересчитать сигналы",
     "recomputing": "Считаем…",
     "reviewed": "Просмотрено",
     "dismiss": "Скрыть"
+  },
+  "funnel": {
+    "title": "Воронка рекрутинга",
+    "period": "Период",
+    "periodToday": "Сегодня",
+    "periodWeek": "Неделя",
+    "periodAll": "Всё время",
+    "newApplications": "Новые заявки",
+    "aiProcessed": "Обработано AI",
+    "passedToRecruiter": "Передано рекрутеру",
+    "aiRejected": "Отклонено AI",
+    "manualReview": "На ручной проверке",
+    "inProgress": "В процессе",
+    "conversionAiProcessed": "Конверсия AI (обработка)",
+    "conversionPassed": "Конверсия (передача рекрутеру)",
+    "empty": "За выбранный период данных воронки нет.",
+    "tableTitle": "Обработанные кандидаты",
+    "colCandidate": "Кандидат",
+    "colScore": "Оценка",
+    "colVerdict": "Вердикт",
+    "colTrust": "Trust Score",
+    "colDate": "Дата",
+    "scorePreliminary": "предв.",
+    "scoreFinal": "итог.",
+    "bySource": {
+      "title": "По источнику",
+      "colSource": "Источник",
+      "colApplications": "Заявки",
+      "colConversion": "Конверсия в рекрутер",
+      "hh": "hh.ru",
+      "direct": "Прямой"
+    }
   },
   "table": {
     "month": "Месяц",

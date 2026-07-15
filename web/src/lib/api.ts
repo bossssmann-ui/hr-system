@@ -1,4 +1,54 @@
 import {
+  listOneOnOnesResponseSchema,
+  oneOnOneResponseSchema,
+  type CreateOneOnOneRequest,
+  type CompleteOneOnOneRequest,
+  type ListOneOnOnesResponse,
+  type OneOnOneResponse,
+  reviewCycleWithStatsResponseSchema,
+  reviewRequestResponseSchema,
+  type OpenReviewCycleRequest,
+  type SubmitReviewRequest,
+  type ReviewCycleWithStatsResponse,
+  type ReviewRequestResponse,
+  listPerformanceOkrsResponseSchema,
+  performanceOkrResponseSchema,
+  performanceOkrKeyResultResponseSchema,
+  type ListPerformanceOkrsResponse,
+  type PerformanceOkrResponse,
+  type PerformanceOkrKeyResultResponse,
+  type PatchOkrKeyResultRequest,
+  listPerformanceIdpsResponseSchema,
+  performanceIdpResponseSchema,
+  performanceIdpItemResponseSchema,
+  type ListPerformanceIdpsResponse,
+  type PerformanceIdpResponse,
+  type PerformanceIdpItemResponse,
+  type PatchIdpItemRequest,
+  engagementSurveySchema,
+  enpsResultSchema,
+  surveyResponseSchema,
+  type EngagementSurvey,
+  type EngagementSurveyStatus,
+  type EngagementSurveyKind,
+  type EnpsResult,
+  type SurveyResponse,
+  type CreateEngagementSurveyRequest,
+  type SubmitSurveyResponseRequest,
+  learningCourseSchema,
+  learningPathSchema,
+  learningAssignmentSchema,
+  type LearningCourse,
+  type LearningPath,
+  type LearningAssignment,
+  type LearningCourseCreateRequest,
+  type LearningCourseUpdateRequest,
+  type LearningPathCreateRequest,
+  type LearningPathUpdateRequest,
+  type LearningAssignmentCreateRequest,
+  type LearningAssignmentUpdateRequest,
+} from '@web-app-demo/contracts'
+import {
   apiErrorSchema,
   applicationDetailSchema,
   applicationSchema,
@@ -19,6 +69,8 @@ import {
   hhSyncResponseSchema,
   hhVacancyLinkResponseSchema,
   integrationsStatusSchema,
+  tenantSettingsSchema,
+  updateTenantSettingsRequestSchema,
   linkVacancyToHhRequestSchema,
   loginRequestSchema,
   logoutRequestSchema,
@@ -29,6 +81,8 @@ import {
   refreshRequestSchema,
   refreshResponseSchema,
   registerRequestSchema,
+  rescoreAllApplicationsRequestSchema,
+  rescoreAllApplicationsResponseSchema,
   requisitionSchema,
   vacancySchema,
   listConversationsResponseSchema,
@@ -91,6 +145,8 @@ import {
   type HhSyncResponse,
   type HhVacancyLinkResponse,
   type IntegrationsStatus,
+  type TenantSettings,
+  type UpdateTenantSettingsRequest,
   type LinkVacancyToHhRequest,
   type ListConversationsResponse,
   type ListMessageTemplatesResponse,
@@ -118,6 +174,7 @@ import {
   listCompBandsResponseSchema,
   listHrSnapshotsResponseSchema,
   listOffersResponseSchema,
+  recruiterFunnelMetricsSchema,
   offerSchema,
   payrollExportResponseSchema,
   type CompBandCreateRequest,
@@ -350,6 +407,16 @@ export class ApiClient {
         auth: true,
       },
     )
+  }
+
+  rescoreAllApplications(
+    input: z.infer<typeof rescoreAllApplicationsRequestSchema> = {},
+  ): Promise<z.infer<typeof rescoreAllApplicationsResponseSchema>> {
+    return this.request('/api/applications/rescore-all', rescoreAllApplicationsResponseSchema, {
+      method: 'POST',
+      body: input,
+      auth: true,
+    })
   }
 
   submitApplicationScoreFeedback(id: string, input: ScoreFeedbackRequest): Promise<z.infer<typeof applicationSchema>> {
@@ -730,6 +797,14 @@ export class ApiClient {
     return this.request('/api/analytics/dashboard', hrDashboardSchema, { auth: true })
   }
 
+  getRecruiterFunnel(period: 'today' | 'week' | 'all') {
+    return this.request(
+      `/api/analytics/recruiter-funnel?period=${encodeURIComponent(period)}`,
+      recruiterFunnelMetricsSchema,
+      { auth: true },
+    )
+  }
+
   listHrSnapshots(params?: { limit?: number; from?: string; to?: string }) {
     const qs = new URLSearchParams()
     if (params?.limit) qs.set('limit', String(params.limit))
@@ -759,7 +834,7 @@ export class ApiClient {
 
   // ─── Phase 9 — Analytics signals ─────────────────────────────────────────
 
-  listAnalyticsSignals(params?: { status?: 'open' | 'reviewed' | 'dismissed'; type?: 'flight_risk' | 'burnout'; limit?: number }) {
+  listSignals(params?: { status?: AnalyticsSignal['status']; type?: AnalyticsSignal['type']; limit?: number }) {
     const qs = new URLSearchParams()
     if (params?.status) qs.set('status', params.status)
     if (params?.type) qs.set('type', params.type)
@@ -768,12 +843,20 @@ export class ApiClient {
     return this.request(`/api/analytics/signals${qStr}`, listAnalyticsSignalsResponseSchema, { auth: true })
   }
 
-  updateAnalyticsSignal(id: string, status: 'open' | 'reviewed' | 'dismissed'): Promise<AnalyticsSignal> {
+  reviewSignal(id: string, patch: Pick<AnalyticsSignal, 'status'>): Promise<AnalyticsSignal> {
     return this.request(`/api/analytics/signals/${id}`, analyticsSignalSchema, {
       method: 'PATCH',
-      body: { status },
+      body: patch,
       auth: true,
     })
+  }
+
+  listAnalyticsSignals(params?: { status?: 'open' | 'reviewed' | 'dismissed'; type?: 'flight_risk' | 'burnout'; limit?: number }) {
+    return this.listSignals(params)
+  }
+
+  updateAnalyticsSignal(id: string, status: 'open' | 'reviewed' | 'dismissed'): Promise<AnalyticsSignal> {
+    return this.reviewSignal(id, { status })
   }
 
   computeAnalyticsSignals() {
@@ -886,6 +969,19 @@ export class ApiClient {
 
   getIntegrationsStatus(): Promise<IntegrationsStatus> {
     return this.request('/api/integrations/status', integrationsStatusSchema, { auth: true })
+  }
+
+  getTenantSettings(): Promise<TenantSettings> {
+    return this.request('/api/settings/tenant', tenantSettingsSchema, { auth: true })
+  }
+
+  updateTenantSettings(patch: UpdateTenantSettingsRequest): Promise<TenantSettings> {
+    const payload = updateTenantSettingsRequestSchema.parse(patch)
+    return this.request('/api/settings/tenant', tenantSettingsSchema, {
+      method: 'PATCH',
+      body: payload,
+      auth: true,
+    })
   }
 
   syncHhNow(): Promise<HhSyncResponse> {
@@ -1023,6 +1119,324 @@ export class ApiClient {
   async deleteNotification(id: string): Promise<void> {
     await this.rawRequest(`/api/notifications/${id}`, {
       method: 'DELETE',
+      auth: true,
+    })
+  }
+
+  // ─── Performance: 1:1 ───────────────────────────────────────────────────
+
+  listOneOnOnes(params?: {
+    employeeId?: string
+    managerUserId?: string
+    status?: 'scheduled' | 'completed' | 'cancelled'
+    page?: number
+    pageSize?: number
+  }): Promise<ListOneOnOnesResponse> {
+    const qs = new URLSearchParams()
+    if (params?.employeeId) qs.set('employeeId', params.employeeId)
+    if (params?.managerUserId) qs.set('managerUserId', params.managerUserId)
+    if (params?.status) qs.set('status', params.status)
+    if (params?.page != null) qs.set('page', String(params.page))
+    if (params?.pageSize != null) qs.set('pageSize', String(params.pageSize))
+    const query = qs.toString()
+    return this.request(
+      `/api/one-on-ones${query ? `?${query}` : ''}`,
+      listOneOnOnesResponseSchema,
+      { auth: true },
+    )
+  }
+
+  createOneOnOne(body: CreateOneOnOneRequest): Promise<OneOnOneResponse> {
+    return this.request('/api/one-on-ones', oneOnOneResponseSchema, {
+      method: 'POST',
+      body,
+      auth: true,
+    })
+  }
+
+  completeOneOnOne(id: string, body: CompleteOneOnOneRequest): Promise<OneOnOneResponse> {
+    return this.request(`/api/one-on-ones/${id}/complete`, oneOnOneResponseSchema, {
+      method: 'POST',
+      body,
+      auth: true,
+    })
+  }
+
+  // ─── Performance: Reviews / 360 ─────────────────────────────────────────
+
+  listReviewCycles(): Promise<{ items: ReviewCycleWithStatsResponse[] }> {
+    return this.request(
+      '/api/reviews/cycles',
+      z.object({ items: z.array(reviewCycleWithStatsResponseSchema) }),
+      { auth: true },
+    )
+  }
+
+  openReviewCycle(id: string, body: OpenReviewCycleRequest): Promise<ReviewCycleWithStatsResponse> {
+    return this.request(`/api/reviews/cycles/${id}/open`, reviewCycleWithStatsResponseSchema, {
+      method: 'POST',
+      body,
+      auth: true,
+    })
+  }
+
+  closeReviewCycle(id: string): Promise<ReviewCycleWithStatsResponse> {
+    return this.request(`/api/reviews/cycles/${id}/close`, reviewCycleWithStatsResponseSchema, {
+      method: 'POST',
+      body: {},
+      auth: true,
+    })
+  }
+
+  listMyReviewRequests(params: {
+    reviewerUserId: string
+    status?: 'pending' | 'submitted' | 'declined'
+  }): Promise<{ items: ReviewRequestResponse[] }> {
+    const qs = new URLSearchParams({ reviewerUserId: params.reviewerUserId })
+    if (params.status) qs.set('status', params.status)
+    return this.request(
+      `/api/reviews/requests?${qs.toString()}`,
+      z.object({ items: z.array(reviewRequestResponseSchema) }),
+      { auth: true },
+    )
+  }
+
+  submitReviewRequest(id: string, body: SubmitReviewRequest): Promise<ReviewRequestResponse> {
+    return this.request(`/api/reviews/requests/${id}/submit`, reviewRequestResponseSchema, {
+      method: 'POST',
+      body,
+      auth: true,
+    })
+  }
+
+  // ─── Performance: OKR ───────────────────────────────────────────────────
+
+  listOkrs(params?: {
+    employeeId?: string
+    quarter?: string
+    status?: 'draft' | 'active' | 'achieved' | 'missed'
+  }): Promise<ListPerformanceOkrsResponse> {
+    const qs = new URLSearchParams()
+    if (params?.employeeId) qs.set('employeeId', params.employeeId)
+    if (params?.quarter) qs.set('quarter', params.quarter)
+    if (params?.status) qs.set('status', params.status)
+    const query = qs.toString()
+    return this.request(
+      `/api/okrs${query ? `?${query}` : ''}`,
+      listPerformanceOkrsResponseSchema,
+      { auth: true },
+    )
+  }
+
+  getOkr(id: string): Promise<PerformanceOkrResponse> {
+    return this.request(`/api/okrs/${id}`, performanceOkrResponseSchema, { auth: true })
+  }
+
+  patchOkrKeyResult(
+    okrId: string,
+    krId: string,
+    body: PatchOkrKeyResultRequest,
+  ): Promise<PerformanceOkrKeyResultResponse> {
+    return this.request(
+      `/api/okrs/${okrId}/key-results/${krId}`,
+      performanceOkrKeyResultResponseSchema,
+      { method: 'PATCH', body, auth: true },
+    )
+  }
+
+  // ─── Performance: IDP ───────────────────────────────────────────────────
+
+  listIdps(params?: {
+    employeeId?: string
+    quarter?: string
+    status?: 'draft' | 'active' | 'completed'
+  }): Promise<ListPerformanceIdpsResponse> {
+    const qs = new URLSearchParams()
+    if (params?.employeeId) qs.set('employeeId', params.employeeId)
+    if (params?.quarter) qs.set('quarter', params.quarter)
+    if (params?.status) qs.set('status', params.status)
+    const query = qs.toString()
+    return this.request(
+      `/api/idps${query ? `?${query}` : ''}`,
+      listPerformanceIdpsResponseSchema,
+      { auth: true },
+    )
+  }
+
+  getIdp(id: string): Promise<PerformanceIdpResponse> {
+    return this.request(`/api/idps/${id}`, performanceIdpResponseSchema, { auth: true })
+  }
+
+  patchIdpItem(
+    idpId: string,
+    itemId: string,
+    body: PatchIdpItemRequest,
+  ): Promise<PerformanceIdpItemResponse> {
+    return this.request(
+      `/api/idps/${idpId}/items/${itemId}`,
+      performanceIdpItemResponseSchema,
+      { method: 'PATCH', body, auth: true },
+    )
+  }
+
+  // ─── Engagement: Surveys ────────────────────────────────────────────────
+
+  listSurveys(params?: {
+    status?: EngagementSurveyStatus
+    kind?: EngagementSurveyKind
+  }): Promise<{ items: EngagementSurvey[] }> {
+    const qs = new URLSearchParams()
+    if (params?.status) qs.set('status', params.status)
+    if (params?.kind) qs.set('kind', params.kind)
+    const query = qs.toString()
+    return this.request(
+      `/api/engagement/surveys${query ? `?${query}` : ''}`,
+      z.object({ items: z.array(engagementSurveySchema) }),
+      { auth: true },
+    )
+  }
+
+  getSurvey(id: string): Promise<EngagementSurvey & { responded: number; total: number }> {
+    return this.request(
+      `/api/engagement/surveys/${id}`,
+      engagementSurveySchema.extend({ responded: z.number(), total: z.number() }),
+      { auth: true },
+    )
+  }
+
+  createSurvey(body: CreateEngagementSurveyRequest): Promise<EngagementSurvey> {
+    return this.request(`/api/engagement/surveys`, engagementSurveySchema, {
+      method: 'POST',
+      body,
+      auth: true,
+    })
+  }
+
+  openSurvey(id: string): Promise<EngagementSurvey> {
+    return this.request(`/api/engagement/surveys/${id}/open`, engagementSurveySchema, {
+      method: 'POST',
+      auth: true,
+    })
+  }
+
+  closeSurvey(id: string): Promise<EngagementSurvey> {
+    return this.request(`/api/engagement/surveys/${id}/close`, engagementSurveySchema, {
+      method: 'POST',
+      auth: true,
+    })
+  }
+
+  submitSurveyResponse(id: string, body: SubmitSurveyResponseRequest): Promise<SurveyResponse> {
+    return this.request(`/api/engagement/surveys/${id}/responses`, surveyResponseSchema, {
+      method: 'POST',
+      body,
+      auth: true,
+    })
+  }
+
+  getSurveyResults(id: string): Promise<EnpsResult & { comments: string[] }> {
+    return this.request(
+      `/api/engagement/surveys/${id}/results`,
+      enpsResultSchema.extend({ comments: z.array(z.string()) }),
+      { auth: true },
+    )
+  }
+
+  // ─── Learning: Courses ──────────────────────────────────────────────────
+
+  listCourses(): Promise<{ items: LearningCourse[] }> {
+    return this.request(
+      '/api/learning/courses',
+      z.object({ items: z.array(learningCourseSchema) }),
+      { auth: true },
+    )
+  }
+
+  createCourse(body: LearningCourseCreateRequest): Promise<LearningCourse> {
+    return this.request('/api/learning/courses', learningCourseSchema, {
+      method: 'POST',
+      body,
+      auth: true,
+    })
+  }
+
+  updateCourse(id: string, body: LearningCourseUpdateRequest): Promise<LearningCourse> {
+    return this.request(`/api/learning/courses/${id}`, learningCourseSchema, {
+      method: 'PATCH',
+      body,
+      auth: true,
+    })
+  }
+
+  async deleteCourse(id: string): Promise<void> {
+    await this.request(`/api/learning/courses/${id}`, z.object({ ok: z.boolean() }), {
+      method: 'DELETE',
+      auth: true,
+    })
+  }
+
+  // ─── Learning: Paths ────────────────────────────────────────────────────
+
+  listPaths(): Promise<{ items: LearningPath[] }> {
+    return this.request(
+      '/api/learning/paths',
+      z.object({ items: z.array(learningPathSchema) }),
+      { auth: true },
+    )
+  }
+
+  createPath(body: LearningPathCreateRequest): Promise<LearningPath> {
+    return this.request('/api/learning/paths', learningPathSchema, {
+      method: 'POST',
+      body,
+      auth: true,
+    })
+  }
+
+  updatePath(id: string, body: LearningPathUpdateRequest): Promise<LearningPath> {
+    return this.request(`/api/learning/paths/${id}`, learningPathSchema, {
+      method: 'PATCH',
+      body,
+      auth: true,
+    })
+  }
+
+  async deletePath(id: string): Promise<void> {
+    await this.request(`/api/learning/paths/${id}`, z.object({ ok: z.boolean() }), {
+      method: 'DELETE',
+      auth: true,
+    })
+  }
+
+  // ─── Learning: Assignments ──────────────────────────────────────────────
+
+  listAssignments(params?: { employeeId?: string }): Promise<{ items: LearningAssignment[] }> {
+    const qs = params?.employeeId ? `?employeeId=${encodeURIComponent(params.employeeId)}` : ''
+    return this.request(
+      `/api/learning/assignments${qs}`,
+      z.object({ items: z.array(learningAssignmentSchema) }),
+      { auth: true },
+    )
+  }
+
+  createAssignment(
+    employeeId: string,
+    body: LearningAssignmentCreateRequest,
+  ): Promise<LearningAssignment> {
+    return this.request(
+      `/api/learning/employees/${employeeId}/assignments`,
+      learningAssignmentSchema,
+      { method: 'POST', body, auth: true },
+    )
+  }
+
+  updateAssignment(
+    id: string,
+    body: LearningAssignmentUpdateRequest,
+  ): Promise<LearningAssignment> {
+    return this.request(`/api/learning/assignments/${id}`, learningAssignmentSchema, {
+      method: 'PATCH',
+      body,
       auth: true,
     })
   }

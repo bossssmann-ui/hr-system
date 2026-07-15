@@ -25,6 +25,12 @@ import { requireRole, type RoleGuardBindings } from '../../auth/requireRole'
 import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
 import { AppError } from '../../http/errors'
+import {
+  recomputeCompositeScoreForApplication,
+  recordCompositeScoreRecomputeFailure,
+} from '../applications/composite-score'
+import { notifyRecipientsForEvent } from '../notifications/recruiter-event-notifications'
+import { resolvePipelineFlag } from '../tenant/resolve-pipeline-flag'
 import { enqueueAssessmentOpenAnswerGrading } from './assessments.queue'
 import { computeTrustScore } from './trust-score'
 
@@ -412,12 +418,49 @@ export function createPublicAssessmentRoutes() {
         })
       })
 
+      try {
+        await recomputeCompositeScoreForApplication({
+          prisma,
+          env,
+          applicationId: session.applicationId,
+        })
+      } catch (error) {
+        await recordCompositeScoreRecomputeFailure({
+          prisma,
+          applicationId: session.applicationId,
+          error,
+        })
+      }
+
       if (env.AI_SCORING_ENABLED) {
         void enqueueAssessmentOpenAnswerGrading({
           prisma,
           env,
           sessionId: session.id,
         })
+      }
+
+      {
+        const tenantSettingsRow = await prisma.tenantSettings.findUnique({
+          where: { tenantId: session.tenantId },
+          select: { featureFlags: true },
+        })
+        const tenantFeatureFlags = tenantSettingsRow?.featureFlags
+        if (resolvePipelineFlag('recruiterNotifications', tenantFeatureFlags, env)) {
+          await notifyRecipientsForEvent({
+            prisma,
+            env,
+            tenantId: session.tenantId,
+            applicationId: session.applicationId,
+            template: 'assessment.completed',
+            eventKey: `assessment_session.completed:${session.id}`,
+            payload: {
+              trust: trustScore,
+              score: null,
+              redFlagged,
+            },
+          })
+        }
       }
 
       c.set('auditEntry', {

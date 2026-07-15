@@ -1,7 +1,10 @@
-import type { PublishVacancyRequest, Vacancy } from '@web-app-demo/contracts'
+import type { PublishVacancyRequest, UpdateVacancyRoleRequest, UpdateVacancyAssessmentTemplatesRequest, Vacancy } from '@web-app-demo/contracts'
 import {
   listVacanciesResponseSchema,
   publishVacancyRequestSchema,
+  updateVacancyRoleRequestSchema,
+  updateVacancyAssessmentTemplatesRequestSchema,
+  vacancyRoleSchema,
   vacancySchema,
 } from '@web-app-demo/contracts'
 import { zValidator } from '@hono/zod-validator'
@@ -22,10 +25,18 @@ type RouteBindings = RoleGuardBindings & {
   }
 }
 
+function parseVacancyRole(value: string | null): Vacancy['role'] {
+  if (value == null) return null
+  const result = vacancyRoleSchema.safeParse(value)
+  return result.success ? result.data : null
+}
+
 function toDto(row: {
   id: string
   title: string
   description: string
+  role: string | null
+  requiredAssessmentTemplateIds: string[]
   isPublished: boolean
   tenantId: string
   requisitionId: string
@@ -39,6 +50,8 @@ function toDto(row: {
     id: row.id,
     title: row.title,
     description: row.description,
+    role: parseVacancyRole(row.role),
+    requiredAssessmentTemplateIds: row.requiredAssessmentTemplateIds,
     isPublished: row.isPublished,
     tenantId: row.tenantId,
     requisitionId: row.requisitionId,
@@ -91,6 +104,35 @@ export function createVacanciesRoutes() {
   )
 
   app.patch(
+    '/:id/role',
+    requireRole('owner', 'hr_admin', 'recruiter'),
+    zValidator('json', updateVacancyRoleRequestSchema),
+    async (c) => {
+      const prisma = c.get('prisma')
+      const tenantId = c.get('tenantId')
+      const { id } = c.req.param()
+      const body: UpdateVacancyRoleRequest = c.req.valid('json')
+
+      const existing = await prisma.vacancy.findFirst({ where: { id, tenantId } })
+      if (!existing) throw new AppError(404, 'NOT_FOUND', 'Vacancy not found')
+
+      const updated = await prisma.vacancy.update({
+        where: { id },
+        data: { role: body.role },
+      })
+
+      c.set('auditEntry', {
+        action: 'vacancy.role.update',
+        entityType: 'Vacancy',
+        entityId: id,
+        diff: { role: body.role },
+      })
+
+      return c.json(vacancySchema.parse(toDto(updated)))
+    },
+  )
+
+  app.patch(
     '/:id/publish',
     requireRole('owner', 'hr_admin', 'recruiter'),
     zValidator('json', publishVacancyRequestSchema),
@@ -120,6 +162,46 @@ export function createVacanciesRoutes() {
         entityType: 'Vacancy',
         entityId: id,
         diff: { isPublished: body.isPublished },
+      })
+
+      return c.json(vacancySchema.parse(toDto(updated)))
+    },
+  )
+
+  app.patch(
+    '/:id/assessment-templates',
+    requireRole('owner', 'hr_admin', 'recruiter'),
+    zValidator('json', updateVacancyAssessmentTemplatesRequestSchema),
+    async (c) => {
+      const prisma = c.get('prisma')
+      const tenantId = c.get('tenantId')
+      const { id } = c.req.param()
+      const body: UpdateVacancyAssessmentTemplatesRequest = c.req.valid('json')
+
+      const existing = await prisma.vacancy.findFirst({ where: { id, tenantId } })
+      if (!existing) throw new AppError(404, 'NOT_FOUND', 'Vacancy not found')
+
+      const ids = body.requiredAssessmentTemplateIds ?? []
+      if (ids.length > 0) {
+        const templates = await prisma.assessmentTemplate.findMany({
+          where: { id: { in: ids }, tenantId },
+          select: { id: true },
+        })
+        if (templates.length !== ids.length) {
+          throw new AppError(422, 'VALIDATION_ERROR', 'Some assessment template IDs are invalid or do not belong to this tenant')
+        }
+      }
+
+      const updated = await prisma.vacancy.update({
+        where: { id },
+        data: { requiredAssessmentTemplateIds: ids },
+      })
+
+      c.set('auditEntry', {
+        action: 'vacancy.assessment_templates.update',
+        entityType: 'Vacancy',
+        entityId: id,
+        diff: { requiredAssessmentTemplateIds: ids },
       })
 
       return c.json(vacancySchema.parse(toDto(updated)))

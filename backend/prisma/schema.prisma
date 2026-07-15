@@ -110,6 +110,8 @@ model Tenant {
 
   settings          TenantSettings?
   retentionPolicies DataRetentionPolicy[]
+  selectionRetentionOutcomes SelectionRetentionOutcome[]
+  selectionScoringWeights    SelectionScoringWeights[]
   subscription      Subscription?
 
   @@map("tenants")
@@ -126,6 +128,9 @@ model TenantSettings {
   timezone      String   @default("Europe/Moscow")
   locale        String   @default("ru-RU")
   featureFlags  Json     @default("{}") @map("feature_flags")
+  scoringWeights Json?   @map("scoring_weights")
+  pipelineThresholds Json? @map("pipeline_thresholds")
+  funnelStageConfig Json? @map("funnel_stage_config")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
@@ -325,9 +330,12 @@ model Vacancy {
   requisitionId String   @unique @map("requisition_id") @db.Uuid
   orgUnitId     String   @map("org_unit_id") @db.Uuid
   hhVacancyId   String?  @unique @map("hh_vacancy_id")
+  hhSourcingCriteria Json? @map("hh_sourcing_criteria")
   slug          String?  @map("slug")
   title         String
   description   String
+  role          String?
+  requiredAssessmentTemplateIds String[] @default([]) @map("required_assessment_template_ids")
   isPublished   Boolean  @default(false) @map("is_published")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
@@ -398,6 +406,11 @@ model Application {
   aiScoring            Json?            @map("ai_scoring")
   aiScoreFeedback      Json?            @map("ai_score_feedback")
   aiInterviewQuestions Json?            @map("ai_interview_questions")
+  aiScore              Decimal?         @map("ai_score")
+  aiVerdict            String?          @map("ai_verdict")
+  aiAssessedAt         DateTime?        @map("ai_assessed_at")
+  aiFlags              Json?            @map("ai_flags")
+  compositeScore       Json?            @map("composite_score")
   trustFlagged         Boolean          @default(false) @map("trust_flagged")
   externalIds          Json             @default("{}") @map("external_ids")
   createdAt            DateTime         @default(now()) @map("created_at")
@@ -727,13 +740,14 @@ model SelectionSession {
   completedAt   DateTime? @map("completed_at")
   expiresAt     DateTime? @map("expires_at")
   flags         Json?
-  assessmentProfile Json? @map("assessment_profile")
-  specializations Json?
+  specializations   Json?  @map("specializations")
+  assessmentProfile Json?  @map("assessment_profile")
   createdAt     DateTime  @default(now()) @map("created_at")
 
   template     SelectionTemplate      @relation(fields: [templateId], references: [id])
   stageResults SelectionStageResult[]
   verdict      SelectionVerdict?
+  retentionOutcome SelectionRetentionOutcome?
 
   @@index([tenantId], map: "selection_sessions_tenant_id_idx")
   @@index([applicationId], map: "selection_sessions_application_id_idx")
@@ -763,6 +777,7 @@ model SelectionVerdict {
   totalWeightedScore Decimal? @map("total_weighted_score")
   stageScores        Json?    @map("stage_scores")
   crossCheckFlags    Json?    @map("cross_check_flags")
+  retentionPrediction Json?   @map("retention_prediction")
   lieScaleResult     Json?    @map("lie_scale_result")
   verdictReason      String?  @map("verdict_reason")
   hrNotes            String?  @map("hr_notes")
@@ -771,6 +786,51 @@ model SelectionVerdict {
   session SelectionSession @relation(fields: [sessionId], references: [id])
 
   @@map("selection_verdicts")
+}
+
+enum SelectionRetentionOutcomeStatus {
+  in_progress
+  resolved_survived_90
+  resolved_terminated
+
+  @@map("selection_retention_outcome_status")
+}
+
+model SelectionRetentionOutcome {
+  id               String                          @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId         String                          @map("tenant_id") @db.Uuid
+  sessionId        String                          @unique @map("session_id") @db.Uuid
+  hireDate         DateTime                        @map("hire_date") @db.Date
+  observedDays     Int                             @map("observed_days")
+  survived30       Boolean                         @map("survived_30")
+  survived60       Boolean                         @map("survived_60")
+  survived90       Boolean                         @map("survived_90")
+  terminationGround TerminationGround?             @map("termination_ground")
+  outcomeStatus    SelectionRetentionOutcomeStatus @map("outcome_status")
+  computedAt       DateTime                        @default(now()) @map("computed_at")
+
+  tenant  Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade, map: "selection_retention_outcomes_tenant_id_fkey")
+  session SelectionSession @relation(fields: [sessionId], references: [id], onDelete: Cascade, map: "selection_retention_outcomes_session_id_fkey")
+
+  @@index([tenantId], map: "selection_retention_outcomes_tenant_id_idx")
+  @@index([tenantId, outcomeStatus], map: "selection_retention_outcomes_tenant_status_idx")
+  @@map("selection_retention_outcomes")
+}
+
+model SelectionScoringWeights {
+  id          String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  modelVersion String  @map("model_version")
+  weights     Json
+  sampleSize  Int      @map("sample_size")
+  computedAt  DateTime @default(now()) @map("computed_at")
+  active      Boolean  @default(false)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade, map: "selection_scoring_weights_tenant_id_fkey")
+
+  @@unique([tenantId, modelVersion], map: "selection_scoring_weights_tenant_model_uk")
+  @@index([tenantId, active], map: "selection_scoring_weights_tenant_active_idx")
+  @@map("selection_scoring_weights")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -978,6 +1038,7 @@ model Employee {
   reviewRequests        ReviewRequest[]
   okrs                  Okr[]
   idps                  Idp[]
+  surveyResponses       SurveyResponse[]
 
   @@index([tenantId], map: "employees_tenant_id_idx")
   @@index([orgUnitId], map: "employees_org_unit_id_idx")
@@ -1268,6 +1329,7 @@ model HrSnapshot {
   terminatedMtd        Int      @default(0) @map("terminated_mtd")
   avgTimeToHireDays    Decimal? @map("avg_time_to_hire_days") @db.Decimal(10, 2)
   probationPassRateQtd Decimal? @map("probation_pass_rate_qtd") @db.Decimal(5, 2)
+  enpsScore            Decimal? @map("enps_score") @db.Decimal(5, 2)
   createdAt            DateTime @default(now()) @map("created_at")
 
   @@unique([tenantId, snapshotDate], map: "hr_snapshots_tenant_date_unique")
@@ -1778,4 +1840,68 @@ model TelegramLink {
   @@index([candidateId], map: "telegram_links_candidate_id_idx")
   @@index([employeeId], map: "telegram_links_employee_id_idx")
   @@map("telegram_links")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Horizon 8 — eNPS / Engagement Surveys
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum EngagementSurveyKind {
+  enps
+  pulse
+
+  @@map("engagement_survey_kind")
+}
+
+enum EngagementSurveyStatus {
+  draft
+  open
+  closed
+
+  @@map("engagement_survey_status")
+}
+
+/// An engagement survey (eNPS or pulse). One survey per campaign.
+/// `question` is the main question text (e.g. "Насколько вероятно, что вы
+/// порекомендуете компанию…"; scale 0–10 for eNPS).
+model EngagementSurvey {
+  id              String                 @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId        String                 @map("tenant_id") @db.Uuid
+  title           String
+  kind            EngagementSurveyKind
+  status          EngagementSurveyStatus @default(draft)
+  question        String
+  openedAt        DateTime?              @map("opened_at")
+  closesAt        DateTime?              @map("closes_at")
+  closedAt        DateTime?              @map("closed_at")
+  createdByUserId String                 @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime               @default(now()) @map("created_at")
+  updatedAt       DateTime               @default(now()) @updatedAt @map("updated_at")
+
+  responses SurveyResponse[]
+
+  @@index([tenantId], map: "engagement_surveys_tenant_id_idx")
+  @@index([status], map: "engagement_surveys_status_idx")
+  @@map("engagement_surveys")
+}
+
+/// One response per employee per survey. Score is 0–10 (eNPS scale).
+/// Comments are stored without public attribution — only aggregates are
+/// exposed in the results endpoint.
+model SurveyResponse {
+  id                   String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId             String   @map("tenant_id") @db.Uuid
+  surveyId             String   @map("survey_id") @db.Uuid
+  respondentEmployeeId String   @map("respondent_employee_id") @db.Uuid
+  score                Int
+  comment              String?
+  submittedAt          DateTime @default(now()) @map("submitted_at")
+
+  survey   EngagementSurvey @relation(fields: [surveyId], references: [id], onDelete: Cascade, map: "survey_responses_survey_id_fkey")
+  employee Employee         @relation(fields: [respondentEmployeeId], references: [id], onDelete: Cascade, map: "survey_responses_employee_id_fkey")
+
+  @@unique([surveyId, respondentEmployeeId], map: "survey_responses_survey_employee_uk")
+  @@index([tenantId], map: "survey_responses_tenant_id_idx")
+  @@index([surveyId], map: "survey_responses_survey_id_idx")
+  @@map("survey_responses")
 }

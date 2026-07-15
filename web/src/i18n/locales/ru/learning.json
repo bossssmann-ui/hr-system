@@ -1,0 +1,102 @@
+{
+  "title": "Обучение",
+  "loading": "Загрузка…",
+  "loadFailed": "Не удалось загрузить данные",
+  "signInPrompt": "Войдите, чтобы просмотреть раздел обучения",
+  "tabs": {
+    "courses": "Курсы",
+    "paths": "Пути обучения",
+    "myLearning": "Моё обучение",
+    "assign": "Назначить"
+  },
+  "actions": {
+    "create": "Создать",
+    "edit": "Редактировать",
+    "delete": "Удалить",
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "assign": "Назначить",
+    "updateProgress": "Обновить прогресс"
+  },
+  "courses": {
+    "title": "Каталог курсов",
+    "empty": "Курсы не найдены",
+    "create": "Создать курс",
+    "edit": "Редактировать курс",
+    "delete": "Удалить курс",
+    "deleteConfirm": "Вы уверены, что хотите удалить этот курс?",
+    "mandatory": "Обязательный",
+    "duration": "{{minutes}} мин",
+    "contentType": {
+      "video": "Видео",
+      "article": "Статья",
+      "quiz": "Тест",
+      "external_link": "Внешняя ссылка",
+      "scorm": "SCORM"
+    },
+    "fields": {
+      "title": "Название",
+      "description": "Описание",
+      "contentType": "Тип контента",
+      "contentUrl": "URL контента",
+      "durationMinutes": "Продолжительность (мин)",
+      "isMandatory": "Обязательный курс"
+    }
+  },
+  "paths": {
+    "title": "Пути обучения",
+    "empty": "Пути обучения не найдены",
+    "create": "Создать путь",
+    "edit": "Редактировать путь",
+    "delete": "Удалить путь",
+    "deleteConfirm": "Вы уверены, что хотите удалить этот путь?",
+    "autoAssign": "Авто-назначение",
+    "roleFamily": "Семейство ролей",
+    "courses": "Курсы пути",
+    "noCourses": "В пути нет курсов",
+    "fields": {
+      "title": "Название",
+      "description": "Описание",
+      "roleFamily": "Семейство ролей",
+      "autoAssign": "Авто-назначение",
+      "courseIds": "Курсы"
+    }
+  },
+  "myLearning": {
+    "title": "Моё обучение",
+    "empty": "У вас нет назначенных курсов или путей",
+    "course": "Курс",
+    "path": "Путь",
+    "dueDate": "Срок: {{date}}",
+    "progress": "{{percent}}%",
+    "status": {
+      "assigned": "Назначен",
+      "started": "В процессе",
+      "completed": "Завершён",
+      "expired": "Просрочен"
+    },
+    "updateProgress": "Обновить прогресс",
+    "updateStatus": "Обновить статус",
+    "start": "Начать",
+    "complete": "Завершить",
+    "fields": {
+      "progressPercent": "Прогресс (%)",
+      "status": "Статус"
+    }
+  },
+  "assign": {
+    "title": "Назначить обучение",
+    "fields": {
+      "employeeId": "ID сотрудника",
+      "courseId": "Курс",
+      "pathId": "Путь обучения",
+      "dueDate": "Срок выполнения",
+      "type": "Тип назначения"
+    },
+    "type": {
+      "course": "Курс",
+      "path": "Путь обучения"
+    },
+    "success": "Обучение успешно назначено"
+  }
+}

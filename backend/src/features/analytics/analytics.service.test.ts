@@ -3,6 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import type { DbClient } from '../../db'
 import {
   buildPayrollExport,
+  computeRecruiterFunnel,
   computeHrSnapshot,
   payrollRowsToCsv,
 } from './analytics.service'
@@ -84,6 +85,12 @@ describe('computeHrSnapshot', () => {
           ]
         },
       },
+      engagementSurvey: {
+        findFirst: async () => null,
+      },
+      surveyResponse: {
+        findMany: async () => [],
+      },
       hrSnapshot: {
         upsert: async (args: unknown) => {
           upserted = args
@@ -106,6 +113,7 @@ describe('computeHrSnapshot', () => {
     //   = 3 decided, 2 passed → 66.67%
     expect(result.probationPassRateQtd).toBe(66.67)
     expect(result.snapshotDate).toBe('2026-06-15')
+    expect(result.enpsScore).toBeNull()
     expect(upserted).not.toBeNull()
     // Sanity: upsert call uses the unique (tenant, date) key
     void quarterStart
@@ -116,6 +124,8 @@ describe('computeHrSnapshot', () => {
       employee: { findMany: async () => [] },
       hiringRequisition: { count: async () => 0 },
       application: { findMany: async () => [] },
+      engagementSurvey: { findFirst: async () => null },
+      surveyResponse: { findMany: async () => [] },
       hrSnapshot: { upsert: async () => ({}) },
     } as unknown as DbClient
 
@@ -127,6 +137,59 @@ describe('computeHrSnapshot', () => {
     expect(result.headcount).toBe(0)
     expect(result.avgTimeToHireDays).toBeNull()
     expect(result.probationPassRateQtd).toBeNull()
+    expect(result.enpsScore).toBeNull()
+  })
+
+  test('enpsScore is computed from the last closed eNPS survey', async () => {
+    // 4 promoters (9-10), 1 detractor (0-6) → eNPS = round(80 − 20) = 60
+    const prisma = {
+      employee: { findMany: async () => [] },
+      hiringRequisition: { count: async () => 0 },
+      application: { findMany: async () => [] },
+      engagementSurvey: {
+        findFirst: async () => ({ id: 'survey-1' }),
+      },
+      surveyResponse: {
+        findMany: async () => [
+          { score: 10 },
+          { score: 9 },
+          { score: 10 },
+          { score: 9 },
+          { score: 3 },
+        ],
+      },
+      hrSnapshot: { upsert: async () => ({}) },
+    } as unknown as DbClient
+
+    const result = await computeHrSnapshot({
+      prisma,
+      tenantId: 't1',
+      now: new Date('2026-06-15T00:00:00.000Z'),
+    })
+    // promoters=4 (80%), detractors=1 (20%) → 80−20 = 60
+    expect(result.enpsScore).toBe(60)
+  })
+
+  test('enpsScore is null when closed survey has no responses', async () => {
+    const prisma = {
+      employee: { findMany: async () => [] },
+      hiringRequisition: { count: async () => 0 },
+      application: { findMany: async () => [] },
+      engagementSurvey: {
+        findFirst: async () => ({ id: 'survey-empty' }),
+      },
+      surveyResponse: {
+        findMany: async () => [],
+      },
+      hrSnapshot: { upsert: async () => ({}) },
+    } as unknown as DbClient
+
+    const result = await computeHrSnapshot({
+      prisma,
+      tenantId: 't1',
+      now: new Date('2026-06-15T00:00:00.000Z'),
+    })
+    expect(result.enpsScore).toBeNull()
   })
 })
 
@@ -199,5 +262,226 @@ describe('payrollRowsToCsv', () => {
     expect(lines[1]).toContain('"Smith, John"')
     expect(lines[1]).toContain('"CEO ""Big"""')
     expect(lines[1]).toContain('200000')
+  })
+})
+
+describe('computeRecruiterFunnel', () => {
+  test('calculates weekly funnel counters and processed candidates', async () => {
+    const now = new Date('2026-06-18T10:00:00.000Z')
+    const prisma = {
+      application: {
+        findMany: async ({ where }: { where: Record<string, unknown> }) => {
+          if ('id' in where) {
+            // Second call: apps by ID for processedCandidates
+            return [
+              { id: 'app-1', candidateId: 'cand-1', aiScore: 73, createdAt: new Date('2026-06-16T10:00:00.000Z') },
+              { id: 'app-2', candidateId: 'cand-2', aiScore: null, createdAt: new Date('2026-06-17T10:00:00.000Z') },
+            ]
+          }
+          // First call: all apps in period (for source/newApplications counting)
+          return [
+            { id: 'app-1', externalIds: {} },
+            { id: 'app-2', externalIds: {} },
+            { id: 'app-3', externalIds: {} },
+            { id: 'app-4', externalIds: {} },
+          ]
+        },
+      },
+      selectionSession: {
+        findMany: async () => [
+          {
+            id: 's-1',
+            applicationId: 'app-1',
+            createdAt: new Date('2026-06-16T10:00:00.000Z'),
+            verdict: {
+              verdict: 'ДОПУСТИТЬ',
+              totalWeightedScore: 88,
+              retentionPrediction: { survival90: 0.8 },
+              hrNotes: 'Сильный кандидат',
+            },
+          },
+          {
+            id: 's-2',
+            applicationId: 'app-2',
+            createdAt: new Date('2026-06-17T10:00:00.000Z'),
+            verdict: {
+              verdict: 'НА РУЧНУЮ ПРОВЕРКУ HR',
+              totalWeightedScore: null,
+              retentionPrediction: null,
+              hrNotes: 'Проверить детали',
+            },
+          },
+          {
+            id: 's-3',
+            applicationId: 'app-3',
+            createdAt: new Date('2026-06-17T11:00:00.000Z'),
+            verdict: {
+              verdict: 'ОТКЛОНИТЬ',
+              totalWeightedScore: 40,
+              retentionPrediction: null,
+              hrNotes: null,
+            },
+          },
+          {
+            id: 's-4',
+            applicationId: 'app-4',
+            createdAt: new Date('2026-06-17T12:00:00.000Z'),
+            verdict: null,
+          },
+        ],
+      },
+      assessmentSession: {
+        findMany: async () => [
+          {
+            applicationId: 'app-1',
+            trustScore: 91,
+            createdAt: new Date('2026-06-17T12:30:00.000Z'),
+          },
+          {
+            applicationId: 'app-2',
+            trustScore: 67,
+            createdAt: new Date('2026-06-17T13:30:00.000Z'),
+          },
+        ],
+      },
+    } as unknown as DbClient
+
+    const result = await computeRecruiterFunnel({
+      prisma,
+      tenantId: 'tenant-1',
+      period: 'week',
+      now,
+    })
+
+    expect(result.newApplications).toBe(4)
+    expect(result.aiProcessed).toBe(3)
+    expect(result.passedToRecruiter).toBe(1)
+    expect(result.aiRejected).toBe(1)
+    expect(result.manualReview).toBe(1)
+    expect(result.inProgress).toBe(1)
+    expect(result.processedCandidates).toHaveLength(3)
+    expect(result.processedCandidates[0]).toMatchObject({
+      applicationId: 'app-1',
+      scoreStatus: 'final',
+      trustScore: 91,
+      verdict: 'ДОПУСТИТЬ',
+    })
+  })
+
+  test('returns empty funnel for tenant without data', async () => {
+    const prisma = {
+      application: {
+        findMany: async () => [],
+      },
+      selectionSession: {
+        findMany: async () => [],
+      },
+      assessmentSession: {
+        findMany: async () => [],
+      },
+    } as unknown as DbClient
+
+    const result = await computeRecruiterFunnel({
+      prisma,
+      tenantId: 'tenant-empty',
+      period: 'today',
+      now: new Date('2026-06-18T10:00:00.000Z'),
+    })
+
+    expect(result).toMatchObject({
+      newApplications: 0,
+      aiProcessed: 0,
+      passedToRecruiter: 0,
+      aiRejected: 0,
+      manualReview: 0,
+      inProgress: 0,
+    })
+    expect(result.processedCandidates).toEqual([])
+    expect(result.bySource).toEqual({})
+  })
+
+  test('bySource: hh_* externalIds → hh bucket, others → direct; sums match overall counters', async () => {
+    const now = new Date('2026-06-18T10:00:00.000Z')
+    const prisma = {
+      application: {
+        findMany: async ({ where }: { where: Record<string, unknown> }) => {
+          if ('id' in where) {
+            return [
+              { id: 'app-hh', candidateId: 'cand-hh', aiScore: null, createdAt: new Date('2026-06-16T10:00:00.000Z') },
+              { id: 'app-direct', candidateId: 'cand-d', aiScore: null, createdAt: new Date('2026-06-16T11:00:00.000Z') },
+            ]
+          }
+          // All apps in period: 2 HH, 2 direct
+          return [
+            { id: 'app-hh', externalIds: { hh_negotiation_id: '123' } },
+            { id: 'app-hh2', externalIds: { hh_resume_id: '456' } },
+            { id: 'app-direct', externalIds: {} },
+            { id: 'app-direct2', externalIds: {} },
+          ]
+        },
+      },
+      selectionSession: {
+        findMany: async () => [
+          {
+            id: 's-hh',
+            applicationId: 'app-hh',
+            createdAt: new Date('2026-06-16T10:00:00.000Z'),
+            verdict: { verdict: 'ДОПУСТИТЬ', totalWeightedScore: 90, retentionPrediction: null, hrNotes: null },
+          },
+          {
+            id: 's-direct',
+            applicationId: 'app-direct',
+            createdAt: new Date('2026-06-16T11:00:00.000Z'),
+            verdict: { verdict: 'ОТКЛОНИТЬ', totalWeightedScore: 30, retentionPrediction: null, hrNotes: null },
+          },
+          {
+            id: 's-direct2',
+            applicationId: 'app-direct2',
+            createdAt: new Date('2026-06-16T12:00:00.000Z'),
+            verdict: null,
+          },
+        ],
+      },
+      assessmentSession: {
+        findMany: async () => [],
+      },
+    } as unknown as DbClient
+
+    const result = await computeRecruiterFunnel({ prisma, tenantId: 'tenant-src', period: 'week', now })
+
+    // Overall counters
+    expect(result.newApplications).toBe(4)
+    expect(result.aiProcessed).toBe(2)
+    expect(result.passedToRecruiter).toBe(1)
+    expect(result.aiRejected).toBe(1)
+    expect(result.inProgress).toBe(1)
+
+    // bySource exists and has hh + direct
+    expect(result.bySource.hh).toBeDefined()
+    expect(result.bySource.direct).toBeDefined()
+
+    // HH bucket: 2 apps, 1 processed (passed), 0 rejected, 0 inProgress
+    expect(result.bySource.hh.applications).toBe(2)
+    expect(result.bySource.hh.aiProcessed).toBe(1)
+    expect(result.bySource.hh.passedToRecruiter).toBe(1)
+    expect(result.bySource.hh.aiRejected).toBe(0)
+    expect(result.bySource.hh.inProgress).toBe(0)
+
+    // Direct bucket: 2 apps, 1 processed (rejected), 1 inProgress
+    expect(result.bySource.direct.applications).toBe(2)
+    expect(result.bySource.direct.aiProcessed).toBe(1)
+    expect(result.bySource.direct.passedToRecruiter).toBe(0)
+    expect(result.bySource.direct.aiRejected).toBe(1)
+    expect(result.bySource.direct.inProgress).toBe(1)
+
+    // Sums across sources match overall counters
+    const totalApps = Object.values(result.bySource).reduce((s, v) => s + v.applications, 0)
+    const totalProcessed = Object.values(result.bySource).reduce((s, v) => s + v.aiProcessed, 0)
+    const totalPassed = Object.values(result.bySource).reduce((s, v) => s + v.passedToRecruiter, 0)
+    const totalInProgress = Object.values(result.bySource).reduce((s, v) => s + v.inProgress, 0)
+    expect(totalApps).toBe(result.newApplications)
+    expect(totalProcessed).toBe(result.aiProcessed)
+    expect(totalPassed).toBe(result.passedToRecruiter)
+    expect(totalInProgress).toBe(result.inProgress)
   })
 })

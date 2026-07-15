@@ -21,6 +21,10 @@ import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
 import { AppError } from '../../http/errors'
 import {
+  recomputeCompositeScoreForApplication,
+  recordCompositeScoreRecomputeFailure,
+} from '../applications/composite-score'
+import {
   enqueueSelectionEvaluate,
   computeCrossCheckFlags,
   shouldAutoRejectAfterStage1,
@@ -405,6 +409,21 @@ export function createSelectionRoutes() {
             hrNotes,
           },
         })
+        if (session.applicationId) {
+          try {
+            await recomputeCompositeScoreForApplication({
+              prisma,
+              env: c.get('env'),
+              applicationId: session.applicationId,
+            })
+          } catch (error) {
+            await recordCompositeScoreRecomputeFailure({
+              prisma,
+              applicationId: session.applicationId,
+              error,
+            })
+          }
+        }
         return c.json({ submitted: true, nextStatus: 'rejected', autoRejected: true })
       }
 

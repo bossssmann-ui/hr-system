@@ -170,6 +170,9 @@ export async function getTenantSettings(prisma: DbClient, tenantId: string) {
     timezone: settings.timezone,
     locale: settings.locale,
     featureFlags: asFeatureFlags(settings.featureFlags),
+    scoringWeights: asNumberRecord(settings.scoringWeights),
+    pipelineThresholds: asPipelineThresholds(settings.pipelineThresholds),
+    funnelStageConfig: asFunnelStageConfig(settings.funnelStageConfig),
   }
 }
 
@@ -178,6 +181,55 @@ function asFeatureFlags(value: unknown): Record<string, boolean> {
   const out: Record<string, boolean> = {}
   for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
     if (typeof v === 'boolean') out[k] = v
+  }
+  return out
+}
+
+function asNumberRecord(value: unknown): Record<string, number> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const out: Record<string, number> = {}
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof v === 'number' && Number.isFinite(v)) out[k] = v
+  }
+  return out
+}
+
+function asPipelineThresholds(value: unknown): { autoSelection: number; autoReject: number } | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const record = value as Record<string, unknown>
+  const autoSelection = record.autoSelection
+  const autoReject = record.autoReject
+  if (
+    typeof autoSelection !== 'number' ||
+    !Number.isFinite(autoSelection) ||
+    autoSelection < 0 ||
+    autoSelection > 100
+  ) return null
+  if (
+    typeof autoReject !== 'number' ||
+    !Number.isFinite(autoReject) ||
+    autoReject < 0 ||
+    autoReject > 100 ||
+    autoReject > autoSelection
+  ) return null
+  return { autoSelection, autoReject }
+}
+
+const VALID_STAGES = new Set(['new', 'screen', 'tech', 'final', 'offer', 'hired', 'rejected'])
+
+function asFunnelStageConfig(
+  value: unknown,
+): Array<{ stage: string; label?: string; order: number; hidden?: boolean }> | null {
+  if (!Array.isArray(value)) return null
+  const out: Array<{ stage: string; label?: string; order: number; hidden?: boolean }> = []
+  for (const item of value) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return null
+    const entry = item as Record<string, unknown>
+    if (typeof entry.stage !== 'string' || !VALID_STAGES.has(entry.stage)) return null
+    if (typeof entry.order !== 'number' || !Number.isFinite(entry.order)) return null
+    const label = typeof entry.label === 'string' ? entry.label : undefined
+    const hidden = typeof entry.hidden === 'boolean' ? entry.hidden : undefined
+    out.push({ stage: entry.stage, order: entry.order, label, hidden })
   }
   return out
 }
@@ -192,6 +244,9 @@ export async function updateTenantSettings(
     timezone?: string
     locale?: string
     featureFlags?: Record<string, boolean>
+    scoringWeights?: Record<string, number> | null
+    pipelineThresholds?: { autoSelection: number; autoReject: number } | null
+    funnelStageConfig?: Array<{ stage: string; label?: string; order: number; hidden?: boolean }> | null
   },
 ) {
   await prisma.$transaction(async (tx) => {
@@ -204,6 +259,9 @@ export async function updateTenantSettings(
     if (patch.timezone !== undefined) settingsPatch.timezone = patch.timezone
     if (patch.locale !== undefined) settingsPatch.locale = patch.locale
     if (patch.featureFlags !== undefined) settingsPatch.featureFlags = patch.featureFlags
+    if (patch.scoringWeights !== undefined) settingsPatch.scoringWeights = patch.scoringWeights
+    if (patch.pipelineThresholds !== undefined) settingsPatch.pipelineThresholds = patch.pipelineThresholds
+    if (patch.funnelStageConfig !== undefined) settingsPatch.funnelStageConfig = patch.funnelStageConfig
 
     await tx.tenantSettings.upsert({
       where: { tenantId },

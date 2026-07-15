@@ -1,9 +1,14 @@
 import { z } from 'zod'
 
+export const vacancyRoleSchema = z.enum(['logist_domestic', 'logist', 'sales_manager'])
+export type VacancyRole = z.infer<typeof vacancyRoleSchema>
+
 export const vacancySchema = z.object({
   id: z.string(),
   title: z.string(),
   description: z.string(),
+  role: vacancyRoleSchema.nullable().optional(),
+  requiredAssessmentTemplateIds: z.array(z.string()).default([]),
   isPublished: z.boolean(),
   tenantId: z.string(),
   requisitionId: z.string(),
@@ -28,11 +33,23 @@ export const publishVacancyRequestSchema = z.object({
 
 export type PublishVacancyRequest = z.infer<typeof publishVacancyRequestSchema>
 
+export const updateVacancyRoleRequestSchema = z.object({
+  role: vacancyRoleSchema.nullable(),
+})
+
+export type UpdateVacancyRoleRequest = z.infer<typeof updateVacancyRoleRequestSchema>
+
 export const linkVacancyToHhRequestSchema = z.object({
   hhVacancyId: z.string().min(1).nullable(),
 })
 
 export type LinkVacancyToHhRequest = z.infer<typeof linkVacancyToHhRequestSchema>
+
+export const updateVacancyAssessmentTemplatesRequestSchema = z.object({
+  requiredAssessmentTemplateIds: z.array(z.string()).optional(),
+})
+
+export type UpdateVacancyAssessmentTemplatesRequest = z.infer<typeof updateVacancyAssessmentTemplatesRequestSchema>
 
 // ─── Public careers API contracts ────────────────────────────────────────────
 

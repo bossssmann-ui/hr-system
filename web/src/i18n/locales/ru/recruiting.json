@@ -158,9 +158,31 @@
       "createFailed": "Не удалось создать отклик",
       "moveFailed": "Не удалось перевести на этот этап"
     },
+    "composite": {
+      "badge": "Балл: {{score}}",
+      "title": "Композитный балл",
+      "breakdownTitle": "Разбивка",
+      "resume": "Резюме",
+      "selection": "Отбор",
+      "selectionStages": "Этап 1: {{stage1}} · Этап 2: {{stage2}} · Этап 3: {{stage3}} · Этап 4: {{stage4}} · Итог: {{total}}",
+      "assessment": "Ассессмент",
+      "assessmentValues": "Балл: {{score}} · Доверие: {{trust}}",
+      "retention": "Удержание",
+      "weights": "Веса: {{value}}",
+      "weightKeys": {
+        "resume": "Резюме",
+        "selection": "Отбор",
+        "assessment": "Ассессмент",
+        "retention": "Удержание"
+      }
+    },
     "ai": {
       "title": "AI-скоринг",
       "rescore": "Пере-оценить",
+      "rescoreAll": "Пересчитать скоринг всех",
+      "rescoreAllConfirm": "Пересчитать AI-скоринг для всех откликов? Это запустит LLM-запросы по каждому отклику",
+      "rescoreAllSuccess": "Поставлено в очередь: {{count}}",
+      "rescoreAllFailed": "Не удалось поставить массовый пересчёт в очередь",
       "notConfigured": "AI-скоринг не настроен.",
       "noScore": "AI-оценка ещё не готова.",
       "inProgress": "Скоринг выполняется.",

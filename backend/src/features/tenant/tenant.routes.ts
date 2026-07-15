@@ -117,20 +117,20 @@ export function createTenantRegistrationRoutes() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Owner — /api/settings/tenant
+// Owner / HR admin — /api/settings/tenant
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function createTenantSettingsRoutes() {
   const app = new Hono<OwnerBindings>()
 
-  app.get('/', requireRole('owner'), async (c) => {
+  app.get('/', requireRole('owner', 'hr_admin'), async (c) => {
     const settings = await getTenantSettings(c.get('prisma'), c.get('tenantId'))
     return c.json(tenantSettingsSchema.parse(settings))
   })
 
   app.patch(
     '/',
-    requireRole('owner'),
+    requireRole('owner', 'hr_admin'),
     zValidator('json', updateTenantSettingsRequestSchema),
     async (c) => {
       const settings = await updateTenantSettings(

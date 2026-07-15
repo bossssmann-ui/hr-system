@@ -17,6 +17,8 @@ import {
   createEmployeeIdpRoutes,
   createEmployeeLearningRoutes,
 } from '../learning/learning.routes'
+import { recordProbationReview } from './employees.service'
+import { recordProbationReviewRequestSchema } from '@web-app-demo/contracts'
 
 const exitReasonCategorySchema = z.enum(['voluntary', 'mutual', 'probation_failed', 'for_cause', 'other'])
 
@@ -159,6 +161,58 @@ export function createEmployeesRoutes() {
   app.route('/:id/learning', createEmployeeLearningRoutes())
   app.route('/:id/1on1s', createEmployee1on1Routes())
   app.route('/:id/idp', createEmployeeIdpRoutes())
+
+  app.post(
+    '/:id/probation-review',
+    requireRole('hr_admin', 'hiring_manager', 'owner'),
+    zValidator('json', recordProbationReviewRequestSchema),
+    async (c) => {
+      const prisma = c.get('prisma')
+      const tenantId = c.get('tenantId')
+      const userId = c.get('userId')
+      const roles = c.get('roles')
+      const { id } = c.req.param()
+      const body = c.req.valid('json')
+
+      try {
+        const result = await recordProbationReview({
+          prisma,
+          tenantId,
+          employeeId: id,
+          actorRoles: roles,
+          actorUserId: userId,
+          decision: body.decision,
+          extendedProbationEndsAt: body.extendedProbationEndsAt
+            ? new Date(body.extendedProbationEndsAt)
+            : undefined,
+          managerNotes: body.note,
+        })
+
+        return c.json({
+          employeeId: result.employee.id,
+          status: result.employee.status,
+          probationOutcome: result.employee.probationOutcome ?? null,
+          probationEndsAt: result.employee.probationEndsAt?.toISOString() ?? null,
+        })
+      } catch (err) {
+        if (!(err instanceof Error)) throw err
+        const msg = err.message
+        if (msg.includes('not found')) throw new AppError(404, 'NOT_FOUND', 'Employee not found')
+        if (msg.includes('not allowed to review probation')) throw new AppError(403, 'FORBIDDEN', 'Forbidden')
+        if (msg.includes('must be in probation status'))
+          throw new AppError(422, 'FSM_TRANSITION_DENIED', 'Employee is not in probation status')
+        if (msg.includes('requires extendedProbationEndsAt'))
+          throw new AppError(400, 'BAD_REQUEST', 'extendedProbationEndsAt is required for extended decision')
+        if (msg.includes('must move probation forward'))
+          throw new AppError(422, 'VALIDATION_ERROR', 'extendedProbationEndsAt must be after the current probation end date')
+        if (msg.includes('transition') && msg.includes('not allowed'))
+          throw new AppError(422, 'FSM_TRANSITION_DENIED', msg)
+        if (msg.includes('does not satisfy'))
+          throw new AppError(422, 'FSM_TRANSITION_DENIED', msg)
+        throw err
+      }
+    },
+  )
 
   return app
 }

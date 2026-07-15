@@ -23,6 +23,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { Typography } from "@/components/ui/typography"
 import { OfferPanel } from "@/components/OfferPanel"
 import { ApiRequestError } from "@/lib/api"
+import { isAdmin } from "@/lib/roles"
 import { useAuth } from "@/lib/use-auth"
 import { cn } from "@/lib/utils"
 
@@ -572,7 +573,6 @@ function NewCandidateForm({ onSubmit, isLoading, error }: { onSubmit: (data: { f
 
 // ─── Applications Kanban ──────────────────────────────────────────────────────
 
-const KANBAN_STAGES: ApplicationStage[] = ["new", "screen", "tech", "final", "offer", "hired", "rejected"]
 const APP_TRANSITIONS: Partial<Record<ApplicationStage, ApplicationStage[]>> = {
   new: ["screen", "rejected"],
   screen: ["new", "tech", "rejected"],
@@ -673,6 +673,17 @@ function KanbanBoard() {
     },
   })
 
+  const rescoreAllMutation = useMutation({
+    mutationFn: () => api.rescoreAllApplications(),
+    onSuccess: (result) => {
+      toast.success(t('applications.ai.rescoreAllSuccess', { count: result.queued }))
+      void queryClient.invalidateQueries({ queryKey: ["applications"] })
+    },
+    onError: (error: unknown) => {
+      toast.error(error instanceof ApiRequestError ? error.message : t('applications.ai.rescoreAllFailed'))
+    },
+  })
+
   const applications: Application[] = applicationsQuery.data?.items ?? []
   const vacancies: Vacancy[] = vacanciesQuery.data?.items ?? []
   const candidates: Candidate[] = candidatesQuery.data?.items ?? []
@@ -689,6 +700,11 @@ function KanbanBoard() {
     stageMutation.mutate({ id: dragging.id, to }); setDragging(null)
   }
 
+  function handleRescoreAll() {
+    if (!window.confirm(t('applications.ai.rescoreAllConfirm'))) return
+    rescoreAllMutation.mutate()
+  }
+
   return (
     <section className="mx-auto grid w-full gap-4 px-5 py-8">
       <div className="flex items-start justify-between gap-4">
@@ -696,7 +712,7 @@ function KanbanBoard() {
           <Badge variant="outline" className="w-fit">{t('applications.badge')}</Badge>
           <Typography variant="h1">{t('applications.title')}</Typography>
         </div>
-        <div className="flex flex-wrap justify-end gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <Button
             variant="outline"
             onClick={() => hhSyncMutation.mutate()}
@@ -711,6 +727,16 @@ function KanbanBoard() {
             />
             {hhSyncMutation.isPending ? t('common.syncing') : t('applications.hhSync.button')}
           </Button>
+          {isAdmin(user) && (
+            <Button
+              variant="outline"
+              onClick={handleRescoreAll}
+              disabled={rescoreAllMutation.isPending}
+              data-testid="applications.rescore-all"
+            >
+              {rescoreAllMutation.isPending ? t('common.queueing') : t('applications.ai.rescoreAll')}
+            </Button>
+          )}
           <Button onClick={() => { setShowNewAppForm(!showNewAppForm); setAppFormError(null) }} data-testid="new-application-button">
             {showNewAppForm ? t('common:actions.cancel') : t('applications.newButton')}
           </Button>

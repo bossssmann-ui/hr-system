@@ -1,0 +1,102 @@
+{
+  "title": "Перформанс",
+  "tabs": {
+    "oneOnOne": "1:1",
+    "reviews": "Ревью / 360°",
+    "okr": "OKR",
+    "idp": "ИПР"
+  },
+  "loading": "Загрузка…",
+  "loadFailed": "Не удалось загрузить данные",
+  "empty": "Нет данных",
+  "actions": {
+    "schedule": "Запланировать",
+    "complete": "Завершить",
+    "open": "Открыть цикл",
+    "close": "Закрыть цикл",
+    "submit": "Отправить",
+    "update": "Обновить",
+    "cancel": "Отмена",
+    "save": "Сохранить"
+  },
+  "oneOnOne": {
+    "title": "Встречи 1:1",
+    "empty": "Встречи не найдены",
+    "schedule": "Запланировать встречу",
+    "complete": "Завершить встречу",
+    "employeeId": "Сотрудник (ID)",
+    "managerUserId": "Менеджер (ID)",
+    "scheduledAt": "Дата и время",
+    "agenda": "Повестка",
+    "notes": "Заметки",
+    "actionItems": "Задачи (по одной в строке)",
+    "status": {
+      "scheduled": "Запланирована",
+      "completed": "Завершена",
+      "cancelled": "Отменена"
+    }
+  },
+  "reviews": {
+    "title": "Циклы ревью",
+    "empty": "Циклы не найдены",
+    "cycleStatus": {
+      "draft": "Черновик",
+      "open": "Открыт",
+      "closed": "Закрыт"
+    },
+    "completion": "Заполнено: {{submitted}} / {{total}}",
+    "myRequests": "Мои ревью",
+    "myRequestsEmpty": "Нет ожидающих ревью",
+    "requestStatus": {
+      "pending": "Ожидает",
+      "submitted": "Отправлено",
+      "declined": "Отклонено"
+    },
+    "submitReview": "Отправить ревью",
+    "closesAt": "Закрывается"
+  },
+  "okr": {
+    "title": "OKR",
+    "empty": "OKR не найдены",
+    "quarter": "Квартал",
+    "progress": "Прогресс",
+    "status": {
+      "draft": "Черновик",
+      "active": "Активен",
+      "achieved": "Достигнут",
+      "missed": "Не достигнут"
+    },
+    "keyResults": "Ключевые результаты",
+    "krStatus": {
+      "open": "Открыт",
+      "on_track": "В плане",
+      "at_risk": "Под угрозой",
+      "achieved": "Достигнут"
+    },
+    "current": "Текущее",
+    "target": "Цель",
+    "unit": "Ед. изм.",
+    "updateValue": "Обновить значение",
+    "newValue": "Новое значение"
+  },
+  "idp": {
+    "title": "Индивидуальный план развития",
+    "empty": "Планы развития не найдены",
+    "quarter": "Квартал",
+    "progress": "Прогресс",
+    "status": {
+      "draft": "Черновик",
+      "active": "Активен",
+      "completed": "Завершён"
+    },
+    "items": "Пункты плана",
+    "itemStatus": {
+      "planned": "Запланирован",
+      "in_progress": "В процессе",
+      "completed": "Завершён",
+      "dropped": "Отменён"
+    },
+    "changeStatus": "Сменить статус",
+    "dueDate": "Срок"
+  }
+}
