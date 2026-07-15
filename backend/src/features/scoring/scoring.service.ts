@@ -186,8 +186,9 @@ export async function scoreApplication(input: ScoreApplicationInput) {
         relevanceScore: result.relevance_score,
         actorUserId,
       })
-    } catch {
+    } catch (err) {
       // non-blocking
+      console.error('[scoring] clarification trigger failed:', err)
     }
 
     return { skipped: false as const, status: 'scored' as const, result, autoStage, autoReturn }

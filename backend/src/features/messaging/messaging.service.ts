@@ -379,8 +379,9 @@ export async function ingestInboundMessage(input: IngestMessageInput) {
         applicationId: conversation.applicationId,
         answer: body,
       })
-    } catch {
+    } catch (err) {
       // Non-blocking — do not fail message ingestion.
+      console.error('[messaging] clarification answer handling failed:', err)
     }
   }
 

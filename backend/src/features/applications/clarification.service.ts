@@ -86,11 +86,13 @@ function parseClarification(value: unknown): {
 } | null {
   const record = asRecord(value)
   if (typeof record.status !== 'string') return null
+  if (typeof record.channel !== 'string' || !record.channel) return null
+  if (typeof record.sentAt !== 'string' || !record.sentAt) return null
   return {
     status: record.status as string,
-    channel: typeof record.channel === 'string' ? record.channel : '',
+    channel: record.channel,
     questions: asStringArray(record.questions),
-    sentAt: typeof record.sentAt === 'string' ? record.sentAt : new Date().toISOString(),
+    sentAt: record.sentAt,
     answers: asStringArray(record.answers),
     answeredAt: typeof record.answeredAt === 'string' ? record.answeredAt : null,
     rounds: typeof record.rounds === 'number' ? record.rounds : 0,
@@ -208,7 +210,8 @@ export async function sendAiClarification(input: SendClarificationInput) {
     })
     deliveryStatus = deliveryResult.status === 'sent' ? 'sent' : 'failed'
     externalId = deliveryResult.externalId ?? undefined
-  } catch {
+  } catch (err) {
+    console.error('[clarification] adapter.send failed:', err)
     deliveryStatus = 'failed'
   }
 
