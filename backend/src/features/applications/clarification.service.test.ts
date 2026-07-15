@@ -198,6 +198,7 @@ describe('clarification send and ingest', () => {
     const prisma = createPrismaMock()
     const sent: Array<{ destination: string; body: string }> = []
     const adapter: MessageChannelAdapter = {
+      channelName: 'email',
       async send(message) {
         sent.push({ destination: message.destination, body: message.body })
         return { status: 'sent', externalId: 'msg-1' }
@@ -358,6 +359,14 @@ function createPrismaMock(overrides?: { aiClarification?: unknown }) {
     user: {
       async findFirst() {
         return { id: 'user-1' }
+      },
+    },
+    userRole: {
+      async findMany() {
+        return [{ userId: 'user-1', role: 'owner' }]
+      },
+      async findFirst() {
+        return { userId: 'user-1' }
       },
     },
     hhConnection: {

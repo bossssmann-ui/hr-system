@@ -665,6 +665,26 @@ describe('scoring service', () => {
       },
     ])
   })
+
+  test('buildScoringInput includes candidate_clarifications from answered AI clarification', () => {
+    const snapshot = {
+      ...createPrismaMock().state.application,
+      aiClarification: {
+        status: 'answered',
+        channel: 'email',
+        questions: ['Какие объёмы FTL?'],
+        answers: [{ question: 'Какие объёмы FTL?', answer: '20 рейсов в месяц' }],
+        sentAt: '2026-07-15T10:00:00.000Z',
+        answeredAt: '2026-07-15T11:00:00.000Z',
+        roundCount: 1,
+      },
+    }
+
+    const input = buildScoringInput(snapshot as never, null)
+    expect(input.candidate_clarifications).toEqual([
+      { question: 'Какие объёмы FTL?', answer: '20 рейсов в месяц' },
+    ])
+  })
 })
 
 function createHashWithoutRuleset(input: unknown) {

@@ -547,15 +547,24 @@ function readCurrentRelevanceScore(aiScoring: unknown): number {
 }
 
 async function findAutomationActorUserId(prisma: DbClient, tenantId: string) {
-  const user = await prisma.user.findFirst({
+  const rows = await prisma.userRole.findMany({
     where: {
       tenantId,
       role: { in: ['owner', 'hr_admin', 'recruiter'] },
+      user: { disabledAt: null },
     },
-    orderBy: { createdAt: 'asc' },
-    select: { id: true },
+    select: {
+      userId: true,
+      role: true,
+    },
   })
-  return user?.id ?? null
+
+  const priority = ['owner', 'hr_admin', 'recruiter']
+  return (
+    priority
+      .map((role) => rows.find((row) => row.role === role)?.userId)
+      .find((userId): userId is string => Boolean(userId)) ?? null
+  )
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {

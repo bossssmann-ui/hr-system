@@ -223,6 +223,7 @@ function PipelineScoringSettingsCard() {
       autoAssessment: null,
       compositeScore: null,
       recruiterNotifications: null,
+      clarification: null,
     },
   })
   const [submitErrorKey, setSubmitErrorKey] = useState<string | null>(null)
