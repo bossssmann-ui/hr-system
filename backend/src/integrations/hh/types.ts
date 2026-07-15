@@ -49,6 +49,19 @@ export type HhNegotiationsPage = {
   items: HhNegotiation[]
 }
 
+export type HhResumeSearchPage = {
+  found: number
+  pages: number
+  page: number
+  per_page: number
+  items: Array<{ id: string }>
+}
+
+export type HhNegotiationInvite = {
+  id?: string
+  messagesUrl?: string
+}
+
 export type HhResumeContact = {
   type?: {
     id?: string
@@ -102,5 +115,12 @@ export type HhClient = {
   listEmployerVacancies(accessToken: string, page?: number): Promise<HhEmployerVacancy[]>
   getNegotiationCollections(accessToken: string, vacancyId: string): Promise<HhNegotiationCollection[]>
   listNegotiations(accessToken: string, collectionUrl: string, page?: number): Promise<HhNegotiationsPage>
+  listResumes(accessToken: string, params: Record<string, string>, page?: number): Promise<HhResumeSearchPage>
   getResume(accessToken: string, resumeId: string): Promise<HhResume>
+  createNegotiationInvite(input: {
+    accessToken: string
+    resumeId: string
+    vacancyId: string
+    message: string
+  }): Promise<HhNegotiationInvite>
 }

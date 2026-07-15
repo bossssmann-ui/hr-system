@@ -24,6 +24,7 @@ import {
   rescoreAllApplicationsResponseSchema,
   scoreFeedbackRequestSchema,
   sendCandidateQuestionnaireResponseSchema,
+  vacancyRoleSchema,
 } from '@web-app-demo/contracts'
 import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
@@ -97,6 +98,12 @@ function asRecord(value: unknown): Record<string, unknown> {
 function asNullableRecord(value: unknown): Record<string, unknown> | null {
   if (value === null || value === undefined) return null
   return asRecord(value)
+}
+
+function parseVacancyRole(value: string | null): Vacancy['role'] {
+  if (value == null) return null
+  const result = vacancyRoleSchema.safeParse(value)
+  return result.success ? result.data : null
 }
 
 export function createApplicationsRoutes() {
@@ -234,9 +241,12 @@ export function createApplicationsRoutes() {
         tenantId: row.vacancy.tenantId,
         title: row.vacancy.title,
         description: row.vacancy.description,
+        role: parseVacancyRole(row.vacancy.role),
+        requiredAssessmentTemplateIds: row.vacancy.requiredAssessmentTemplateIds,
         isPublished: row.vacancy.isPublished,
         requisitionId: row.vacancy.requisitionId,
         orgUnitId: row.vacancy.orgUnitId,
+        slug: row.vacancy.slug,
         hhVacancyId: row.vacancy.hhVacancyId,
         createdAt: row.vacancy.createdAt.toISOString(),
         updatedAt: row.vacancy.updatedAt.toISOString(),

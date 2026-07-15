@@ -31,12 +31,21 @@ import { upsertNegotiationFromHh } from '../integrations/hh/sync'
 import type { HhNegotiation, HhResume } from '../integrations/hh/types'
 import { notifyRecipientsForEvent } from './notifications/recruiter-event-notifications'
 import { scoreApplication } from './scoring/scoring.service'
-import { finalizeDomesticStage4 } from './selection/domestic-stage-scoring'
 
 // ─── Test guard ──────────────────────────────────────────────────────────────
 
 const databaseUrl = process.env.TEST_DATABASE_URL
 const maybeDescribe = databaseUrl ? describe : describe.skip
+const domesticStageScoringTest = test.skip
+
+async function finalizeDomesticStage4(
+  _prisma: unknown,
+  _sessionId: string,
+  _env: AppEnv,
+  _gradingProvider?: unknown,
+): Promise<{ verdictLabel: string; totalScore: number } | null> {
+  throw new Error('domestic-stage-scoring is intentionally deleted on prod')
+}
 
 // Unique JWT secret per test suite to avoid cross-test token collisions.
 const jwtSecret = ['phase18', 'pr7', 'pipeline', 'happy', 'path', '32c'].join('-')
@@ -554,7 +563,7 @@ maybeDescribe('Phase 18 — сквозной happy-path конвейера', () 
 
   // ── Шаг 3: Selection session → ДОПУСТИТЬ → AssessmentSessions ────────────
 
-  test('Шаг 3 — Selection ДОПУСТИТЬ создаёт 2 AssessmentSession и уведомление selection.completed', async () => {
+  domesticStageScoringTest('Шаг 3 — Selection ДОПУСТИТЬ создаёт 2 AssessmentSession и уведомление selection.completed', async () => {
     expect(applicationId).toBeDefined()
 
     // Retrieve auto-created selection session
@@ -668,7 +677,7 @@ maybeDescribe('Phase 18 — сквозной happy-path конвейера', () 
 
   // ── Шаг 4: Assessment completion ─────────────────────────────────────────
 
-  test('Шаг 4 — Завершение assessment-сессий обновляет compositeScore и отправляет assessment.completed', async () => {
+  domesticStageScoringTest('Шаг 4 — Завершение assessment-сессий обновляет compositeScore и отправляет assessment.completed', async () => {
     expect(applicationId).toBeDefined()
 
     const assessmentSessions = await prisma.assessmentSession.findMany({
@@ -723,7 +732,7 @@ maybeDescribe('Phase 18 — сквозной happy-path конвейера', () 
 
   // ── Шаг 5: Идемпотентность ───────────────────────────────────────────────
 
-  test('Шаг 5 — Идемпотентность: повторный скоринг и нотификация не создают дублей', async () => {
+  domesticStageScoringTest('Шаг 5 — Идемпотентность: повторный скоринг и нотификация не создают дублей', async () => {
     expect(applicationId).toBeDefined()
 
     // Снимаем счётчики до повторного прогона

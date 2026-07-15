@@ -133,7 +133,7 @@ describe('OpenAiCompatibleScoringProvider', () => {
       apiKey: 'test-key',
       model: 'deepseek-chat',
       baseUrl: 'https://api.deepseek.com/v1',
-      fetcher: async () =>
+      fetch: async () =>
         new Response(
           JSON.stringify({
             choices: [
@@ -169,7 +169,7 @@ describe('OpenAiCompatibleScoringProvider', () => {
       apiKey: 'test-key',
       model: 'deepseek-chat',
       baseUrl: 'https://api.deepseek.com/v1',
-      fetcher: async () =>
+      fetch: async () =>
         new Response(
           JSON.stringify({
             choices: [{ message: { content: 'not json' } }],

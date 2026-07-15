@@ -515,7 +515,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-async function ensureFreshAccessToken(prisma: DbClient, env: AppEnv, tenantId: string, client: HhClient) {
+export async function ensureFreshAccessToken(prisma: DbClient, env: AppEnv, tenantId: string, client: HhClient) {
   if (!env.HH_TOKEN_ENCRYPTION_KEY) {
     throw new Error('HH_TOKEN_ENCRYPTION_KEY is not configured')
   }

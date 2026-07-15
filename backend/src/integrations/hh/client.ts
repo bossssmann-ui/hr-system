@@ -4,7 +4,9 @@ import type {
   HhEmployerVacancy,
   HhNegotiationCollection,
   HhNegotiationsPage,
+  HhNegotiationInvite,
   HhResume,
+  HhResumeSearchPage,
   HhTokens,
 } from './types'
 
@@ -221,12 +223,65 @@ export function createHhClient(options: CreateHhClientOptions): HhClient {
       }
     },
 
+    async listResumes(accessToken, params, page = 0) {
+      const url = new URL(`${HH_API_BASE_URL}/resumes`)
+      for (const [key, value] of Object.entries(params)) {
+        url.searchParams.set(key, value)
+      }
+      url.searchParams.set('page', String(page))
+
+      const data = await requestJson<{
+        found?: number
+        pages?: number
+        page?: number
+        per_page?: number
+        items?: Array<{ id?: string | number }>
+      }>({
+        method: 'GET',
+        url: url.toString(),
+        headers: authHeaders(accessToken),
+      })
+
+      return {
+        found: data.found ?? 0,
+        pages: data.pages ?? 0,
+        page: data.page ?? page,
+        per_page: data.per_page ?? 20,
+        items: (data.items ?? [])
+          .filter((item): item is { id: string | number } => item.id !== undefined)
+          .map((item) => ({ id: String(item.id) })),
+      } satisfies HhResumeSearchPage
+    },
+
     async getResume(accessToken, resumeId) {
       return requestJson<HhResume>({
         method: 'GET',
         url: `${HH_API_BASE_URL}/resumes/${encodeURIComponent(resumeId)}`,
         headers: authHeaders(accessToken),
       })
+    },
+
+    async createNegotiationInvite(input) {
+      const data = await requestJson<{ id?: string | number; messages_url?: string }>(
+        {
+          method: 'POST',
+          url: `${HH_API_BASE_URL}/negotiations`,
+          headers: {
+            ...authHeaders(input.accessToken),
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            resume_id: input.resumeId,
+            vacancy_id: input.vacancyId,
+            message: input.message,
+          }),
+        },
+      )
+
+      return {
+        ...(data.id !== undefined ? { id: String(data.id) } : {}),
+        ...(data.messages_url ? { messagesUrl: data.messages_url } : {}),
+      } satisfies HhNegotiationInvite
     },
   }
 }
