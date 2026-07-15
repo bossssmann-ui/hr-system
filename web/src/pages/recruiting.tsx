@@ -8,7 +8,7 @@ import { Link, useNavigate, useParams } from "@tanstack/react-router"
 import { AlertCircleIcon, DatabaseSyncIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import type { Application, ApplicationStage, AssessmentTemplate, Candidate, Interview, OrgUnit, RequisitionStatus, Vacancy } from "@web-app-demo/contracts"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react"
 import { useTranslation } from "react-i18next"
 import type { TFunction } from "i18next"
 import { toast } from "sonner"
@@ -645,14 +645,33 @@ function KanbanBoard() {
     },
   })
 
-  const createAppMutation = useMutation({
-    mutationFn: (data: { candidateId: string; vacancyId: string }) => api.createApplication(data),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["applications"] })
-      toast.success(t('applications.toasts.created')); setShowNewAppForm(false); setAppFormError(null)
-    },
-    onError: (error: unknown) => setAppFormError(error instanceof ApiRequestError ? error.message : t('applications.toasts.createFailed')),
-  })
+  const [isCreatingApps, setIsCreatingApps] = useState(false)
+
+  async function handleCreateApplications({ candidateIds, vacancyId }: { candidateIds: string[]; vacancyId: string }) {
+    setIsCreatingApps(true)
+    setAppFormError(null)
+    let created = 0
+    let skipped = 0
+    for (const candidateId of candidateIds) {
+      try {
+        await api.createApplication({ candidateId, vacancyId })
+        created++
+      } catch (err) {
+        if (err instanceof ApiRequestError && err.status === 409) {
+          skipped++
+        } else {
+          setIsCreatingApps(false)
+          setAppFormError(err instanceof ApiRequestError ? err.message : t('applications.toasts.createFailed'))
+          return
+        }
+      }
+    }
+    await queryClient.invalidateQueries({ queryKey: ["applications"] })
+    toast.success(t('applications.toasts.createdMulti', { created, skipped }))
+    setIsCreatingApps(false)
+    setShowNewAppForm(false)
+    setAppFormError(null)
+  }
 
   const hhSyncMutation = useMutation({
     mutationFn: () => api.syncHhNow(),
@@ -744,11 +763,11 @@ function KanbanBoard() {
         </div>
       </div>
       {showNewAppForm && (
-        <Card className="max-w-md">
+        <Card className="max-w-lg">
           <CardHeader><CardTitle>{t('applications.cardTitle')}</CardTitle></CardHeader>
           <CardContent>
             <NewApplicationForm vacancies={vacancies} candidates={candidatesQuery.data?.items ?? []}
-              onSubmit={(data) => createAppMutation.mutate(data)} isLoading={createAppMutation.isPending} error={appFormError} />
+              onSubmit={(data) => { void handleCreateApplications(data) }} isLoading={isCreatingApps} error={appFormError} />
           </CardContent>
         </Card>
       )}
@@ -812,38 +831,104 @@ function KanbanBoard() {
   )
 }
 
-function NewApplicationForm({ vacancies, candidates, onSubmit, isLoading, error }: { vacancies: Vacancy[]; candidates: Array<{ id: string; fullName: string }>; onSubmit: (data: { candidateId: string; vacancyId: string }) => void; isLoading: boolean; error: string | null }) {
+export function NewApplicationForm({ vacancies, candidates, onSubmit, isLoading, error }: { vacancies: Vacancy[]; candidates: Array<{ id: string; fullName: string }>; onSubmit: (data: { candidateIds: string[]; vacancyId: string }) => void; isLoading: boolean; error: string | null }) {
   const { t } = useTranslation('recruiting')
-  const form = useForm({
-    defaultValues: { candidateId: "", vacancyId: "" },
-    onSubmit: ({ value }) => {
-      if (!value.candidateId || !value.vacancyId) return
-      onSubmit({ candidateId: value.candidateId, vacancyId: value.vacancyId })
-    },
-  })
+  const [vacancyId, setVacancyId] = useState("")
+  const [search, setSearch] = useState("")
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+
+  const filtered = candidates.filter((c) =>
+    c.fullName.toLowerCase().includes(search.toLowerCase())
+  )
+  const allSelected = filtered.length > 0 && filtered.every((c) => selectedIds.has(c.id))
+
+  function toggleAll() {
+    if (allSelected) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        filtered.forEach((c) => next.delete(c.id))
+        return next
+      })
+    } else {
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        filtered.forEach((c) => next.add(c.id))
+        return next
+      })
+    }
+  }
+
+  function toggleOne(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    if (!vacancyId || selectedIds.size === 0) return
+    onSubmit({ candidateIds: [...selectedIds], vacancyId })
+  }
+
+  const count = selectedIds.size
+
   return (
-    <form onSubmit={(e) => { e.preventDefault(); void form.handleSubmit() }}>
+    <form onSubmit={handleSubmit}>
       <FieldGroup className="gap-3">
-        <form.Field name="vacancyId" children={(field) => (
-          <Field><FieldLabel htmlFor="app-vacancyId">{t('applications.fields.vacancy')}</FieldLabel>
-            <select id="app-vacancyId" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" data-testid="app-vacancy-select">
-              <option value="">{t('applications.fields.vacancyPlaceholder')}</option>
-              {vacancies.map((v) => <option key={v.id} value={v.id}>{v.title}</option>)}
-            </select>
-          </Field>
-        )} />
-        <form.Field name="candidateId" children={(field) => (
-          <Field><FieldLabel htmlFor="app-candidateId">{t('applications.fields.candidate')}</FieldLabel>
-            <select id="app-candidateId" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" data-testid="app-candidate-select">
-              <option value="">{t('applications.fields.candidatePlaceholder')}</option>
-              {candidates.map((c) => <option key={c.id} value={c.id}>{c.fullName}</option>)}
-            </select>
-          </Field>
-        )} />
+        <Field>
+          <FieldLabel htmlFor="app-vacancyId">{t('applications.fields.vacancy')}</FieldLabel>
+          <select id="app-vacancyId" value={vacancyId} onChange={(e) => setVacancyId(e.target.value)}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" data-testid="app-vacancy-select">
+            <option value="">{t('applications.fields.vacancyPlaceholder')}</option>
+            {vacancies.map((v) => <option key={v.id} value={v.id}>{v.title}</option>)}
+          </select>
+        </Field>
+        <Field>
+          <FieldLabel>{t('applications.fields.candidate')}</FieldLabel>
+          <Input
+            placeholder={t('applications.fields.candidateSearch')}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="mb-1"
+          />
+          <div className="max-h-48 overflow-y-auto rounded-md border border-input">
+            <label className="flex cursor-pointer items-center gap-2 border-b px-3 py-2 text-sm font-medium hover:bg-muted/40">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onChange={toggleAll}
+                data-testid="applications.create.select-all"
+                className="h-4 w-4"
+              />
+              {t('applications.fields.selectAll')}
+            </label>
+            {filtered.map((c) => (
+              <label key={c.id} className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm hover:bg-muted/40">
+                <input
+                  type="checkbox"
+                  checked={selectedIds.has(c.id)}
+                  onChange={() => toggleOne(c.id)}
+                  data-testid="applications.create.candidate-checkbox"
+                  data-candidate-id={c.id}
+                  className="h-4 w-4"
+                />
+                {c.fullName}
+              </label>
+            ))}
+            {filtered.length === 0 && (
+              <Typography variant="bodySm" tone="muted" className="px-3 py-2">
+                {t('applications.fields.candidatePlaceholder')}
+              </Typography>
+            )}
+          </div>
+        </Field>
         {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
-        <Button type="submit" disabled={isLoading} data-testid="create-application-submit">{isLoading ? t('common.creating') : t('applications.create')}</Button>
+        <Button type="submit" disabled={isLoading || count === 0 || !vacancyId} data-testid="applications.create.submit">
+          {isLoading ? t('common.creating') : t('applications.createMulti', { count })}
+        </Button>
       </FieldGroup>
     </form>
   )

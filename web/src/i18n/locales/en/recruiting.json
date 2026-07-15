@@ -144,9 +144,12 @@
       "vacancy": "Vacancy",
       "vacancyPlaceholder": "Select vacancy...",
       "candidate": "Candidate",
-      "candidatePlaceholder": "Select candidate..."
+      "candidatePlaceholder": "Select candidate...",
+      "candidateSearch": "Search candidates…",
+      "selectAll": "Select all"
     },
     "create": "Create application",
+    "createMulti": "Create applications ({{count}})",
     "cannotMove": "Cannot move from {{from}} to {{to}}",
     "hhSync": {
       "button": "Sync HH.ru",
@@ -156,6 +159,7 @@
     "toasts": {
       "created": "Application created",
       "createFailed": "Failed to create application",
+      "createdMulti": "Created {{created}}, skipped {{skipped}} (already has application)",
       "moveFailed": "Cannot move to that stage"
     },
     "composite": {

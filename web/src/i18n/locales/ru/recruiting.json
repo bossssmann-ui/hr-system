@@ -144,9 +144,12 @@
       "vacancy": "Вакансия",
       "vacancyPlaceholder": "Выберите вакансию…",
       "candidate": "Кандидат",
-      "candidatePlaceholder": "Выберите кандидата…"
+      "candidatePlaceholder": "Выберите кандидата…",
+      "candidateSearch": "Поиск кандидата…",
+      "selectAll": "Выбрать всех"
     },
     "create": "Создать отклик",
+    "createMulti": "Создать отклики ({{count}})",
     "cannotMove": "Нельзя перевести из «{{from}}» в «{{to}}»",
     "hhSync": {
       "button": "Синхронизировать HH.ru",
@@ -156,6 +159,7 @@
     "toasts": {
       "created": "Отклик создан",
       "createFailed": "Не удалось создать отклик",
+      "createdMulti": "Создано {{created}}, пропущено {{skipped}} (уже есть отклик)",
       "moveFailed": "Не удалось перевести на этот этап"
     },
     "composite": {
