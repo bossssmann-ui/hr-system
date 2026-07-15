@@ -301,6 +301,7 @@ export async function generateAiDraft(input: AiDraftInput) {
 
 type IngestMessageInput = {
   prisma: DbClient
+  env?: AppEnv
   tenantId: string
   candidateId: string
   channel: string
@@ -314,6 +315,7 @@ type IngestMessageInput = {
  * Deduplicates by (channel, external_id).
  * Auto-creates/finds the conversation.
  * Emits audit event `message.received`.
+ * When a linked application awaits AI clarification, stores the reply and force-rescores.
  */
 export async function ingestInboundMessage(input: IngestMessageInput) {
   const { prisma, tenantId, candidateId, channel, body, externalId, direction = 'inbound' } = input
@@ -365,5 +367,19 @@ export async function ingestInboundMessage(input: IngestMessageInput) {
     },
   })
 
-  return { ok: true as const, message, duplicate: false }
+  let clarificationHandled = false
+  if (input.env && direction === 'inbound') {
+    const { handleInboundClarificationReply } = await import('../applications/clarification.service')
+    const clarification = await handleInboundClarificationReply({
+      prisma,
+      env: input.env,
+      tenantId,
+      candidateId,
+      conversationApplicationId: conversation.applicationId ?? null,
+      body,
+    }).catch(() => ({ handled: false as const }))
+    clarificationHandled = clarification.handled === true
+  }
+
+  return { ok: true as const, message, duplicate: false, clarificationHandled }
 }

@@ -609,6 +609,17 @@ function aiScoreBadge(t: TFunction, scoring: Record<string, unknown> | null | un
   return { label: t('applications.ai.badge.scored', { score }), className, summary: typeof result.summary === "string" ? result.summary : t('applications.ai.summary.scored'), attention }
 }
 
+function clarificationKanbanBadge(
+  t: TFunction,
+  clarification: { status?: string } | null | undefined,
+): string | null {
+  if (!clarification || typeof clarification.status !== "string") return null
+  if (clarification.status === "sent") return t('applications.clarification.badge.sent')
+  if (clarification.status === "answered") return t('applications.clarification.badge.answered')
+  if (clarification.status === "rescored") return t('applications.clarification.badge.rescored')
+  return null
+}
+
 function canMoveStage(from: ApplicationStage, to: ApplicationStage): boolean {
   return Boolean(APP_TRANSITIONS[from]?.includes(to))
 }
@@ -778,6 +789,7 @@ function KanbanBoard() {
                     const vac = vacancies.find((v) => v.id === app.vacancyId)
                     const candidate = candidates.find((item) => item.id === app.candidateId)
                     const scoreBadge = aiScoreBadge(t, (app.aiScoring ?? null) as Record<string, unknown> | null)
+                    const clarificationBadge = clarificationKanbanBadge(t, app.aiClarification ?? null)
                     return (
                       <div key={app.id} draggable onDragStart={() => setDragging({ id: app.id, from: app.stage })} onDragEnd={() => setDragging(null)}
                         className={cn(
@@ -787,12 +799,19 @@ function KanbanBoard() {
                         data-testid={"application-card-" + app.id} data-stage={app.stage}>
                         <div className="flex items-start justify-between gap-2">
                           <Typography variant="bodySm" className="font-medium">{candidate?.fullName ?? app.candidateId.slice(0, 8)}</Typography>
-                          <Badge variant="outline" className={cn("gap-1 text-[11px]", scoreBadge.className)} title={scoreBadge.summary}>
-                            {scoreBadge.attention && (
-                              <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} className="size-3.5 text-amber-600" aria-hidden />
+                          <div className="flex flex-col items-end gap-1">
+                            <Badge variant="outline" className={cn("gap-1 text-[11px]", scoreBadge.className)} title={scoreBadge.summary}>
+                              {scoreBadge.attention && (
+                                <HugeiconsIcon icon={AlertCircleIcon} strokeWidth={2} className="size-3.5 text-amber-600" aria-hidden />
+                              )}
+                              {scoreBadge.label}
+                            </Badge>
+                            {clarificationBadge && (
+                              <Badge variant="outline" className="text-[11px]" data-testid="clarification-kanban-badge">
+                                {clarificationBadge}
+                              </Badge>
                             )}
-                            {scoreBadge.label}
-                          </Badge>
+                          </div>
                         </div>
                         {vac && <Typography variant="bodySm" tone="muted">{vac.title}</Typography>}
                         <Typography variant="bodySm" className="line-clamp-3">{scoreBadge.summary}</Typography>
@@ -942,6 +961,22 @@ function ApplicationDetail() {
     },
   })
 
+  const sendClarificationMutation = useMutation({
+    mutationFn: () => api.sendClarification(applicationId),
+    onSuccess: async (result) => {
+      if (result.sent) {
+        toast.success(t('applications.clarification.sent'))
+      } else {
+        toast.error(t('applications.clarification.failed'))
+      }
+      await queryClient.invalidateQueries({ queryKey: ["applications"] })
+      await queryClient.invalidateQueries({ queryKey: ["applications", applicationId, "detail"] })
+    },
+    onError: (error: unknown) => {
+      toast.error(error instanceof ApiRequestError ? error.message : t('applications.clarification.failed'))
+    },
+  })
+
   const inviteAssessmentMutation = useMutation({
     mutationFn: () => {
       if (!selectedTemplateId) throw new Error("template_required")
@@ -983,6 +1018,7 @@ function ApplicationDetail() {
   const templates = templatesQuery.data?.items ?? []
   const assessmentSessions = sessionsQuery.data?.items ?? []
   const aiInterviewQuestions = Array.isArray(app.aiInterviewQuestions) ? app.aiInterviewQuestions : []
+  const clarification = app.aiClarification ?? null
   const competencies = result ? asCompetencies(result.competencies) : []
   const suggestedSalary = result ? asNumber(result.suggested_salary) : null
   const suggestedGrade = typeof result?.suggested_grade === "string" ? result.suggested_grade : null
@@ -1105,6 +1141,55 @@ function ApplicationDetail() {
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      <Card data-testid="application-clarification-card">
+        <CardHeader className="flex flex-row items-center justify-between gap-3">
+          <div className="grid gap-1">
+            <CardTitle>{t('applications.clarification.title')}</CardTitle>
+            <CardDescription>{t('applications.clarification.description')}</CardDescription>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => sendClarificationMutation.mutate()}
+            disabled={sendClarificationMutation.isPending || clarification?.status === 'sent'}
+            data-testid="send-clarification-button"
+          >
+            {sendClarificationMutation.isPending
+              ? t('applications.clarification.requesting')
+              : t('applications.clarification.request')}
+          </Button>
+        </CardHeader>
+        <CardContent className="grid gap-3">
+          {!clarification ? (
+            <Typography tone="muted">{t('applications.clarification.empty')}</Typography>
+          ) : (
+            <div className="grid gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="outline" data-testid="clarification-status-badge">
+                  {t(`applications.clarification.status.${clarification.status}`)}
+                </Badge>
+                <Typography variant="bodySm" tone="muted">
+                  {t('applications.clarification.round', { count: String(clarification.roundCount) })}
+                </Typography>
+                <Typography variant="bodySm" tone="muted">
+                  {t('applications.clarification.channel', { channel: clarification.channel })}
+                </Typography>
+              </div>
+              <ScoringList title={t('applications.clarification.questions')} items={clarification.questions} />
+              {clarification.answers && clarification.answers.length > 0 && (
+                <div className="grid gap-2">
+                  <Typography variant="bodySm" tone="muted">{t('applications.clarification.answers')}</Typography>
+                  {clarification.answers.map((item, idx) => (
+                    <div key={`${item.question}-${idx}`} className="rounded-md border p-3">
+                      <Typography variant="bodySm" className="font-medium">{item.question}</Typography>
+                      <Typography variant="bodySm" tone="muted">{item.answer}</Typography>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

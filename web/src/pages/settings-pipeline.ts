@@ -13,7 +13,13 @@ export type ScoringWeightKey = (typeof SCORING_WEIGHT_KEYS)[number]
 
 export { SCORING_WEIGHT_KEYS }
 
-export const PIPELINE_FLAG_KEYS = ["autoSelection", "autoAssessment", "compositeScore", "recruiterNotifications"] as const
+export const PIPELINE_FLAG_KEYS = [
+  "autoSelection",
+  "autoAssessment",
+  "compositeScore",
+  "recruiterNotifications",
+  "clarification",
+] as const
 
 export type PipelineFlagKey = (typeof PIPELINE_FLAG_KEYS)[number]
 
@@ -105,6 +111,7 @@ export function tenantSettingsToPipelineForm(settings: TenantSettings): Pipeline
       autoAssessment: typeof flags.autoAssessment === "boolean" ? flags.autoAssessment : null,
       compositeScore: typeof flags.compositeScore === "boolean" ? flags.compositeScore : null,
       recruiterNotifications: typeof flags.recruiterNotifications === "boolean" ? flags.recruiterNotifications : null,
+      clarification: typeof flags.clarification === "boolean" ? flags.clarification : null,
     },
   }
 }

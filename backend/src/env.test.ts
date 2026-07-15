@@ -36,6 +36,8 @@ describe('loadEnv', () => {
     expect(env.AUTO_ASSESSMENT_ENABLED).toBe(false)
     expect(env.COMPOSITE_SCORE_ENABLED).toBe(false)
     expect(env.RECRUITER_NOTIFICATIONS_ENABLED).toBe(false)
+    expect(env.CLARIFICATION_LOOP_ENABLED).toBe(false)
+    expect(env.CLARIFICATION_MIN_SCORE).toBe(30)
     expect(env.AUTO_SELECTION_THRESHOLD).toBe(70)
     expect(env.AUTO_REJECT_THRESHOLD).toBe(30)
     expect(env.PROCTORING_WEBCAM_ENABLED).toBe(false)

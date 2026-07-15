@@ -95,6 +95,10 @@ const envSchema = z.object({
   AUTO_ASSESSMENT_ENABLED: booleanStringSchema,
   COMPOSITE_SCORE_ENABLED: booleanStringSchema,
   RECRUITER_NOTIFICATIONS_ENABLED: booleanStringSchema,
+  // AI clarification loop: mid-band scores get gap questions before auto-screen.
+  // Requires BOTH env AND tenant featureFlags.clarification (or clarification.enabled).
+  CLARIFICATION_LOOP_ENABLED: booleanStringSchema,
+  CLARIFICATION_MIN_SCORE: z.coerce.number().int().min(0).max(100).default(30),
   AUTO_SELECTION_THRESHOLD: z.coerce.number().int().min(0).max(100).default(70),
   AUTO_REJECT_THRESHOLD: z.coerce.number().int().min(0).max(100).default(30),
   // Gemini 2.0 Flash AI evaluator for Phase 14 selection verdicts.

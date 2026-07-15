@@ -244,6 +244,29 @@
       "sent": "Questions sent to candidate",
       "failed": "Failed to send questions to candidate"
     },
+    "clarification": {
+      "title": "AI clarification",
+      "description": "Gap questions sent before a recruiter reaches out.",
+      "request": "Request clarification",
+      "requesting": "Sending…",
+      "sent": "Clarification sent",
+      "failed": "Failed to send clarification",
+      "empty": "Clarification loop has not started yet.",
+      "status": {
+        "sent": "Sent — waiting for reply",
+        "answered": "Reply received — rescoring",
+        "rescored": "Rescored"
+      },
+      "badge": {
+        "sent": "awaiting reply",
+        "answered": "replied",
+        "rescored": "clarified"
+      },
+      "questions": "Questions",
+      "answers": "Answers",
+      "channel": "Channel: {{channel}}",
+      "round": "Round {{count}}"
+    },
     "assessments": {
       "title": "Assessments",
       "description": "Create a tokenized invite and review trust-score outcomes.",

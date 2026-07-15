@@ -11,6 +11,7 @@ import type {
 import {
   generateInterviewQuestionsResponseSchema,
   applicationDetailSchema,
+  aiClarificationSchema,
   aiScoreFeedbackSchema,
   aiScoringSchema,
   applicationSchema,
@@ -25,6 +26,7 @@ import {
   rescoreAllApplicationsResponseSchema,
   scoreFeedbackRequestSchema,
   sendCandidateQuestionnaireResponseSchema,
+  sendClarificationResponseSchema,
 } from '@web-app-demo/contracts'
 import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
@@ -47,6 +49,7 @@ import {
   processCandidateQuestionnaireReply,
   sendCandidateQuestionnaire,
 } from './candidate-questionnaire.service'
+import { sendClarification } from './clarification.service'
 
 type RouteBindings = RoleGuardBindings & {
   Variables: {
@@ -67,6 +70,7 @@ type RawApplication = {
   aiScoring: unknown
   aiScoreFeedback: unknown
   aiInterviewQuestions: unknown
+  aiClarification: unknown
   aiScore: Prisma.Decimal | number | null
   aiVerdict: string | null
   aiAssessedAt: Date | null
@@ -113,6 +117,7 @@ function toDto(
     aiScoring: aiScoringSchema.parse(withScoringPresentation(row.aiScoring, env)),
     aiScoreFeedback: aiScoreFeedbackSchema.nullable().parse(asNullableRecord(row.aiScoreFeedback)),
     aiInterviewQuestions: Array.isArray(row.aiInterviewQuestions) ? row.aiInterviewQuestions : null,
+    aiClarification: aiClarificationSchema.nullable().parse(row.aiClarification ?? null),
     aiScore: row.aiScore === null || row.aiScore === undefined ? null : Number(row.aiScore),
     aiVerdict: row.aiVerdict ?? null,
     aiAssessedAt: row.aiAssessedAt ? row.aiAssessedAt.toISOString() : null,
@@ -649,6 +654,47 @@ export function createApplicationsRoutes() {
           reason: result.ok ? undefined : result.reason,
           messageId: result.messageId,
           questionCount: result.ok ? result.questionCount : undefined,
+        }),
+        result.ok ? 200 : 422,
+      )
+    },
+  )
+
+  app.post(
+    '/:id/send-clarification',
+    requireRole('owner', 'hr_admin', 'recruiter'),
+    async (c) => {
+      const prisma = c.get('prisma')
+      const env = c.get('env')
+      const tenantId = c.get('tenantId')
+      const userId = c.get('userId')
+      const { id } = c.req.param()
+
+      const row = await prisma.application.findFirst({ where: { id, tenantId } })
+      if (!row) throw new AppError(404, 'NOT_FOUND', 'Application not found')
+
+      const result = await sendClarification({
+        prisma,
+        env,
+        applicationId: id,
+        actorUserId: userId,
+        mode: 'manual',
+      })
+
+      c.set('auditEntry', {
+        action: 'application.clarification_send_requested',
+        entityType: 'Application',
+        entityId: id,
+        diff: { ok: result.ok, reason: result.ok ? undefined : result.reason },
+      })
+
+      return c.json(
+        sendClarificationResponseSchema.parse({
+          sent: result.ok,
+          reason: result.ok ? undefined : result.reason,
+          messageId: result.ok ? result.messageId : undefined,
+          questionCount: result.ok ? result.questionCount : undefined,
+          channel: result.ok ? result.channel : undefined,
         }),
         result.ok ? 200 : 422,
       )

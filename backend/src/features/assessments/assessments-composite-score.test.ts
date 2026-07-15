@@ -23,6 +23,8 @@ describe('public assessment composite score isolation', () => {
         ASSESSMENTS_ENABLED: true,
         AI_SCORING_ENABLED: false,
         RECRUITER_NOTIFICATIONS_ENABLED: true,
+        CLARIFICATION_LOOP_ENABLED: false,
+        CLARIFICATION_MIN_SCORE: 30,
         MOBILE_PUSH_ENABLED: false,
         TRUST_WEIGHT_PASTE: 0.35,
         TRUST_WEIGHT_FOCUS: 0.4,

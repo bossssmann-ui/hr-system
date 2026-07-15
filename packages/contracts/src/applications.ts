@@ -116,6 +116,26 @@ export const compositeScoreSchema = z.object({
 
 export type CompositeScore = z.infer<typeof compositeScoreSchema>
 
+export const aiClarificationStatusSchema = z.enum(['sent', 'answered', 'rescored'])
+
+export const aiClarificationAnswerSchema = z.object({
+  question: z.string(),
+  answer: z.string(),
+})
+
+export const aiClarificationSchema = z.object({
+  status: aiClarificationStatusSchema,
+  channel: z.string(),
+  questions: z.array(z.string()).min(1),
+  answers: z.array(aiClarificationAnswerSchema).optional(),
+  sentAt: z.string().datetime(),
+  answeredAt: z.string().datetime().optional(),
+  roundCount: z.number().int().nonnegative(),
+  rescoredAt: z.string().datetime().optional(),
+})
+
+export type AiClarification = z.infer<typeof aiClarificationSchema>
+
 export const applicationSchema = z.object({
   id: z.string(),
   tenantId: z.string(),
@@ -127,6 +147,7 @@ export const applicationSchema = z.object({
   aiScoring: aiScoringSchema.nullable().optional(),
   aiScoreFeedback: aiScoreFeedbackSchema.nullable().optional(),
   aiInterviewQuestions: z.array(aiInterviewQuestionSchema).nullable().optional(),
+  aiClarification: aiClarificationSchema.nullable().optional(),
   aiScore: z.number().nullable().optional(),
   aiVerdict: z.string().nullable().optional(),
   aiAssessedAt: z.string().datetime().nullable().optional(),
@@ -222,3 +243,13 @@ export const rescoreAllApplicationsResponseSchema = z.object({
 })
 
 export type RescoreAllApplicationsResponse = z.infer<typeof rescoreAllApplicationsResponseSchema>
+
+export const sendClarificationResponseSchema = z.object({
+  sent: z.boolean(),
+  reason: z.string().optional(),
+  messageId: z.string().optional(),
+  questionCount: z.number().int().nonnegative().optional(),
+  channel: z.string().optional(),
+})
+
+export type SendClarificationResponse = z.infer<typeof sendClarificationResponseSchema>

@@ -504,6 +504,7 @@ export function createTelegramWebhookRoute() {
 
     await ingestInboundMessage({
       prisma,
+      env,
       tenantId,
       candidateId,
       channel: 'telegram',

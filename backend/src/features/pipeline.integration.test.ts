@@ -59,6 +59,8 @@ const env: AppEnv = {
   AUTO_ASSESSMENT_ENABLED: true,
   COMPOSITE_SCORE_ENABLED: true,
   RECRUITER_NOTIFICATIONS_ENABLED: true,
+  CLARIFICATION_LOOP_ENABLED: false,
+  CLARIFICATION_MIN_SCORE: 30,
   AUTO_SELECTION_THRESHOLD: 70,
   AUTO_REJECT_THRESHOLD: 30,
   // Scoring: mock provider injected in tests; real key not needed

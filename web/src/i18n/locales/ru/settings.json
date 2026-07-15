@@ -57,7 +57,8 @@
       "autoSelection": "Авто-отбор после скоринга",
       "autoAssessment": "Авто-оценка после отбора",
       "compositeScore": "Composite-скоринг",
-      "recruiterNotifications": "Уведомления рекрутёра"
+      "recruiterNotifications": "Уведомления рекрутёра",
+      "clarification": "AI-уточнение у соискателя (требует CLARIFICATION_LOOP_ENABLED)"
     },
     "validation": {
       "thresholdsBothOrEmpty": "Заполните оба порога или оставьте оба поля пустыми для env-дефолтов.",

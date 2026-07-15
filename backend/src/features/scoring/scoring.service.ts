@@ -16,6 +16,7 @@ import {
   recomputeCompositeScoreForApplication,
   recordCompositeScoreRecomputeFailure,
 } from '../applications/composite-score'
+import { markClarificationRescored, parseAiClarification } from '../applications/clarification.service'
 
 const AUTO_SCREEN_THRESHOLD = 60
 const AUTO_NEW_MAX_SCORE = 59
@@ -37,7 +38,8 @@ type ScoreApplicationInput = {
 }
 
 export async function scoreApplication(input: ScoreApplicationInput) {
-  const { prisma, env, applicationId, actorUserId, force = false } = input
+  const { prisma, env, applicationId, actorUserId, force: _force = false } = input
+  void _force
 
   if (!isAiScoringConfigured(env)) {
     return { skipped: true as const, reason: 'not_configured' as const }
@@ -175,7 +177,28 @@ export async function scoreApplication(input: ScoreApplicationInput) {
       })
     }
 
-    return { skipped: false as const, status: 'scored' as const, result, autoStage, autoReturn }
+    await markClarificationRescored({
+      prisma,
+      applicationId: snapshot.id,
+    }).catch(() => undefined)
+
+    const { maybeAutoSendClarification } = await import('../applications/clarification.service')
+    const clarification = await maybeAutoSendClarification({
+      prisma,
+      env,
+      applicationId: snapshot.id,
+      actorUserId,
+      relevanceScore: result.relevance_score,
+    }).catch(() => ({ ok: false as const, reason: 'clarification_failed' as const }))
+
+    return {
+      skipped: false as const,
+      status: 'scored' as const,
+      result,
+      autoStage,
+      autoReturn,
+      clarification,
+    }
   } catch (error) {
     const model = env.LLM_SCORING_MODEL
     const scoredAt = new Date().toISOString()
@@ -520,6 +543,7 @@ function appendUnique(values: string[], value: string) {
 
 export function buildScoringInput(
   snapshot: {
+    aiClarification?: unknown
     candidate: {
       location: string | null
       externalIds: unknown
@@ -567,6 +591,8 @@ export function buildScoringInput(
     questionnaire_enrichment: questionnaireEnrichment ?? undefined,
   }
 
+  const candidateClarifications = extractCandidateClarifications(snapshot.aiClarification)
+
   return {
     job_profile: {
       title: snapshot.vacancy.title,
@@ -580,7 +606,18 @@ export function buildScoringInput(
       },
     },
     candidate_resume: mergedResume,
+    ...(candidateClarifications ? { candidate_clarifications: candidateClarifications } : {}),
   }
+}
+
+function extractCandidateClarifications(value: unknown) {
+  const clarification = parseAiClarification(value)
+  if (!clarification?.answers || clarification.answers.length === 0) return undefined
+  if (clarification.status !== 'answered' && clarification.status !== 'rescored') return undefined
+  return clarification.answers.map((item) => ({
+    question: item.question,
+    answer: item.answer,
+  }))
 }
 
 function normalizeQuestionnaireEnrichment(value: unknown) {

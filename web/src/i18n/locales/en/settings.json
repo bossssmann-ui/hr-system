@@ -57,7 +57,8 @@
       "autoSelection": "Auto-selection after scoring",
       "autoAssessment": "Auto-assessment after selection",
       "compositeScore": "Composite score calculation",
-      "recruiterNotifications": "Recruiter notifications"
+      "recruiterNotifications": "Recruiter notifications",
+      "clarification": "AI candidate clarification loop (also needs CLARIFICATION_LOOP_ENABLED)"
     },
     "validation": {
       "thresholdsBothOrEmpty": "Fill both thresholds or leave both empty to use environment defaults.",
