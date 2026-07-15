@@ -176,8 +176,7 @@ function SignalsSection() {
     queryFn: () => api.listSignals({ status: statusFilter, limit: 50 }),
   })
   const update = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: 'reviewed' | 'dismissed' }) =>
-      api.reviewSignal(id, { status }),
+    mutationFn: (id: string) => api.reviewSignal(id, { status: 'reviewed' }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['analytics'] })
     },
@@ -255,15 +254,18 @@ function SignalsSection() {
                     <>
                       <button
                         type="button"
-                        onClick={() => update.mutate({ id: s.id, status: 'reviewed' })}
+                        onClick={() => update.mutate(s.id)}
                         disabled={update.isPending}
                       >
                         {t('signals.markReviewed')}
                       </button>{' '}
                       <button
                         type="button"
-                        onClick={() => update.mutate({ id: s.id, status: 'dismissed' })}
-                        disabled={update.isPending}
+                        onClick={() => {
+                          void api.reviewSignal(s.id, { status: 'dismissed' }).then(() => {
+                            void queryClient.invalidateQueries({ queryKey: ['analytics'] })
+                          })
+                        }}
                       >
                         {t('signals.dismiss')}
                       </button>

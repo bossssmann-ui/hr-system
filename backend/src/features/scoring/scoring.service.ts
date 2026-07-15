@@ -12,6 +12,11 @@ import {
 import { isScoringResultInternallyInconsistent, scoringResultSchema } from '../../integrations/llm/scoring.schemas'
 import type { DbClient } from '../../db'
 import type { AppEnv } from '../../env'
+import {
+  recomputeCompositeScoreForApplication,
+  recordCompositeScoreRecomputeFailure,
+} from '../applications/composite-score'
+import { runAutoSelectionAfterScoring } from '../selection/auto-selection-after-scoring'
 
 const AUTO_SCREEN_THRESHOLD = 60
 const AUTO_NEW_MAX_SCORE = 59
@@ -156,6 +161,28 @@ export async function scoreApplication(input: ScoreApplicationInput) {
           actorUserId,
           relevanceScore: result.relevance_score,
         })
+
+    try {
+      await recomputeCompositeScoreForApplication({
+        prisma,
+        env,
+        applicationId: snapshot.id,
+      })
+    } catch (error) {
+      await recordCompositeScoreRecomputeFailure({
+        prisma,
+        applicationId: snapshot.id,
+        error,
+      })
+    }
+
+    await runAutoSelectionAfterScoring({
+      prisma,
+      env,
+      applicationId: snapshot.id,
+      actorUserId,
+      relevanceScore: result.relevance_score,
+    })
 
     return { skipped: false as const, status: 'scored' as const, result, autoStage, autoReturn }
   } catch (error) {
