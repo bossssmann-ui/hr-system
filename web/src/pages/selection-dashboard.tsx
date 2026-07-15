@@ -434,8 +434,16 @@ export function SelectionDashboardPage() {
   })
 
   const moveToInterviewMutation = useMutation({
-    mutationFn: (applicationId: string) =>
-      api.moveApplicationStage(applicationId, { to: 'tech' }),
+    mutationFn: async (applicationId: string) => {
+      const application = await api.getApplication(applicationId)
+      let stage = application.stage
+      while (stage === 'new' || stage === 'screen') {
+        const next = stage === 'new' ? 'screen' : 'tech'
+        await api.moveApplicationStage(applicationId, { to: next })
+        stage = next
+      }
+      return stage
+    },
     onSuccess: () => {
       toast.success(t('dashboard.toasts.movedToInterview'))
       void queryClient.invalidateQueries({ queryKey: ['selection-sessions'] })

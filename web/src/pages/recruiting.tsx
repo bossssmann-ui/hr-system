@@ -7,7 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate, useParams } from "@tanstack/react-router"
 import { AlertCircleIcon, DatabaseSyncIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import type { Application, ApplicationStage, AssessmentTemplate, Candidate, Interview, OrgUnit, RequisitionStatus, Vacancy } from "@web-app-demo/contracts"
+import type { Application, ApplicationStage, AssessmentTemplate, Candidate, Interview, OrgUnit, RequisitionStatus, RoleName, Vacancy } from "@web-app-demo/contracts"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import type { TFunction } from "i18next"
@@ -24,7 +24,7 @@ import { Typography } from "@/components/ui/typography"
 import { OfferPanel } from "@/components/OfferPanel"
 import { ApiRequestError } from "@/lib/api"
 import { APPLICATION_STAGES as KANBAN_STAGES } from "@/lib/funnel-stages"
-import { isAdmin } from "@/lib/roles"
+import { hasAnyRole, isAdmin } from "@/lib/roles"
 import { useAuth } from "@/lib/use-auth"
 import { cn } from "@/lib/utils"
 
@@ -76,7 +76,7 @@ const STATUS_VARIANT: Record<RequisitionStatus, "default" | "outline" | "seconda
   closed: "outline", rejected: "outline",
 }
 
-const REQUISITION_TRANSITIONS: Array<{ from: RequisitionStatus[]; to: RequisitionStatus; roles: string[] }> = [
+const REQUISITION_TRANSITIONS: Array<{ from: RequisitionStatus[]; to: RequisitionStatus; roles: RoleName[] }> = [
   { from: ["draft"], to: "submitted", roles: ["recruiter", "hiring_manager", "hr_admin", "owner"] },
   { from: ["submitted"], to: "manager_approved", roles: ["hiring_manager", "hr_admin", "owner"] },
   { from: ["submitted", "manager_approved"], to: "rejected", roles: ["hiring_manager", "hr_admin", "owner"] },
@@ -296,7 +296,7 @@ export function RequisitionDetailPage() {
 }
 
 function RequisitionDetail() {
-  const { api } = useAuth()
+  const { api, user } = useAuth()
   const { t } = useTranslation(['recruiting', 'common'])
   const params = useParams({ strict: false }) as { requisitionId?: string }
   const requisitionId = params.requisitionId ?? ""
@@ -324,7 +324,9 @@ function RequisitionDetail() {
   if (query.isError) return <ErrorCard message={t('requisitions.errors.notFound')} />
 
   const r = query.data
-  const availableTransitions = REQUISITION_TRANSITIONS.filter((tr) => tr.from.includes(r.status))
+  const availableTransitions = REQUISITION_TRANSITIONS.filter(
+    (tr) => tr.from.includes(r.status) && hasAnyRole(user, ...tr.roles),
+  )
 
   return (
     <section className="mx-auto grid w-full max-w-3xl gap-6 px-5 py-12">
@@ -1954,6 +1956,14 @@ function AdminAuditLog() {
   const { t } = useTranslation('recruiting')
   const [entityTypeFilter, setEntityTypeFilter] = useState("")
   const [cursor, setCursor] = useState<string | undefined>()
+  const [accumulated, setAccumulated] = useState<Array<{
+    id: string
+    action: string
+    entityType: string
+    entityId: string
+    actorUserId: string | null
+    createdAt: string
+  }>>([])
   const entityTypes = ["HiringRequisition", "Vacancy", "Candidate", "Application", "OrgUnit"]
 
   const query = useQuery({
@@ -1962,7 +1972,22 @@ function AdminAuditLog() {
     enabled: Boolean(user),
   })
 
-  if (query.isPending) return <LoadingCard />
+  useEffect(() => {
+    setAccumulated([])
+    setCursor(undefined)
+  }, [entityTypeFilter])
+
+  useEffect(() => {
+    if (!query.data) return
+    setAccumulated((prev) => {
+      if (!cursor) return query.data.items
+      const seen = new Set(prev.map((item) => item.id))
+      const next = query.data.items.filter((item) => !seen.has(item.id))
+      return next.length === 0 ? prev : [...prev, ...next]
+    })
+  }, [query.data, cursor])
+
+  if (query.isPending && accumulated.length === 0) return <LoadingCard />
   if (query.isError) return <ErrorCard message={query.error instanceof ApiRequestError && query.error.status === 403 ? t('common.accessDenied') : t('admin.audit.loadFailed')} />
 
   return (
@@ -1980,7 +2005,7 @@ function AdminAuditLog() {
         <table className="w-full text-sm">
           <thead><tr className="border-b"><th className="py-2 text-left font-medium">{t('admin.audit.fields.action')}</th><th className="py-2 text-left font-medium">{t('admin.audit.fields.entity')}</th><th className="py-2 text-left font-medium">{t('admin.audit.fields.actor')}</th><th className="py-2 text-left font-medium">{t('admin.audit.fields.when')}</th></tr></thead>
           <tbody>
-            {query.data.items.map((e) => (
+            {accumulated.map((e) => (
               <tr key={e.id} className="border-b">
                 <td className="py-2 font-mono text-xs">{e.action}</td>
                 <td className="py-2"><span className="text-xs text-muted-foreground">{e.entityType}</span><br /><span className="font-mono text-xs">{e.entityId.slice(0, 8)}…</span></td>
@@ -1991,8 +2016,8 @@ function AdminAuditLog() {
           </tbody>
         </table>
       </div>
-      {query.data.nextCursor && (
-        <Button variant="outline" className="w-fit" onClick={() => setCursor(query.data.nextCursor ?? undefined)}>{t('admin.audit.loadMore')}</Button>
+      {query.data?.nextCursor && (
+        <Button variant="outline" className="w-fit" disabled={query.isFetching} onClick={() => setCursor(query.data.nextCursor ?? undefined)}>{t('admin.audit.loadMore')}</Button>
       )}
     </section>
   )

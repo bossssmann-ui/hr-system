@@ -352,6 +352,10 @@ function LoginForm({
 
         <FormAlert message={formError} />
 
+        <Button asChild type="button" variant="link" className="h-auto w-fit px-0">
+          <Link to="/reset-password">{t('buttons.forgotPassword')}</Link>
+        </Button>
+
         <form.Subscribe
           selector={(state) => state.isSubmitting}
           children={(isSubmitting) => (

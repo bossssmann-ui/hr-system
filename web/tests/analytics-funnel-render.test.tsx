@@ -156,6 +156,7 @@ mock.module('../src/lib/use-auth', () => ({
       listHrSnapshots: async () => ({ items: [] }),
       computeHrSnapshot: async () => null,
       payrollExportCsvUrl: () => '/export',
+      downloadPayrollCsv: async () => 'month,name\n',
       listSignals: async () => ({ items: signalData }),
       reviewSignal: async (id: string, patch: Pick<AnalyticsSignal, 'status'>) => {
         reviewSignalCalls.push({ id, patch })

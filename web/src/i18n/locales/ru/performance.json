@@ -53,7 +53,10 @@
       "declined": "Отклонено"
     },
     "submitReview": "Отправить ревью",
-    "closesAt": "Закрывается"
+    "closesAt": "Закрывается",
+    "create": "Создать цикл",
+    "createTitle": "Название",
+    "createQuarter": "Квартал (YYYY-Qn)"
   },
   "okr": {
     "title": "OKR",

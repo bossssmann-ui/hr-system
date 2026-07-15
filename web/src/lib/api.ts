@@ -8,6 +8,7 @@ import {
   reviewCycleWithStatsResponseSchema,
   reviewRequestResponseSchema,
   type OpenReviewCycleRequest,
+  type CreateReviewCycleRequest,
   type SubmitReviewRequest,
   type ReviewCycleWithStatsResponse,
   type ReviewRequestResponse,
@@ -832,6 +833,12 @@ export class ApiClient {
     return `${apiBaseUrl}/api/payroll/export?${qs}`
   }
 
+  async downloadPayrollCsv(params: { month: string }): Promise<string> {
+    const qs = new URLSearchParams({ month: params.month, format: 'csv' }).toString()
+    const response = await this.rawRequest(`/api/payroll/export?${qs}`, { auth: true })
+    return response.text()
+  }
+
   // ─── Phase 9 — Analytics signals ─────────────────────────────────────────
 
   listSignals(params?: { status?: AnalyticsSignal['status']; type?: AnalyticsSignal['type']; limit?: number }) {
@@ -1172,6 +1179,14 @@ export class ApiClient {
     )
   }
 
+  createReviewCycle(body: CreateReviewCycleRequest): Promise<ReviewCycleWithStatsResponse> {
+    return this.request('/api/reviews/cycles', reviewCycleWithStatsResponseSchema, {
+      method: 'POST',
+      body,
+      auth: true,
+    })
+  }
+
   openReviewCycle(id: string, body: OpenReviewCycleRequest): Promise<ReviewCycleWithStatsResponse> {
     return this.request(`/api/reviews/cycles/${id}/open`, reviewCycleWithStatsResponseSchema, {
       method: 'POST',
@@ -1209,6 +1224,14 @@ export class ApiClient {
     })
   }
 
+  declineReviewRequest(id: string, body: { reason: string }): Promise<ReviewRequestResponse> {
+    return this.request(`/api/reviews/requests/${id}/decline`, reviewRequestResponseSchema, {
+      method: 'POST',
+      body,
+      auth: true,
+    })
+  }
+
   // ─── Performance: OKR ───────────────────────────────────────────────────
 
   listOkrs(params?: {
@@ -1233,12 +1256,12 @@ export class ApiClient {
   }
 
   patchOkrKeyResult(
-    okrId: string,
+    _okrId: string,
     krId: string,
     body: PatchOkrKeyResultRequest,
   ): Promise<PerformanceOkrKeyResultResponse> {
     return this.request(
-      `/api/okrs/${okrId}/key-results/${krId}`,
+      `/api/okrs/key-results/${krId}`,
       performanceOkrKeyResultResponseSchema,
       { method: 'PATCH', body, auth: true },
     )
@@ -1268,12 +1291,12 @@ export class ApiClient {
   }
 
   patchIdpItem(
-    idpId: string,
+    _idpId: string,
     itemId: string,
     body: PatchIdpItemRequest,
   ): Promise<PerformanceIdpItemResponse> {
     return this.request(
-      `/api/idps/${idpId}/items/${itemId}`,
+      `/api/idps/items/${itemId}`,
       performanceIdpItemResponseSchema,
       { method: 'PATCH', body, auth: true },
     )
@@ -1291,6 +1314,14 @@ export class ApiClient {
     const query = qs.toString()
     return this.request(
       `/api/engagement/surveys${query ? `?${query}` : ''}`,
+      z.object({ items: z.array(engagementSurveySchema) }),
+      { auth: true },
+    )
+  }
+
+  listOpenSurveys(): Promise<{ items: EngagementSurvey[] }> {
+    return this.request(
+      '/api/engagement/surveys/open',
       z.object({ items: z.array(engagementSurveySchema) }),
       { auth: true },
     )
@@ -1410,10 +1441,17 @@ export class ApiClient {
 
   // ─── Learning: Assignments ──────────────────────────────────────────────
 
-  listAssignments(params?: { employeeId?: string }): Promise<{ items: LearningAssignment[] }> {
-    const qs = params?.employeeId ? `?employeeId=${encodeURIComponent(params.employeeId)}` : ''
+  listAssignments(params: { employeeId: string }): Promise<{ items: LearningAssignment[] }> {
     return this.request(
-      `/api/learning/assignments${qs}`,
+      `/api/employees/${params.employeeId}/learning`,
+      z.object({ items: z.array(learningAssignmentSchema) }),
+      { auth: true },
+    )
+  }
+
+  listMyAssignments(): Promise<{ items: LearningAssignment[] }> {
+    return this.request(
+      '/api/learning/my-assignments',
       z.object({ items: z.array(learningAssignmentSchema) }),
       { auth: true },
     )
@@ -1424,17 +1462,18 @@ export class ApiClient {
     body: LearningAssignmentCreateRequest,
   ): Promise<LearningAssignment> {
     return this.request(
-      `/api/learning/employees/${employeeId}/assignments`,
+      `/api/employees/${employeeId}/learning`,
       learningAssignmentSchema,
       { method: 'POST', body, auth: true },
     )
   }
 
   updateAssignment(
+    employeeId: string,
     id: string,
     body: LearningAssignmentUpdateRequest,
   ): Promise<LearningAssignment> {
-    return this.request(`/api/learning/assignments/${id}`, learningAssignmentSchema, {
+    return this.request(`/api/employees/${employeeId}/learning/${id}`, learningAssignmentSchema, {
       method: 'PATCH',
       body,
       auth: true,

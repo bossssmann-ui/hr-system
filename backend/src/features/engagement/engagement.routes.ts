@@ -155,6 +155,18 @@ export function createEngagementRoutes() {
     },
   )
 
+  // ── GET /surveys/open — employee-safe list of open surveys for Respond ────
+  app.get(
+    '/surveys/open',
+    requireRole('employee', 'hr_admin', 'owner', 'hiring_manager', 'recruiter'),
+    async (c) => {
+      const prisma = c.get('prisma')
+      const tenantId = c.get('tenantId')
+      const surveys = await listSurveys({ prisma, tenantId, status: 'open' })
+      return c.json(surveys)
+    },
+  )
+
   // ── GET /surveys/:id ──────────────────────────────────────────────────────
   app.get('/surveys/:id', requireRole('hr_admin', 'owner', 'hiring_manager'), async (c) => {
     const prisma = c.get('prisma')

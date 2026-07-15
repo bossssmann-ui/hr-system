@@ -53,7 +53,10 @@
       "declined": "Declined"
     },
     "submitReview": "Submit review",
-    "closesAt": "Closes"
+    "closesAt": "Closes",
+    "create": "Create cycle",
+    "createTitle": "Title",
+    "createQuarter": "Quarter (YYYY-Qn)"
   },
   "okr": {
     "title": "OKR",

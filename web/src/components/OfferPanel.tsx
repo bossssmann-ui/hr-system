@@ -40,8 +40,8 @@ const ACTIONS_BY_STATUS: Record<Offer['status'], Action[]> = {
 
 const ACTION_ROLES: Record<Action, RoleName[]> = {
   submit: ['recruiter', 'hr_admin', 'owner'],
-  approve: ['hr_admin', 'owner'],
-  reject: ['hr_admin', 'owner'],
+  approve: ['hiring_manager', 'hr_admin', 'owner'],
+  reject: ['hiring_manager', 'hr_admin', 'owner'],
   send: ['recruiter', 'hr_admin', 'owner'],
   decline: ['recruiter', 'hr_admin', 'owner'],
   accept: ['recruiter', 'hr_admin', 'owner'],

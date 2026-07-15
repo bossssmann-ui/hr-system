@@ -282,6 +282,11 @@ function ReviewsTab() {
   const { api, user } = useAuth()
   const { t } = useTranslation('performance')
   const queryClient = useQueryClient()
+  const [createOpen, setCreateOpen] = useState(false)
+  const [createTitle, setCreateTitle] = useState('')
+  const [createQuarter, setCreateQuarter] = useState('')
+  const [submitTarget, setSubmitTarget] = useState<ReviewRequestResponse | null>(null)
+  const [submitNotes, setSubmitNotes] = useState('')
 
   const cyclesQuery = useQuery({
     queryKey: ['performance', 'review-cycles'],
@@ -292,6 +297,27 @@ function ReviewsTab() {
     queryKey: ['performance', 'review-requests', user?.id],
     queryFn: () => (user ? api.listMyReviewRequests({ reviewerUserId: user.id }) : null),
     enabled: !!user,
+  })
+
+  const createMutation = useMutation({
+    mutationFn: () =>
+      api.createReviewCycle({
+        title: createTitle.trim(),
+        quarter: createQuarter.trim(),
+        questions: [
+          { id: 'overall', prompt: 'Overall rating', type: 'rating' },
+          { id: 'comments', prompt: 'Comments', type: 'text' },
+        ],
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['performance', 'review-cycles'] })
+      setCreateOpen(false)
+      setCreateTitle('')
+      setCreateQuarter('')
+      toast.success(t('actions.save'))
+    },
+    onError: (err) =>
+      toast.error(err instanceof ApiRequestError ? err.message : t('loadFailed')),
   })
 
   const openMutation = useMutation({
@@ -315,13 +341,74 @@ function ReviewsTab() {
       toast.error(err instanceof ApiRequestError ? err.message : t('loadFailed')),
   })
 
+  const submitMutation = useMutation({
+    mutationFn: ({ id, notes }: { id: string; notes: string }) =>
+      api.submitReviewRequest(id, {
+        response: {
+          overall: 4,
+          comments: notes.trim() || null,
+        },
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['performance', 'review-requests'] })
+      setSubmitTarget(null)
+      setSubmitNotes('')
+      toast.success(t('reviews.submitReview'))
+    },
+    onError: (err) =>
+      toast.error(err instanceof ApiRequestError ? err.message : t('loadFailed')),
+  })
+
+  const declineMutation = useMutation({
+    mutationFn: (id: string) => api.declineReviewRequest(id, { reason: 'Declined from UI' }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['performance', 'review-requests'] })
+      toast.success(t('actions.cancel'))
+    },
+    onError: (err) =>
+      toast.error(err instanceof ApiRequestError ? err.message : t('loadFailed')),
+  })
+
   const cycles = cyclesQuery.data?.items ?? []
   const myRequests = myRequestsQuery.data?.items ?? []
+  const canCreate = createTitle.trim().length > 0 && /^\d{4}-Q[1-4]$/.test(createQuarter.trim())
 
   return (
     <div className="grid gap-6">
       <div>
-        <h2 className="mb-3 text-lg font-medium">{t('reviews.title')}</h2>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="text-lg font-medium">{t('reviews.title')}</h2>
+          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm">{t('reviews.create')}</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{t('reviews.create')}</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-3">
+                <label className="grid gap-1 text-sm">
+                  {t('reviews.createTitle')}
+                  <Input value={createTitle} onChange={(e) => setCreateTitle(e.target.value)} />
+                </label>
+                <label className="grid gap-1 text-sm">
+                  {t('reviews.createQuarter')}
+                  <Input
+                    value={createQuarter}
+                    onChange={(e) => setCreateQuarter(e.target.value)}
+                    placeholder="2026-Q1"
+                  />
+                </label>
+                <Button
+                  disabled={!canCreate || createMutation.isPending}
+                  onClick={() => createMutation.mutate()}
+                >
+                  {t('actions.save')}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
         {cyclesQuery.isLoading ? (
           <p className="text-muted-foreground">{t('loading')}</p>
         ) : cyclesQuery.isError ? (
@@ -405,11 +492,48 @@ function ReviewsTab() {
                     <ReviewRequestBadge status={req.status} />
                   </div>
                 </CardHeader>
+                {req.status === 'pending' && (
+                  <CardContent className="flex flex-wrap gap-2">
+                    <Button size="sm" onClick={() => setSubmitTarget(req)}>
+                      {t('reviews.submitReview')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={declineMutation.isPending}
+                      onClick={() => declineMutation.mutate(req.id)}
+                    >
+                      {t('actions.cancel')}
+                    </Button>
+                  </CardContent>
+                )}
               </Card>
             ))}
           </div>
         )}
       </div>
+
+      <Dialog open={Boolean(submitTarget)} onOpenChange={(open) => !open && setSubmitTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('reviews.submitReview')}</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <label className="grid gap-1 text-sm">
+              {t('oneOnOne.notes')}
+              <Input value={submitNotes} onChange={(e) => setSubmitNotes(e.target.value)} />
+            </label>
+            <Button
+              disabled={!submitTarget || submitMutation.isPending}
+              onClick={() =>
+                submitTarget && submitMutation.mutate({ id: submitTarget.id, notes: submitNotes })
+              }
+            >
+              {t('actions.submit')}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

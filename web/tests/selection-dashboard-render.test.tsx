@@ -67,6 +67,7 @@ mock.module('../src/lib/use-auth', () => ({
         processedCandidates: [],
       }),
       moveApplicationStage: async () => ({}),
+      getApplication: async () => ({ id: 'app-1', stage: 'new' }),
       getSelectionVerdict: async () => null,
     },
   }),
