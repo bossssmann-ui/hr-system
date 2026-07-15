@@ -23,6 +23,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { Typography } from "@/components/ui/typography"
 import { OfferPanel } from "@/components/OfferPanel"
 import { ApiRequestError } from "@/lib/api"
+import { createApplicationsBatch } from "@/lib/create-applications-batch"
 import { APPLICATION_STAGES as KANBAN_STAGES } from "@/lib/funnel-stages"
 import { isAdmin } from "@/lib/roles"
 import { useAuth } from "@/lib/use-auth"
@@ -635,6 +636,11 @@ function KanbanBoard() {
     enabled: Boolean(user),
   })
   const candidatesQuery = useQuery({ queryKey: ["candidates", ""], queryFn: () => api.listCandidates(), enabled: Boolean(user) })
+  const allApplicationsForCreateQuery = useQuery({
+    queryKey: ["applications", "all-for-create"],
+    queryFn: () => api.listApplications(),
+    enabled: Boolean(user) && showNewAppForm,
+  })
 
   const stageMutation = useMutation({
     mutationFn: ({ id, to }: { id: string; to: ApplicationStage }) => api.moveApplicationStage(id, { to }),
@@ -646,12 +652,25 @@ function KanbanBoard() {
   })
 
   const createAppMutation = useMutation({
-    mutationFn: (data: { candidateId: string; vacancyId: string }) => api.createApplication(data),
-    onSuccess: () => {
+    mutationFn: (data: { vacancyId: string; candidateIds: string[] }) =>
+      createApplicationsBatch(
+        (input) => api.createApplication(input),
+        data.vacancyId,
+        data.candidateIds,
+      ),
+    onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: ["applications"] })
-      toast.success(t('applications.toasts.created')); setShowNewAppForm(false); setAppFormError(null)
+      toast.success(
+        t('applications.toasts.createdBatch', {
+          created: result.created,
+          skipped: result.skipped,
+        }),
+      )
+      setShowNewAppForm(false)
+      setAppFormError(null)
     },
-    onError: (error: unknown) => setAppFormError(error instanceof ApiRequestError ? error.message : t('applications.toasts.createFailed')),
+    onError: (error: unknown) =>
+      setAppFormError(error instanceof ApiRequestError ? error.message : t('applications.toasts.createFailed')),
   })
 
   const hhSyncMutation = useMutation({
@@ -747,8 +766,14 @@ function KanbanBoard() {
         <Card className="max-w-md">
           <CardHeader><CardTitle>{t('applications.cardTitle')}</CardTitle></CardHeader>
           <CardContent>
-            <NewApplicationForm vacancies={vacancies} candidates={candidatesQuery.data?.items ?? []}
-              onSubmit={(data) => createAppMutation.mutate(data)} isLoading={createAppMutation.isPending} error={appFormError} />
+            <NewApplicationForm
+              vacancies={vacancies}
+              candidates={candidatesQuery.data?.items ?? []}
+              existingApplications={allApplicationsForCreateQuery.data?.items ?? []}
+              onSubmit={(data) => createAppMutation.mutate(data)}
+              isLoading={createAppMutation.isPending}
+              error={appFormError}
+            />
           </CardContent>
         </Card>
       )}
@@ -812,38 +837,141 @@ function KanbanBoard() {
   )
 }
 
-function NewApplicationForm({ vacancies, candidates, onSubmit, isLoading, error }: { vacancies: Vacancy[]; candidates: Array<{ id: string; fullName: string }>; onSubmit: (data: { candidateId: string; vacancyId: string }) => void; isLoading: boolean; error: string | null }) {
+function NewApplicationForm({
+  vacancies,
+  candidates,
+  existingApplications,
+  onSubmit,
+  isLoading,
+  error,
+}: {
+  vacancies: Vacancy[]
+  candidates: Array<{ id: string; fullName: string }>
+  existingApplications: Application[]
+  onSubmit: (data: { vacancyId: string; candidateIds: string[] }) => void
+  isLoading: boolean
+  error: string | null
+}) {
   const { t } = useTranslation('recruiting')
-  const form = useForm({
-    defaultValues: { candidateId: "", vacancyId: "" },
-    onSubmit: ({ value }) => {
-      if (!value.candidateId || !value.vacancyId) return
-      onSubmit({ candidateId: value.candidateId, vacancyId: value.vacancyId })
-    },
-  })
+  const [vacancyId, setVacancyId] = useState("")
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+
+  const alreadyAppliedIds = useMemo(() => {
+    if (!vacancyId) return new Set<string>()
+    return new Set(
+      existingApplications
+        .filter((app) => app.vacancyId === vacancyId)
+        .map((app) => app.candidateId),
+    )
+  }, [existingApplications, vacancyId])
+
+  const selectableCandidates = candidates.filter((c) => !alreadyAppliedIds.has(c.id))
+  const alreadyAppliedCandidates = candidates.filter((c) => alreadyAppliedIds.has(c.id))
+  const allSelected =
+    selectableCandidates.length > 0 &&
+    selectableCandidates.every((c) => selectedIds.includes(c.id))
+
+  function toggleCandidate(id: string) {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
+    )
+  }
+
+  function toggleSelectAll() {
+    if (allSelected) {
+      setSelectedIds([])
+      return
+    }
+    setSelectedIds(selectableCandidates.map((c) => c.id))
+  }
+
+  function handleVacancyChange(nextVacancyId: string) {
+    setVacancyId(nextVacancyId)
+    setSelectedIds([])
+  }
+
   return (
-    <form onSubmit={(e) => { e.preventDefault(); void form.handleSubmit() }}>
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        if (!vacancyId || selectedIds.length === 0) return
+        onSubmit({ vacancyId, candidateIds: selectedIds })
+      }}
+    >
       <FieldGroup className="gap-3">
-        <form.Field name="vacancyId" children={(field) => (
-          <Field><FieldLabel htmlFor="app-vacancyId">{t('applications.fields.vacancy')}</FieldLabel>
-            <select id="app-vacancyId" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" data-testid="app-vacancy-select">
-              <option value="">{t('applications.fields.vacancyPlaceholder')}</option>
-              {vacancies.map((v) => <option key={v.id} value={v.id}>{v.title}</option>)}
-            </select>
-          </Field>
-        )} />
-        <form.Field name="candidateId" children={(field) => (
-          <Field><FieldLabel htmlFor="app-candidateId">{t('applications.fields.candidate')}</FieldLabel>
-            <select id="app-candidateId" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" data-testid="app-candidate-select">
-              <option value="">{t('applications.fields.candidatePlaceholder')}</option>
-              {candidates.map((c) => <option key={c.id} value={c.id}>{c.fullName}</option>)}
-            </select>
-          </Field>
-        )} />
-        {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
-        <Button type="submit" disabled={isLoading} data-testid="create-application-submit">{isLoading ? t('common.creating') : t('applications.create')}</Button>
+        <Field>
+          <FieldLabel htmlFor="app-vacancyId">{t('applications.fields.vacancy')}</FieldLabel>
+          <select
+            id="app-vacancyId"
+            value={vacancyId}
+            onChange={(e) => handleVacancyChange(e.target.value)}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            data-testid="app-vacancy-select"
+          >
+            <option value="">{t('applications.fields.vacancyPlaceholder')}</option>
+            {vacancies.map((v) => (
+              <option key={v.id} value={v.id}>{v.title}</option>
+            ))}
+          </select>
+        </Field>
+
+        <Field>
+          <FieldLabel>{t('applications.fields.candidate')}</FieldLabel>
+          {candidates.length === 0 ? (
+            <Typography tone="muted" variant="bodySm">{t('applications.noCandidates')}</Typography>
+          ) : (
+            <div className="max-h-64 overflow-y-auto rounded-md border p-2" data-testid="app-candidate-list">
+              <label className="flex items-center gap-2 border-b pb-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={toggleSelectAll}
+                  disabled={selectableCandidates.length === 0}
+                  data-testid="applications.create.select-all"
+                />
+                {t('applications.selectAll')}
+              </label>
+              <ul className="grid gap-1 pt-2">
+                {selectableCandidates.map((c) => (
+                  <li key={c.id}>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(c.id)}
+                        onChange={() => toggleCandidate(c.id)}
+                        data-testid="applications.create.candidate-checkbox"
+                        data-candidate-id={c.id}
+                      />
+                      {c.fullName}
+                    </label>
+                  </li>
+                ))}
+                {alreadyAppliedCandidates.map((c) => (
+                  <li key={c.id} className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <input type="checkbox" disabled checked={false} aria-disabled="true" />
+                    <span>
+                      {c.fullName}{' '}
+                      <span className="text-xs">({t('applications.alreadyApplied')})</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </Field>
+
+        {error && (
+          <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>
+        )}
+        <Button
+          type="submit"
+          disabled={isLoading || !vacancyId || selectedIds.length === 0}
+          data-testid="applications.create.submit"
+        >
+          {isLoading
+            ? t('common.creating')
+            : t('applications.createMany', { count: selectedIds.length })}
+        </Button>
       </FieldGroup>
     </form>
   )
